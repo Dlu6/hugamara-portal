@@ -29,6 +29,7 @@ import UserProfile from "./pages/UserProfile";
 import AccessControl from "./components/auth/AccessControl";
 import Outlets from "./pages/Outlets";
 import OutletDetail from "./pages/OutletDetail";
+import Tables from "./pages/Tables";
 
 // Layout Components
 import UnifiedLayout from "./components/layout/UnifiedLayout";
@@ -196,6 +197,23 @@ const AppContent = () => {
                 ]}
               >
                 <Inventory />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path={ROUTES.TABLES.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.TABLES}>
+              <UnifiedLayout
+                title={ROUTES.TABLES.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Tables" },
+                ]}
+              >
+                <Tables />
               </UnifiedLayout>
             </ProtectedRoute>
           }

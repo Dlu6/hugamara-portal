@@ -60,6 +60,7 @@ This document outlines the implementation of a unified layout system with role-b
   - Breadcrumb navigation
   - Permission-based route protection
   - Outlet routes: `/outlets` (list CRUD), `/outlets/:id` (detail + hours editor)
+  - Tables route: `/tables` (list CRUD)
 
 ---
 

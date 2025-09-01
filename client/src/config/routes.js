@@ -80,6 +80,15 @@ export const ROUTES = {
     icon: "Package",
   },
 
+  // Tables Management
+  TABLES: {
+    path: "/tables",
+    permission: PERMISSIONS.VIEW_DASHBOARD,
+    layout: "main",
+    title: "Tables",
+    icon: "Calendar",
+  },
+
   // Menu Management
   MENU: {
     path: "/menu",
@@ -165,15 +174,16 @@ export const ROUTES = {
 
 // Helper function to get routes by layout
 export const getRoutesByLayout = (layout) => {
-  return Object.values(ROUTES).filter(route => route.layout === layout);
+  return Object.values(ROUTES).filter((route) => route.layout === layout);
 };
 
 // Helper function to get main navigation routes
 export const getMainNavigationRoutes = () => {
-  return Object.values(ROUTES).filter(route => 
-    route.layout === "main" && 
-    route.path !== "/profile" && 
-    route.path !== "/access-control"
+  return Object.values(ROUTES).filter(
+    (route) =>
+      route.layout === "main" &&
+      route.path !== "/profile" &&
+      route.path !== "/access-control"
   );
 };
 
@@ -199,7 +209,7 @@ export const hasRouteAccess = (route, user, permissions) => {
 
 // Helper function to get accessible routes for a user
 export const getAccessibleRoutes = (user, permissions) => {
-  return Object.values(ROUTES).filter(route => 
+  return Object.values(ROUTES).filter((route) =>
     hasRouteAccess(route, user, permissions)
   );
 };

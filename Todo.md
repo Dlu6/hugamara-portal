@@ -39,12 +39,12 @@
 
 ### Table & Reservation Management
 
-- [ ] Backend: Create Table, Reservation, ReservationGuest models
-- [ ] Backend: Build tableController (CRUD)
+- [x] Backend: Create Table, Reservation, ReservationGuest models
+- [x] Backend: Build tableController (CRUD)
 - [ ] Backend: Build reservationController (CRUD)
-- [ ] Backend: Create table routes (/api/tables)
+- [x] Backend: Create table routes (/api/tables)
 - [ ] Backend: Create reservation routes (/api/reservations)
-- [ ] Frontend: Create TableLayout page
+- [x] Frontend: Tables page with CRUD (create/edit/delete) & toasts
 - [ ] Frontend: Create ReservationCalendar page
 - [ ] Frontend: Create BookingForm page
 - [ ] Frontend: Build tableSlice (Redux)

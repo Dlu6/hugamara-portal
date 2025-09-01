@@ -21,6 +21,7 @@ import guestRoutes from "./routes/guests.js";
 import ticketRoutes from "./routes/tickets.js";
 import eventRoutes from "./routes/events.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import tableRoutes from "./routes/tables.js";
 
 // Import middleware
 import { authenticateToken } from "./middleware/auth.js";
@@ -96,6 +97,7 @@ app.use("/api/guests", authenticateToken, guestRoutes);
 app.use("/api/tickets", authenticateToken, ticketRoutes);
 app.use("/api/events", authenticateToken, eventRoutes);
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
+app.use("/api/tables", authenticateToken, tableRoutes);
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
