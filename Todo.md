@@ -20,14 +20,18 @@
 - [x] Frontend: Create userService
 - [x] Frontend: Define access level
 - [x] Frontend: Modules to access based on Access level
+- [x] Frontend: Wire `UserManagement` to backend CRUD
+- [x] Frontend: Global toast system (dark, with shadows)
+- [x] Frontend: Surface server validation errors in forms (no silent failures)
 
 ### Outlet Management
 
 - [x] Backend: Create Outlet, OutletSettings models
 - [x] Backend: Build outletController (CRUD)
 - [x] Backend: Create outlet routes (/api/outlets)
-- [ ] Frontend: Create OutletDashboard page
-- [ ] Frontend: Create OutletSettings page
+- [x] Frontend: Outlets list with CRUD (create/edit/delete) and toasts
+- [x] Frontend: Outlet Detail page with Operating Hours editor
+- [x] Backend: Accurate isOpen status using outlet timezone
 - [x] Frontend: Build outletSlice (Redux)
 - [x] Frontend: Create outletService
 
@@ -194,7 +198,10 @@
 - [x] Basic project structure (client/backend separation)
 - [x] Authentication system (complete)
 - [x] User management system (complete)
+- [x] Unified error handling (toasts + inline field errors)
 - [x] Outlet management (basic)
+  - [x] CRUD wired in UI, validation surfaced, toast feedback
+  - [x] Detail page with opening hours; status computed per timezone
 - [x] Database models (basic + auth models)
 - [x] CORS configuration
 - [x] Redux store setup (auth & users)
@@ -207,9 +214,10 @@
 
 1. ✅ Complete Login page integration with new auth system
 2. ✅ Add user management UI components
-3. 🔄 **Fix User Management visibility in sidebar**
-4. 🔄 **Build table management system** (Next Module)
-5. 🔄 **Implement reservation system**
-6. 🔄 **Complete order management system**
-7. 🔄 **Build menu management system**
-8. 🔄 **Complete inventory management system**
+3. ✅ **Outlets management UI** – add CRUD with validation & toasts
+4. 🔄 **Fix User Management visibility in sidebar**
+5. 🔄 **Build table management system (Tables CRUD)**
+6. 🔄 **Implement reservation system**
+7. 🔄 **Complete order management system**
+8. 🔄 **Build menu management system**
+9. 🔄 **Complete inventory management system**

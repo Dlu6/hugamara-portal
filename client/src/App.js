@@ -27,6 +27,8 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import UserProfile from "./pages/UserProfile";
 import AccessControl from "./components/auth/AccessControl";
+import Outlets from "./pages/Outlets";
+import OutletDetail from "./pages/OutletDetail";
 
 // Layout Components
 import UnifiedLayout from "./components/layout/UnifiedLayout";
@@ -108,6 +110,41 @@ const AppContent = () => {
                 ]}
               >
                 <UserManagement />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path={ROUTES.OUTLET_MANAGEMENT.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.OUTLET_MANAGEMENT}>
+              <UnifiedLayout
+                title={ROUTES.OUTLET_MANAGEMENT.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Outlet Management" },
+                ]}
+              >
+                <Outlets />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/outlets/:id"
+          element={
+            <ProtectedRoute routeConfig={ROUTES.OUTLET_MANAGEMENT}>
+              <UnifiedLayout
+                title="Outlet Detail"
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Outlet Management", link: "/outlets" },
+                  { label: "Detail" },
+                ]}
+              >
+                <OutletDetail />
               </UnifiedLayout>
             </ProtectedRoute>
           }

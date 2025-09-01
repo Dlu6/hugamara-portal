@@ -12,7 +12,7 @@ const UnifiedLayout = ({ children, title, breadcrumbs, actions }) => {
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden md:ml-[280px]">
         {/* Header */}
         <Header />
 

@@ -59,6 +59,7 @@ This document outlines the implementation of a unified layout system with role-b
   - Consistent layout application
   - Breadcrumb navigation
   - Permission-based route protection
+  - Outlet routes: `/outlets` (list CRUD), `/outlets/:id` (detail + hours editor)
 
 ---
 
@@ -165,6 +166,13 @@ UnifiedLayout
   - Also show a toast with `message` for high-level feedback
 - Always handle request failures with user-visible feedback (toast + inline where applicable)
 - Do not redirect on 4xx form validation errors; allow correction in-place
+
+### **Outlet Status Accuracy** ✅
+
+- Backend computes `isOpen` using outlet timezone for correct local evaluation
+  - **File**: `backend/models/Outlet.js` (`isOpen()` method)
+  - Uses Intl DateTimeFormat with `timeZone` and weekday `'long'`, lowercased, to match `operatingHours` keys
+  - Compares current HH:MM (24h) to `{ open, close }` window when `isOpen` flag is true for the day
 
 ### **Route Configuration Pattern**
 
