@@ -33,6 +33,7 @@ import UnifiedLayout from "./components/layout/UnifiedLayout";
 
 // Route Configuration
 import { ROUTES } from "./config/routes";
+import { ToastProvider } from "./components/ui/ToastProvider";
 
 // Redux
 import {
@@ -64,7 +65,11 @@ const AppContent = () => {
         <Route
           path={ROUTES.REGISTER.path}
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <Register />
+            )
           }
         />
 
@@ -95,11 +100,11 @@ const AppContent = () => {
           path={ROUTES.USER_MANAGEMENT.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.USER_MANAGEMENT}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.USER_MANAGEMENT.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "User Management" }
+                  { label: "User Management" },
                 ]}
               >
                 <UserManagement />
@@ -112,11 +117,11 @@ const AppContent = () => {
           path={ROUTES.RESERVATIONS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.RESERVATIONS}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.RESERVATIONS.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Reservations" }
+                  { label: "Reservations" },
                 ]}
               >
                 <Reservations />
@@ -129,11 +134,11 @@ const AppContent = () => {
           path={ROUTES.ORDERS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.ORDERS}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.ORDERS.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Orders" }
+                  { label: "Orders" },
                 ]}
               >
                 <Orders />
@@ -146,11 +151,11 @@ const AppContent = () => {
           path={ROUTES.INVENTORY.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.INVENTORY}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.INVENTORY.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Inventory" }
+                  { label: "Inventory" },
                 ]}
               >
                 <Inventory />
@@ -163,11 +168,11 @@ const AppContent = () => {
           path={ROUTES.GUESTS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.GUESTS}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.GUESTS.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Guests" }
+                  { label: "Guests" },
                 ]}
               >
                 <Guests />
@@ -180,11 +185,11 @@ const AppContent = () => {
           path={ROUTES.EVENTS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.EVENTS}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.EVENTS.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Events & Promotions" }
+                  { label: "Events & Promotions" },
                 ]}
               >
                 <Events />
@@ -197,11 +202,11 @@ const AppContent = () => {
           path={ROUTES.REPORTS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.REPORTS}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.REPORTS.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Reports & Analytics" }
+                  { label: "Reports & Analytics" },
                 ]}
               >
                 <Reports />
@@ -214,11 +219,11 @@ const AppContent = () => {
           path={ROUTES.SETTINGS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.SETTINGS}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.SETTINGS.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Settings" }
+                  { label: "Settings" },
                 ]}
               >
                 <Settings />
@@ -231,11 +236,11 @@ const AppContent = () => {
           path={ROUTES.USER_PROFILE.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.USER_PROFILE}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.USER_PROFILE.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "User Profile" }
+                  { label: "User Profile" },
                 ]}
               >
                 <UserProfile />
@@ -248,11 +253,11 @@ const AppContent = () => {
           path={ROUTES.ACCESS_CONTROL.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.ACCESS_CONTROL}>
-              <UnifiedLayout 
+              <UnifiedLayout
                 title={ROUTES.ACCESS_CONTROL.title}
                 breadcrumbs={[
                   { label: "Dashboard", link: "/dashboard" },
-                  { label: "Access Control" }
+                  { label: "Access Control" },
                 ]}
               >
                 <AccessControl />
@@ -291,7 +296,9 @@ const AppContent = () => {
 const App = () => {
   return (
     <Provider store={store}>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </Provider>
   );
 };

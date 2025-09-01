@@ -19,6 +19,8 @@ import {
   selectUserPermissions,
   hasPermission,
 } from "../store/slices/authSlice";
+import { usersAPI, outletsAPI } from "../services/apiClient";
+import { useToast } from "../components/ui/ToastProvider";
 
 const UserManagement = () => {
   const dispatch = useDispatch();
@@ -34,6 +36,7 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("");
   const [filterOutlet, setFilterOutlet] = useState("");
+  const { success: showSuccess, error: showError, info: showInfo } = useToast();
 
   // Form state for create/edit user
   const [formData, setFormData] = useState({
@@ -48,6 +51,7 @@ const UserManagement = () => {
 
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   // Role definitions with descriptions
   const roles = [
@@ -96,36 +100,15 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      const mockUsers = [
-        {
-          id: "1",
-          firstName: "Admin",
-          lastName: "User",
-          email: "admin@hugamara.com",
-          phone: "+256-XXX-XXX-XXX",
-          role: "org_admin",
-          outlet: { name: "Server Room", id: "1" },
-          isActive: true,
-          lastLoginAt: "2024-01-15T10:30:00Z",
-          createdAt: "2024-01-01T00:00:00Z",
-        },
-        {
-          id: "2",
-          firstName: "Villa",
-          lastName: "Manager",
-          email: "villa.manager@hugamara.com",
-          phone: "+256-XXX-XXX-XXX",
-          role: "general_manager",
-          outlet: { name: "The Villa Ug", id: "2" },
-          isActive: true,
-          lastLoginAt: "2024-01-14T15:45:00Z",
-          createdAt: "2024-01-02T00:00:00Z",
-        },
-      ];
-      setUsers(mockUsers);
+      const res = await usersAPI.getAll();
+      const list = res?.data?.users || res?.data || [];
+      setUsers(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error("Failed to fetch users:", error);
+      showError(
+        "Failed to load users",
+        error?.response?.data?.message || "Please try again"
+      );
     } finally {
       setLoading(false);
     }
@@ -133,27 +116,40 @@ const UserManagement = () => {
 
   const fetchOutlets = async () => {
     try {
-      // TODO: Replace with actual API call
-      const mockOutlets = [
-        { id: "1", name: "Server Room", type: "hq" },
-        { id: "2", name: "The Villa Ug", type: "nightclub" },
-        { id: "3", name: "Luna", type: "nightclub" },
-        { id: "4", name: "La Cueva", type: "nightclub" },
-        { id: "5", name: "Patio Bella", type: "restaurant" },
-        { id: "6", name: "Maze", type: "restaurant" },
-        { id: "7", name: "The Maze Bistro", type: "restaurant" },
-      ];
-      setOutlets(mockOutlets);
+      // Prefer authenticated outlets list; fall back to public if needed
+      try {
+        const res = await outletsAPI.getAll();
+        const list = res?.data?.outlets || res?.data || [];
+        setOutlets(Array.isArray(list) ? list : []);
+      } catch (err) {
+        const res = await outletsAPI.getPublic();
+        const list = res?.data?.outlets || res?.data || [];
+        setOutlets(Array.isArray(list) ? list : []);
+      }
     } catch (error) {
       console.error("Failed to fetch outlets:", error);
+      showError(
+        "Failed to load outlets",
+        error?.response?.data?.message || "Please try again"
+      );
     }
   };
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
-      // TODO: Replace with actual API call
-      console.log("Creating user:", { ...formData, password });
+      const payload = { ...formData, password };
+      setFormErrors({});
+      const res = await usersAPI.create(payload);
+      const created = res?.data?.user || res?.data;
+      if (created?.id) {
+        // Optimistically update list
+        setUsers((prev) => [created, ...prev]);
+        showSuccess("User created", `${created.firstName} ${created.lastName}`);
+      } else {
+        // Fallback to refresh
+        await fetchUsers();
+      }
       setShowCreateModal(false);
       setFormData({
         firstName: "",
@@ -165,17 +161,35 @@ const UserManagement = () => {
         isActive: true,
       });
       setPassword("");
-      fetchUsers(); // Refresh the list
     } catch (error) {
       console.error("Failed to create user:", error);
+      const data = error?.response?.data;
+      const message = data?.message || "Failed to create user";
+      if (Array.isArray(data?.details)) {
+        const mapped = {};
+        data.details.forEach((d) => {
+          if (d?.field && d?.message) mapped[d.field] = d.message;
+        });
+        setFormErrors(mapped);
+      }
+      showError("Create user failed", message);
     }
   };
 
   const handleEditUser = async (e) => {
     e.preventDefault();
     try {
-      // TODO: Replace with actual API call
-      console.log("Updating user:", selectedUser.id, formData);
+      setFormErrors({});
+      const res = await usersAPI.update(selectedUser.id, { ...formData });
+      const updated = res?.data?.user || res?.data;
+      if (updated?.id) {
+        setUsers((prev) =>
+          prev.map((u) => (u.id === updated.id ? updated : u))
+        );
+        showSuccess("User updated", `${updated.firstName} ${updated.lastName}`);
+      } else {
+        await fetchUsers();
+      }
       setShowEditModal(false);
       setSelectedUser(null);
       setFormData({
@@ -187,9 +201,18 @@ const UserManagement = () => {
         outletId: "",
         isActive: true,
       });
-      fetchUsers(); // Refresh the list
     } catch (error) {
       console.error("Failed to update user:", error);
+      const data = error?.response?.data;
+      const message = data?.message || "Failed to update user";
+      if (Array.isArray(data?.details)) {
+        const mapped = {};
+        data.details.forEach((d) => {
+          if (d?.field && d?.message) mapped[d.field] = d.message;
+        });
+        setFormErrors(mapped);
+      }
+      showError("Update user failed", message);
     }
   };
 
@@ -199,16 +222,22 @@ const UserManagement = () => {
     }
 
     try {
-      // TODO: Replace with actual API call
-      console.log("Deleting user:", userId);
-      fetchUsers(); // Refresh the list
+      await usersAPI.delete(userId);
+      // Reflect soft-delete (isActive=false) by removing or updating status
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      showSuccess("User deleted", "The user was deactivated successfully");
     } catch (error) {
       console.error("Failed to delete user:", error);
+      showError(
+        "Delete user failed",
+        error?.response?.data?.message || "Please try again"
+      );
     }
   };
 
   const openEditModal = (user) => {
     setSelectedUser(user);
+    setFormErrors({});
     setFormData({
       firstName: user.firstName,
       lastName: user.lastName,
@@ -506,6 +535,11 @@ const UserManagement = () => {
                         }
                         className="mt-1 w-full form-input"
                       />
+                      {formErrors.firstName && (
+                        <div className="text-xs text-red-600 mt-1">
+                          {formErrors.firstName}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -520,6 +554,11 @@ const UserManagement = () => {
                         }
                         className="mt-1 w-full form-input"
                       />
+                      {formErrors.lastName && (
+                        <div className="text-xs text-red-600 mt-1">
+                          {formErrors.lastName}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -536,6 +575,11 @@ const UserManagement = () => {
                       }
                       className="mt-1 w-full form-input"
                     />
+                    {formErrors.email && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.email}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -550,6 +594,11 @@ const UserManagement = () => {
                       }
                       className="mt-1 w-full form-input"
                     />
+                    {formErrors.phone && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.phone}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -570,6 +619,11 @@ const UserManagement = () => {
                         </option>
                       ))}
                     </select>
+                    {formErrors.role && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.role}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -590,6 +644,11 @@ const UserManagement = () => {
                         </option>
                       ))}
                     </select>
+                    {formErrors.outletId && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.outletId}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -616,6 +675,11 @@ const UserManagement = () => {
                         )}
                       </button>
                     </div>
+                    {formErrors.password && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.password}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center">
@@ -676,6 +740,11 @@ const UserManagement = () => {
                         }
                         className="mt-1 w-full form-input"
                       />
+                      {formErrors.firstName && (
+                        <div className="text-xs text-red-600 mt-1">
+                          {formErrors.firstName}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -690,6 +759,11 @@ const UserManagement = () => {
                         }
                         className="mt-1 w-full form-input"
                       />
+                      {formErrors.lastName && (
+                        <div className="text-xs text-red-600 mt-1">
+                          {formErrors.lastName}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -706,6 +780,11 @@ const UserManagement = () => {
                       }
                       className="mt-1 w-full form-input"
                     />
+                    {formErrors.email && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.email}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -720,6 +799,11 @@ const UserManagement = () => {
                       }
                       className="mt-1 w-full form-input"
                     />
+                    {formErrors.phone && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.phone}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -740,6 +824,11 @@ const UserManagement = () => {
                         </option>
                       ))}
                     </select>
+                    {formErrors.role && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.role}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -760,6 +849,11 @@ const UserManagement = () => {
                         </option>
                       ))}
                     </select>
+                    {formErrors.outletId && (
+                      <div className="text-xs text-red-600 mt-1">
+                        {formErrors.outletId}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center">

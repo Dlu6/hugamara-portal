@@ -1,6 +1,7 @@
 # 🏗️ Unified Layout Implementation - Hugamara Hospitality System
 
 ## 📋 **Overview**
+
 This document outlines the implementation of a unified layout system with role-based route protection for the Hugamara Hospitality Management System.
 
 ---
@@ -8,6 +9,7 @@ This document outlines the implementation of a unified layout system with role-b
 ## 🎯 **Key Features Implemented**
 
 ### **1. Centralized Route Configuration** ✅
+
 - **File**: `client/src/config/routes.js`
 - **Purpose**: Single source of truth for all routes, permissions, and layout requirements
 - **Features**:
@@ -18,6 +20,7 @@ This document outlines the implementation of a unified layout system with role-b
   - Helper functions for route access control
 
 ### **2. Unified Layout Component** ✅
+
 - **File**: `client/src/components/layout/UnifiedLayout.js`
 - **Purpose**: Consistent layout structure for all pages
 - **Features**:
@@ -28,6 +31,7 @@ This document outlines the implementation of a unified layout system with role-b
   - Responsive design
 
 ### **3. Enhanced Route Protection** ✅
+
 - **File**: `client/src/components/auth/ProtectedRoute.js`
 - **Purpose**: Advanced route protection based on user permissions
 - **Features**:
@@ -37,6 +41,7 @@ This document outlines the implementation of a unified layout system with role-b
   - Automatic redirects for unauthorized access
 
 ### **4. Updated Sidebar Navigation** ✅
+
 - **File**: `client/src/components/layout/Sidebar.js`
 - **Purpose**: Dynamic navigation based on user permissions
 - **Features**:
@@ -46,6 +51,7 @@ This document outlines the implementation of a unified layout system with role-b
   - Role-based access control
 
 ### **5. Comprehensive App Routing** ✅
+
 - **File**: `client/src/App.js`
 - **Purpose**: Centralized routing with unified layout
 - **Features**:
@@ -59,33 +65,36 @@ This document outlines the implementation of a unified layout system with role-b
 ## 🔐 **Permission System**
 
 ### **Super User (org_admin) Access**
+
 - ✅ **Full Access**: Super users can access ALL modules
 - ✅ **Bypass Permissions**: Permission checks are bypassed for org_admin role
 - ✅ **Admin-Only Modules**: User Management and Access Control are admin-only
 
 ### **Role-Based Access Matrix**
-| Module | Super User | Manager | Supervisor | Staff | Marketing | Finance |
-|--------|------------|---------|------------|-------|-----------|---------|
-| **Dashboard** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **User Management** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Outlet Management** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Orders** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **Reservations** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Guests** | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
-| **Inventory** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Menu** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Staff** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Shifts** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Tickets** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Events** | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Reports** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **Settings** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+| Module                | Super User | Manager | Supervisor | Staff | Marketing | Finance |
+| --------------------- | ---------- | ------- | ---------- | ----- | --------- | ------- |
+| **Dashboard**         | ✅         | ✅      | ✅         | ✅    | ✅        | ✅      |
+| **User Management**   | ✅         | ❌      | ❌         | ❌    | ❌        | ❌      |
+| **Outlet Management** | ✅         | ✅      | ❌         | ❌    | ❌        | ❌      |
+| **Orders**            | ✅         | ✅      | ✅         | ✅    | ❌        | ✅      |
+| **Reservations**      | ✅         | ✅      | ✅         | ✅    | ✅        | ❌      |
+| **Guests**            | ✅         | ✅      | ✅         | ❌    | ✅        | ❌      |
+| **Inventory**         | ✅         | ✅      | ✅         | ✅    | ❌        | ❌      |
+| **Menu**              | ✅         | ✅      | ❌         | ✅    | ❌        | ❌      |
+| **Staff**             | ✅         | ✅      | ❌         | ❌    | ❌        | ❌      |
+| **Shifts**            | ✅         | ✅      | ❌         | ❌    | ❌        | ❌      |
+| **Tickets**           | ✅         | ✅      | ✅         | ❌    | ❌        | ❌      |
+| **Events**            | ✅         | ✅      | ❌         | ❌    | ✅        | ❌      |
+| **Reports**           | ✅         | ✅      | ❌         | ❌    | ❌        | ✅      |
+| **Settings**          | ✅         | ✅      | ❌         | ❌    | ❌        | ❌      |
 
 ---
 
 ## 🎨 **Layout Structure**
 
 ### **Unified Layout Components**
+
 ```
 UnifiedLayout
 ├── Sidebar (Navigation)
@@ -100,6 +109,7 @@ UnifiedLayout
 ```
 
 ### **Consistent Styling**
+
 - **Background**: Light gray (`bg-gray-50`)
 - **Content Cards**: White with subtle shadows
 - **Typography**: Consistent font sizes and weights
@@ -111,24 +121,28 @@ UnifiedLayout
 ## 🚀 **Implementation Benefits**
 
 ### **1. Maintainability**
+
 - ✅ Single source of truth for routes
 - ✅ Consistent layout across all pages
 - ✅ Centralized permission management
 - ✅ Easy to add new modules
 
 ### **2. User Experience**
+
 - ✅ Consistent navigation and layout
 - ✅ Clear breadcrumb navigation
 - ✅ Permission-aware menu items
 - ✅ Loading states and error handling
 
 ### **3. Security**
+
 - ✅ Route-level permission checks
 - ✅ Super user full access
 - ✅ Automatic redirects for unauthorized access
 - ✅ Role-based module visibility
 
 ### **4. Scalability**
+
 - ✅ Easy to add new routes and modules
 - ✅ Flexible permission system
 - ✅ Modular component structure
@@ -138,7 +152,22 @@ UnifiedLayout
 
 ## 🔧 **Technical Implementation**
 
+### **Unified Error Handling & Feedback** ✅
+
+- Add a global toast system for consistent success/error/info notifications
+  - File: `client/src/components/ui/ToastProvider.js`
+  - Wrap the app in `ToastProvider` in `client/src/App.js`
+  - Dark theme with subtle shadows per design rules
+- Surface server-side validation errors in forms (no silent failures)
+  - Expect API error shape:
+    - `{ error: string, message: string, details?: [{ field: string, message: string, value?: any }] }`
+  - Map `details[*].field -> message` to inline field errors under inputs
+  - Also show a toast with `message` for high-level feedback
+- Always handle request failures with user-visible feedback (toast + inline where applicable)
+- Do not redirect on 4xx form validation errors; allow correction in-place
+
 ### **Route Configuration Pattern**
+
 ```javascript
 export const ROUTES = {
   MODULE_NAME: {
@@ -153,12 +182,13 @@ export const ROUTES = {
 ```
 
 ### **Layout Usage Pattern**
+
 ```javascript
-<UnifiedLayout 
+<UnifiedLayout
   title="Page Title"
   breadcrumbs={[
     { label: "Dashboard", link: "/dashboard" },
-    { label: "Current Page" }
+    { label: "Current Page" },
   ]}
   actions={<ActionButtons />}
 >
@@ -167,6 +197,7 @@ export const ROUTES = {
 ```
 
 ### **Route Protection Pattern**
+
 ```javascript
 <ProtectedRoute routeConfig={ROUTES.MODULE_NAME}>
   <UnifiedLayout title={ROUTES.MODULE_NAME.title}>
@@ -180,6 +211,7 @@ export const ROUTES = {
 ## 📱 **Mobile Responsiveness**
 
 ### **Responsive Features**
+
 - ✅ Flexible sidebar (collapsible on mobile)
 - ✅ Responsive grid layouts
 - ✅ Touch-friendly navigation
@@ -191,6 +223,7 @@ export const ROUTES = {
 ## 🔄 **Next Steps**
 
 ### **Immediate Tasks**
+
 1. ✅ **Fix User Management visibility** - Super user should see all modules
 2. ✅ **Implement unified layout** - Consistent structure across all pages
 3. ✅ **Add route protection** - Permission-based access control
@@ -198,6 +231,7 @@ export const ROUTES = {
 5. 🔄 **Add missing page content** - Complete module implementations
 
 ### **Module Completion Priority**
+
 1. 🔄 **Table Management** (Next Priority)
 2. 🔄 **Reservation System**
 3. 🔄 **Order Management**
@@ -209,6 +243,7 @@ export const ROUTES = {
 ## 🎯 **Success Criteria**
 
 ### **✅ Completed**
+
 - [x] Centralized route configuration
 - [x] Unified layout component
 - [x] Enhanced route protection
@@ -217,12 +252,14 @@ export const ROUTES = {
 - [x] Consistent styling and structure
 
 ### **🔄 In Progress**
+
 - [ ] User Management visibility in sidebar
 - [ ] Complete module implementations
 - [ ] Mobile responsiveness testing
 - [ ] Performance optimization
 
 ### **📋 Planned**
+
 - [ ] Advanced permission management
 - [ ] Real-time notifications
 - [ ] Offline capabilities
