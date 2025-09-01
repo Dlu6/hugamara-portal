@@ -1,264 +1,201 @@
-# 🏨 Hugamara Hospitality Management System
+# Hugamara Hospitality Management System
 
-A comprehensive hospitality management dashboard designed specifically for Hugamara's 6 outlets in Uganda, featuring real-time operations management, inventory tracking, and financial reporting with native Ugandan Shilling (UGX) support.
+A comprehensive hospitality management dashboard for Hugamara's 6 outlets, built with React, Node.js, and MySQL.
 
-## 🌟 Features
+## Project Structure
 
-### 🎯 **Core Management**
-- **Multi-Outlet Support**: Manage 6 different Hugamara locations
-- **Real-time Dashboard**: Live updates on operations, revenue, and inventory
-- **User Management**: Role-based access control (Admin, Manager, Supervisor, Staff)
-- **Authentication**: Secure JWT-based login system
-
-### 📊 **Operations Dashboard**
-- **Reservation Management**: Table booking, guest tracking, and scheduling
-- **Order Processing**: Real-time order management and payment processing
-- **Inventory Control**: Stock tracking, low-stock alerts, and expiry management
-- **Financial Reporting**: Revenue analytics with UGX currency support
-- **Staff Management**: Shift tracking and performance monitoring
-
-### 🏪 **Outlet-Specific Features**
-- **Table Management**: Real-time table status and availability
-- **Menu Management**: Item availability, pricing, and performance tracking
-- **Guest Services**: Customer relationship management and feedback
-- **Support Tickets**: Issue tracking and resolution management
-
-### 🇺🇬 **Uganda Localization**
-- **Currency**: Native Ugandan Shilling (UGX) support
-- **Timezone**: Africa/Kampala (UTC +03:00)
-- **Regional Settings**: Optimized for Ugandan hospitality industry
-
-## 🚀 Technology Stack
-
-### **Frontend**
-- **React 18** with functional components and hooks
-- **Redux Toolkit** for state management
-- **Tailwind CSS** for modern, responsive design
-- **Lucide React** for beautiful icons
-- **React Router** for navigation
-
-### **Backend**
-- **Node.js** with Express.js framework
-- **MySQL** database with Sequelize ORM
-- **JWT** authentication and authorization
-- **Socket.io** for real-time updates
-- **bcryptjs** for password security
-
-### **Development Tools**
-- **Nodemon** for backend auto-reload
-- **Concurrently** for running frontend and backend simultaneously
-- **ES6 Modules** throughout the codebase
-
-## 📋 Prerequisites
-
-- **Node.js** >= 16.0.0
-- **npm** >= 8.0.0
-- **MySQL** >= 8.0
-- **Git** for version control
-
-## 🛠️ Installation
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Dlu6/hugamara-hospitality-app.git
-cd hugamara-hospitality-app
+```
+hugamara/
+├── client/                 # Frontend React application
+│   ├── public/            # Static assets
+│   ├── src/               # React source code
+│   ├── package.json       # Frontend dependencies
+│   ├── .env               # Frontend environment variables
+│   └── .env.example       # Frontend environment template
+├── backend/               # Backend Node.js API
+│   ├── controllers/       # API controllers
+│   ├── models/           # Database models
+│   ├── routes/           # API routes
+│   ├── package.json      # Backend dependencies
+│   └── .env              # Backend environment variables
+├── package.json          # Root package.json (orchestration)
+└── README.md            # This file
 ```
 
-### 2. Install Dependencies
+## Quick Start
+
+### Prerequisites
+
+- Node.js 16+
+- MySQL 8.0+
+- npm or yarn
+
+### 1. Clone and Setup
+
+```bash
+git clone <repository-url>
+cd hugamara
+```
+
+### 2. Environment Configuration
+
+#### Backend (.env)
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env with your database credentials
+```
+
+#### Frontend (.env)
+
+```bash
+cd client
+cp .env.example .env
+# The default API URL is http://localhost:8000/api
+```
+
+### 3. Install Dependencies
+
 ```bash
 # Install root dependencies
 npm install
 
 # Install backend dependencies
-cd backend && npm install
+npm run backend:install
 
 # Install frontend dependencies
-cd .. && npm install
+npm run client:install
 ```
 
-### 3. Database Setup
+### 4. Database Setup
+
 ```bash
-# Start MySQL service
-brew services start mysql
-
-# Create database
-mysql -u root -p
-CREATE DATABASE hugamara_dev;
-CREATE DATABASE hugamara_test;
+# Setup database and seed data
+npm run db:setup
 ```
 
-### 4. Environment Configuration
-Create `.env` files in both root and backend directories:
+### 5. Start Development Servers
 
-**Root `.env`:**
+```bash
+# Start both backend and frontend
+npm run server_client
+```
+
+## Available Scripts
+
+### Root Level
+
+- `npm run server_client` - Start both backend and frontend in development mode
+- `npm run server` - Start only the backend server
+- `npm run start` - Start only the frontend client
+- `npm run build` - Build the frontend for production
+
+### Backend
+
+- `npm run backend:dev` - Start backend in development mode
+- `npm run backend:start` - Start backend in production mode
+- `npm run db:setup` - Reset and seed database
+- `npm run db:migrate` - Run database migrations
+- `npm run db:seed` - Seed database with test data
+
+### Frontend
+
+- `npm run client:install` - Install frontend dependencies
+- `npm run lint` - Run ESLint on frontend code
+- `npm run test` - Run frontend tests
+
+## Environment Variables
+
+### Backend (.env)
+
 ```env
 NODE_ENV=development
 DB_USER=root
-DB_PASSWORD=
-DB_NAME=hugamara_dev
-DB_HOST=localhost
-DB_PORT=3306
-JWT_SECRET=your-secret-key-here
-```
-
-**Backend `.env`:**
-```env
-NODE_ENV=development
-DB_USER=root
-DB_PASSWORD=
+DB_PASSWORD=your_password
 DB_NAME=hugamara_dev
 DB_HOST=127.0.0.1
 DB_PORT=3306
 JWT_SECRET=your-secret-key-here
 PORT=8000
+FRONTEND_URL=http://localhost:3000
 ```
 
-### 5. Database Synchronization
-```bash
-# From the root directory
-npm run db:setup
+### Frontend (.env)
+
+```env
+REACT_APP_API_URL=http://localhost:8000/api
+REACT_APP_ENV=development
+REACT_APP_VERSION=1.0.0
 ```
 
-### 6. Seed Data (Optional)
-```bash
-# Insert sample data
-cd backend
-node insert-seed-data.js
-```
+## Test Data
 
-## 🚀 Running the Application
+The system comes with pre-seeded test users:
 
-### Development Mode (Both Frontend & Backend)
-```bash
-npm run dev
-```
+**Admin User:**
 
-This will start:
-- **Backend**: http://localhost:8000
-- **Frontend**: http://localhost:3000
-- **API**: http://localhost:8000/api
-- **Health Check**: http://localhost:8000/health
+- Email: `admin@hugamara.com`
+- Password: `password123`
+- Outlet: Server Room (HQ)
+- Role: org_admin
 
-### Individual Services
-```bash
-# Backend only
-npm run server
+**Outlet Managers:**
 
-# Frontend only
-npm run start
+- `villa.manager@hugamara.com` / `password123` - The Villa Ug
+- `luna.manager@hugamara.com` / `password123` - Luna
+- `cueva.manager@hugamara.com` / `password123` - La Cueva
+- `patio.manager@hugamara.com` / `password123` - Patio Bella
+- `maze.manager@hugamara.com` / `password123` - Maze
+- `mazebistro.manager@hugamara.com` / `password123` - The Maze Bistro
 
-# Backend development
-npm run backend:dev
-```
+## API Testing
 
-## 🔐 Default Login Credentials
-
-After running the seed data:
-- **Email**: `admin@hugamara.com`
-- **Password**: `password123`
-- **Outlet**: CS (Server Room)
-
-## 📁 Project Structure
-
-```
-hugamara-hospitality-app/
-├── src/                    # Frontend React application
-│   ├── components/         # Reusable UI components
-│   ├── pages/             # Main application pages
-│   ├── store/             # Redux store and slices
-│   ├── services/          # API service functions
-│   └── utils/             # Utility functions (including currency)
-├── backend/               # Node.js backend application
-│   ├── config/            # Database and server configuration
-│   ├── controllers/       # Route controllers
-│   ├── models/            # Sequelize data models
-│   ├── routes/            # API route definitions
-│   ├── middleware/        # Custom middleware
-│   └── database/          # Migrations and seeders
-├── public/                # Static assets
-└── package.json           # Project configuration
-```
-
-## 🌍 Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment mode | `development` |
-| `DB_USER` | MySQL username | `root` |
-| `DB_PASSWORD` | MySQL password | `` |
-| `DB_NAME` | Database name | `hugamara_dev` |
-| `DB_HOST` | Database host | `127.0.0.1` |
-| `DB_PORT` | Database port | `3306` |
-| `JWT_SECRET` | JWT signing secret | `your-secret-key-here` |
-| `PORT` | Backend port | `8000` |
-
-## 🔧 Available Scripts
-
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start both frontend and backend |
-| `npm run server` | Start backend only |
-| `npm run start` | Start frontend only |
-| `npm run build` | Build production frontend |
-| `npm run db:setup` | Reset and setup database |
-| `npm run db:migrate` | Run database migrations |
-| `npm run db:seed` | Seed database with sample data |
-
-## 🧪 Testing
+Test the backend API:
 
 ```bash
-# Frontend tests
-npm test
-
-# Backend tests
-cd backend && npm test
+node test-auth.js
 ```
 
-## 📱 API Endpoints
+## Development
 
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Get current user
+### Backend Development
 
-### Core Operations
-- `GET /api/dashboard/stats` - Dashboard statistics
-- `GET /api/inventory` - Inventory management
-- `GET /api/orders` - Order management
-- `GET /api/reservations` - Reservation management
-- `GET /api/guests` - Guest management
+- API runs on `http://localhost:8000`
+- Health check: `http://localhost:8000/health`
+- API docs: `http://localhost:8000/api`
 
-## 🤝 Contributing
+### Frontend Development
+
+- Client runs on `http://localhost:3000`
+- Auth test page: `http://localhost:3000/auth-test`
+
+## Features
+
+### ✅ Completed
+
+- Authentication system with JWT tokens
+- Role-based access control
+- Outlet-based user management
+- User management (CRUD operations)
+- Protected routes and middleware
+- Redux state management
+- Modern UI with Tailwind CSS
+
+### 🚧 In Progress
+
+- Table management system
+- Reservation system
+- Menu and inventory management
+
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Author
-
-**Mydhe Dlu6** - [GitHub Profile](https://github.com/Dlu6)
-- **Location**: Kampala, Uganda
-- **Company**: MM-iCT
-- **Website**: [https://mmict.it/](https://mmict.it/)
-
-## 🙏 Acknowledgments
-
-- Built specifically for Hugamara's hospitality operations in Uganda
-- Designed with local business requirements and currency (UGX) in mind
-- Optimized for the African hospitality industry
-
-## 📞 Support
-
-For support and questions:
-- **Email**: admin@hugamara.com
-- **GitHub Issues**: [Create an issue](https://github.com/Dlu6/hugamara-hospitality-app/issues)
-
----
-
-**Built with ❤️ in Uganda for the African hospitality industry**
+This project is proprietary software for Hugamara Hospitality Group.

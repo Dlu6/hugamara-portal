@@ -24,42 +24,10 @@ const Order = sequelize.define(
         key: "id",
       },
     },
-    tableId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "table_id",
-      references: {
-        model: "tables",
-        key: "id",
-      },
-    },
-    reservationId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "reservation_id",
-      references: {
-        model: "reservations",
-        key: "id",
-      },
-    },
-    guestId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "guest_id",
-      references: {
-        model: "guests",
-        key: "id",
-      },
-    },
-    serverId: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "server_id",
-      references: {
-        model: "users",
-        key: "id",
-      },
-    },
+    // tableId removed to simplify associations
+    // reservationId removed to simplify associations
+    // guestId removed to simplify associations
+    // serverId removed to simplify associations
     orderType: {
       type: DataTypes.ENUM(
         "dine_in",
@@ -184,16 +152,7 @@ const Order = sequelize.define(
       allowNull: false,
       field: "updated_at",
     },
-    createdBy: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "created_by",
-    },
-    updatedBy: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "updated_by",
-    },
+    // Audit fields removed to avoid MySQL key limit issues
   },
   {
     tableName: "orders",

@@ -1,4 +1,24 @@
-import { Outlet, User } from '../models/index.js';
+import { Outlet, User } from "../models/index.js";
+
+export const getPublicOutlets = async (req, res) => {
+  try {
+    const outlets = await Outlet.findAll({
+      where: { isActive: true },
+      attributes: ["id", "name", "code", "type", "address", "city", "country"],
+      order: [["name", "ASC"]],
+    });
+
+    res.status(200).json({
+      outlets: outlets.map((outlet) => outlet.toJSON()),
+    });
+  } catch (error) {
+    console.error("Get public outlets error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      message: "An error occurred while fetching outlets",
+    });
+  }
+};
 
 export const getAllOutlets = async (req, res) => {
   try {
@@ -7,24 +27,23 @@ export const getAllOutlets = async (req, res) => {
       include: [
         {
           model: User,
-          as: 'users',
-          attributes: ['id', 'firstName', 'lastName', 'role'],
+          as: "users",
+          attributes: ["id", "firstName", "lastName", "role"],
           where: { isActive: true },
-          required: false
-        }
+          required: false,
+        },
       ],
-      order: [['name', 'ASC']]
+      order: [["name", "ASC"]],
     });
 
     res.status(200).json({
-      outlets: outlets.map(outlet => outlet.toJSON())
+      outlets: outlets.map((outlet) => outlet.toJSON()),
     });
-
   } catch (error) {
-    console.error('Get outlets error:', error);
+    console.error("Get outlets error:", error);
     res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching outlets'
+      error: "Internal server error",
+      message: "An error occurred while fetching outlets",
     });
   }
 };
@@ -37,30 +56,29 @@ export const getOutletById = async (req, res) => {
       include: [
         {
           model: User,
-          as: 'users',
-          attributes: ['id', 'firstName', 'lastName', 'role', 'email'],
+          as: "users",
+          attributes: ["id", "firstName", "lastName", "role", "email"],
           where: { isActive: true },
-          required: false
-        }
-      ]
+          required: false,
+        },
+      ],
     });
 
     if (!outlet) {
       return res.status(404).json({
-        error: 'Outlet not found',
-        message: 'The requested outlet does not exist'
+        error: "Outlet not found",
+        message: "The requested outlet does not exist",
       });
     }
 
     res.status(200).json({
-      outlet: outlet.toJSON()
+      outlet: outlet.toJSON(),
     });
-
   } catch (error) {
-    console.error('Get outlet error:', error);
+    console.error("Get outlet error:", error);
     res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching outlet'
+      error: "Internal server error",
+      message: "An error occurred while fetching outlet",
     });
   }
 };
@@ -73,15 +91,14 @@ export const createOutlet = async (req, res) => {
     const outlet = await Outlet.create(outletData);
 
     res.status(201).json({
-      message: 'Outlet created successfully',
-      outlet: outlet.toJSON()
+      message: "Outlet created successfully",
+      outlet: outlet.toJSON(),
     });
-
   } catch (error) {
-    console.error('Create outlet error:', error);
+    console.error("Create outlet error:", error);
     res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while creating outlet'
+      error: "Internal server error",
+      message: "An error occurred while creating outlet",
     });
   }
 };
@@ -96,23 +113,22 @@ export const updateOutlet = async (req, res) => {
 
     if (!outlet) {
       return res.status(404).json({
-        error: 'Outlet not found',
-        message: 'The requested outlet does not exist'
+        error: "Outlet not found",
+        message: "The requested outlet does not exist",
       });
     }
 
     await outlet.update(updateData);
 
     res.status(200).json({
-      message: 'Outlet updated successfully',
-      outlet: outlet.toJSON()
+      message: "Outlet updated successfully",
+      outlet: outlet.toJSON(),
     });
-
   } catch (error) {
-    console.error('Update outlet error:', error);
+    console.error("Update outlet error:", error);
     res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while updating outlet'
+      error: "Internal server error",
+      message: "An error occurred while updating outlet",
     });
   }
 };
@@ -125,26 +141,25 @@ export const deleteOutlet = async (req, res) => {
 
     if (!outlet) {
       return res.status(404).json({
-        error: 'Outlet not found',
-        message: 'The requested outlet does not exist'
+        error: "Outlet not found",
+        message: "The requested outlet does not exist",
       });
     }
 
     // Soft delete - set isActive to false
-    await outlet.update({ 
+    await outlet.update({
       isActive: false,
-      updatedBy: req.user.id
+      updatedBy: req.user.id,
     });
 
     res.status(200).json({
-      message: 'Outlet deleted successfully'
+      message: "Outlet deleted successfully",
     });
-
   } catch (error) {
-    console.error('Delete outlet error:', error);
+    console.error("Delete outlet error:", error);
     res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while deleting outlet'
+      error: "Internal server error",
+      message: "An error occurred while deleting outlet",
     });
   }
 };
@@ -157,8 +172,8 @@ export const getOutletStats = async (req, res) => {
 
     if (!outlet) {
       return res.status(404).json({
-        error: 'Outlet not found',
-        message: 'The requested outlet does not exist'
+        error: "Outlet not found",
+        message: "The requested outlet does not exist",
       });
     }
 
@@ -166,19 +181,18 @@ export const getOutletStats = async (req, res) => {
     const stats = {
       totalUsers: await User.count({ where: { outletId: id, isActive: true } }),
       isOpen: outlet.isOpen(),
-      operatingHours: outlet.operatingHours
+      operatingHours: outlet.operatingHours,
     };
 
     res.status(200).json({
       outletId: id,
-      stats
+      stats,
     });
-
   } catch (error) {
-    console.error('Get outlet stats error:', error);
+    console.error("Get outlet stats error:", error);
     res.status(500).json({
-      error: 'Internal server error',
-      message: 'An error occurred while fetching outlet statistics'
+      error: "Internal server error",
+      message: "An error occurred while fetching outlet statistics",
     });
   }
 };

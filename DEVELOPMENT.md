@@ -1,231 +1,245 @@
-# Development Guide - Hugamara Hospitality App
+# Development Guide - Backend-Frontend Connection
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+1. **Setup Development Environment**
+
+   ```bash
+   npm run setup
+   ```
+
+2. **Configure Database**
+
+   - Copy `backend/env.example` to `backend/.env`
+   - Update database credentials in `.env`
+
+3. **Start Development Servers**
+   ```bash
+   npm run dev
+   ```
+
+## 📁 Project Structure
+
+```
+Hugamara/
+├── backend/                 # Express.js API server
+│   ├── config/             # Database configuration
+│   ├── controllers/        # Route controllers
+│   ├── models/             # Sequelize models
+│   ├── routes/             # API routes
+│   ├── middleware/         # Custom middleware
+│   └── server.js           # Main server file
+├── client/                 # React frontend (moved from src/)
+│   ├── components/         # Reusable components
+│   ├── pages/              # Page components
+│   ├── services/           # API service layer
+│   ├── store/              # Redux store
+│   └── utils/              # Utility functions
+└── package.json            # Root package.json
+```
+
+## 🔌 Backend-Frontend Connection
+
+### API Service Layer
+
+The frontend communicates with the backend through a centralized service layer:
+
+- **`src/services/apiService.js`** - Base API configuration with axios
+- **`src/services/dashboardService.js`** - Dashboard-specific API calls
+- **`src/services/outletService.js`** - Outlet management API calls
+- **`src/services/reservationService.js`** - Reservation management API calls
+
+### Authentication Flow
+
+1. User logs in via `/api/auth/login`
+2. JWT token is stored in localStorage
+3. Token is automatically added to all subsequent requests
+4. Token expiration redirects to login
+
+### Data Flow
+
+```
+Frontend Component → Service Layer → Backend API → Database
+                ←                ←            ←
+```
+
+## 🗄️ Database & Placeholder Data
+
+### Seeding Database
+
 ```bash
-npm install
+# Reset and seed with placeholder data
+npm run db:setup
+
+# Seed only (if database exists)
+npm run seed:placeholder
 ```
 
-### 2. Environment Setup
+### Placeholder Data Includes
+
+- **6 Outlets** (Downtown, Beach Resort, Mountain Lodge, etc.)
+- **Users** (Admin, Managers)
+- **Guests** (Sample customer data)
+- **Reservations** (Sample booking data)
+- **Events** (Wine tasting, Beach BBQ)
+- **Inventory** (Sample stock items)
+- **Menu Items** (Sample food items)
+
+### Default Credentials
+
+- **Admin**: admin@hugamara.com / password123
+- **Manager**: manager1@hugamara.com / password123
+
+## 🛠️ Development Workflow
+
+### 1. Backend Development
+
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
+cd backend
+npm run dev          # Start backend with nodemon
+npm run db:migrate   # Run database migrations
+npm run seed:placeholder  # Add placeholder data
 ```
 
-### 3. Start Development Server
+### 2. Frontend Development
+
 ```bash
-npm start
+npm start            # Start React development server
+npm run lint         # Run ESLint
+npm run lint:fix     # Fix linting issues
 ```
 
-## 🏗 Project Architecture
+### 3. Full Stack Development
 
-### Component Structure
-- **Function-based components only** (ES6 arrow functions)
-- **No class components**
-- **Custom hooks** for reusable logic
-- **Props destructuring** for clean code
-
-### State Management
-- **Redux Toolkit** for global state
-- **Local state** with useState for component-specific data
-- **Context API** for theme/auth if needed
-
-### Styling Approach
-- **Tailwind CSS** for utility classes
-- **Custom CSS variables** for consistent theming
-- **Dark theme** with shadows (no gradients)
-- **Responsive design** for all devices
-
-## 📝 Coding Standards
-
-### JavaScript/React
-```javascript
-// ✅ Good - Function component with destructuring
-const UserCard = ({ user, onEdit, onDelete }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  
-  const handleEdit = () => {
-    setIsEditing(true);
-    onEdit(user);
-  };
-  
-  return (
-    <div className="card">
-      <h3>{user.name}</h3>
-      <button onClick={handleEdit}>Edit</button>
-    </div>
-  );
-};
-
-// ❌ Bad - Class component
-class UserCard extends Component {
-  // Don't use classes
-}
+```bash
+npm run dev          # Start both frontend and backend
 ```
 
-### CSS Classes
-```css
-/* ✅ Good - Use CSS variables and shadows */
-.card {
-  background-color: var(--secondary-bg);
-  box-shadow: var(--shadow-medium);
-}
+## 📊 API Endpoints
 
-/* ❌ Bad - No gradients */
-.card {
-  background: linear-gradient(to right, #000, #fff);
-}
+### Dashboard
+
+- `GET /api/dashboard/stats` - Main dashboard data
+- `GET /api/dashboard/revenue` - Revenue statistics
+- `GET /api/dashboard/reservations` - Reservation statistics
+- `GET /api/dashboard/inventory-alerts` - Inventory alerts
+
+### Outlets
+
+- `GET /api/outlets` - List all outlets
+- `GET /api/outlets/:id` - Get outlet details
+- `POST /api/outlets` - Create new outlet
+- `PUT /api/outlets/:id` - Update outlet
+- `DELETE /api/outlets/:id` - Delete outlet
+
+### Reservations
+
+- `GET /api/reservations` - List reservations
+- `POST /api/reservations` - Create reservation
+- `PUT /api/reservations/:id` - Update reservation
+- `DELETE /api/reservations/:id` - Cancel reservation
+
+### Authentication
+
+- `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout
+- `GET /api/auth/me` - Get current user
+- `POST /api/auth/refresh` - Refresh token
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create `backend/.env` with:
+
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=hugamara_dev
+DB_USER=root
+DB_PASSWORD=your_password
+
+# Server
+PORT=8000
+NODE_ENV=development
+
+# JWT
+JWT_SECRET=your_secret_key
+JWT_EXPIRES_IN=24h
+
+# Frontend
+FRONTEND_URL=http://localhost:3000
 ```
 
-## 🔐 Authentication Flow
+### Database Configuration
 
-### Login Process
-1. User enters credentials and selects outlet
-2. API call to `/auth/login`
-3. JWT token stored in localStorage
-4. User redirected to dashboard
-5. Token included in all subsequent API calls
+The backend uses MySQL with Sequelize ORM. Models are defined in `backend/models/` and automatically sync in development mode.
 
-### Route Protection
-- `PrivateRoute` component wraps protected routes
-- Checks authentication state from Redux
-- Redirects to login if not authenticated
-- Respects user role and outlet permissions
+## 🚨 Troubleshooting
 
-## 🏢 Multi-Outlet System
+### Common Issues
 
-### Outlet Management
-- **Outlet switching** for admin users
-- **Outlet-scoped data** by default
-- **Cross-outlet visibility** for HQ users
-- **Outlet-specific settings** and configurations
+1. **Database Connection Failed**
 
-### Data Isolation
-- All API calls include outlet context
-- Database queries filtered by outlet_id
-- User permissions respect outlet boundaries
-- Audit trails include outlet information
+   - Check MySQL is running
+   - Verify credentials in `.env`
+   - Ensure database exists
 
-## 📊 Dashboard Types
+2. **CORS Errors**
 
-### Role-Based Views
-1. **Executive (HQ)** - Cross-outlet metrics
-2. **Outlet Manager** - Single outlet operations
-3. **Supervisor** - Shift operations
-4. **Staff** - Task management
+   - Verify `FRONTEND_URL` in backend `.env`
+   - Check frontend is running on correct port
 
-### Real-Time Updates
-- WebSocket connections for live data
-- Polling fallback for critical metrics
-- Optimistic updates for better UX
-- Error handling and retry logic
+3. **Authentication Errors**
 
-## 🧪 Testing Strategy
+   - Clear localStorage
+   - Check JWT_SECRET in backend `.env`
+   - Verify token expiration
 
-### Unit Tests
-- **Jest** for test runner
-- **React Testing Library** for components
-- **Mock services** for API calls
-- **Snapshot testing** for UI consistency
+4. **Port Conflicts**
+   - Backend: 8000
+   - Frontend: 3000
+   - Change ports in respective config files if needed
 
-### Test Structure
-```javascript
-// Component test example
-import { render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { store } from '../store';
-import Dashboard from './Dashboard';
+### Debug Mode
 
-test('renders dashboard title', () => {
-  render(
-    <Provider store={store}>
-      <Dashboard />
-    </Provider>
-  );
-  
-  expect(screen.getByText(/Dashboard/i)).toBeInTheDocument();
-});
-```
+Enable detailed logging by setting `NODE_ENV=development` in backend `.env`.
 
-## 🔌 API Integration
+## 📝 Adding New Features
 
-### Service Layer
-- **Axios** for HTTP requests
-- **Interceptors** for auth and error handling
-- **Request/response transformers**
-- **Retry logic** for failed requests
+### 1. Backend
 
-### Error Handling
-```javascript
-// Service error handling
-try {
-  const response = await api.get('/reservations');
-  return response.data;
-} catch (error) {
-  if (error.response?.status === 401) {
-    // Handle unauthorized
-    dispatch(logout());
-  }
-  throw error;
-}
-```
+- Create model in `backend/models/`
+- Add route in `backend/routes/`
+- Create controller in `backend/controllers/`
+- Update `server.js` with new route
 
-## 🎨 UI/UX Guidelines
+### 2. Frontend
 
-### Design System
-- **Consistent spacing** (4px grid system)
-- **Typography scale** (Inter font family)
-- **Color palette** (dark theme)
-- **Component library** (reusable components)
+- Create service in `src/services/`
+- Add Redux slice if needed
+- Create component in `src/components/` or `src/pages/`
+- Update routing in `src/App.js`
 
-### Accessibility
-- **Semantic HTML** structure
-- **ARIA labels** for complex components
-- **Keyboard navigation** support
-- **Screen reader** compatibility
+### 3. Database
 
-## 🚀 Performance
+- Create migration: `npx sequelize-cli migration:generate --name feature-name`
+- Update seed data in `backend/insert-seed-data.js`
 
-### Optimization
-- **Code splitting** with React.lazy
-- **Memoization** for expensive calculations
-- **Virtual scrolling** for large lists
-- **Image optimization** and lazy loading
+## 🎯 Next Steps
 
-### Monitoring
-- **Bundle size** analysis
-- **Performance metrics** tracking
-- **Error reporting** and monitoring
-- **User experience** metrics
-
-## 🔧 Development Tools
-
-### Code Quality
-- **ESLint** for code linting
-- **Prettier** for code formatting
-- **Husky** for pre-commit hooks
-- **Lint-staged** for staged files only
-
-### Debugging
-- **React DevTools** for component inspection
-- **Redux DevTools** for state management
-- **Browser DevTools** for performance
-- **Console logging** for development
+1. **Complete CRUD Operations** - Implement full CRUD for all entities
+2. **Real-time Updates** - Add Socket.IO for live data updates
+3. **File Uploads** - Implement image uploads for menu items
+4. **Reporting** - Add comprehensive reporting and analytics
+5. **Testing** - Add unit and integration tests
+6. **Production Ready** - Environment-specific configurations
 
 ## 📚 Resources
 
-### Documentation
-- [React Documentation](https://reactjs.org/docs/)
+- [Express.js Documentation](https://expressjs.com/)
+- [Sequelize Documentation](https://sequelize.org/)
+- [React Documentation](https://reactjs.org/)
 - [Redux Toolkit](https://redux-toolkit.js.org/)
-- [Tailwind CSS](https://tailwindcss.com/docs)
-- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
-
-### Best Practices
-- [React Patterns](https://reactpatterns.com/)
-- [Performance Tips](https://reactjs.org/docs/optimizing-performance.html)
-- [Security Guidelines](https://reactjs.org/docs/security.html)
-
----
-
-**Happy Coding! 🎉**
+- [Tailwind CSS](https://tailwindcss.com/)

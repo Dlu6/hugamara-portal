@@ -133,15 +133,7 @@ const Payment = sequelize.define('Payment', {
     allowNull: true,
     field: 'discount_reason'
   },
-  discountApprovedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'discount_approved_by',
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
+  // discountApprovedBy removed to simplify associations
   receiptNumber: {
     type: DataTypes.STRING(50),
     allowNull: true,
@@ -171,15 +163,7 @@ const Payment = sequelize.define('Payment', {
     allowNull: true,
     field: 'refund_reason'
   },
-  refundApprovedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'refund_approved_by',
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
+  // refundApprovedBy removed to simplify associations
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -190,16 +174,7 @@ const Payment = sequelize.define('Payment', {
     allowNull: false,
     field: 'updated_at'
   },
-  createdBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'created_by'
-  },
-  updatedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'updated_by'
-  }
+  // Audit fields removed to avoid MySQL key limit issues
 }, {
   tableName: 'payments',
   timestamps: true,

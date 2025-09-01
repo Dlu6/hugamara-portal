@@ -16,15 +16,7 @@ const Shift = sequelize.define('Shift', {
       key: 'id'
     }
   },
-  staffId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    field: 'staff_id',
-    references: {
-      model: 'staff',
-      key: 'id'
-    }
-  },
+  // staffId removed to simplify associations
   shiftDate: {
     type: DataTypes.DATEONLY,
     allowNull: false,
@@ -127,15 +119,7 @@ const Shift = sequelize.define('Shift', {
     defaultValue: false,
     field: 'is_approved'
   },
-  approvedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'approved_by',
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
+  // approvedBy removed to simplify associations
   approvedAt: {
     type: DataTypes.DATE,
     allowNull: true,
@@ -151,16 +135,7 @@ const Shift = sequelize.define('Shift', {
     allowNull: false,
     field: 'updated_at'
   },
-  createdBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'created_by'
-  },
-  updatedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'updated_by'
-  }
+  // Audit fields removed to avoid MySQL key limit issues
 }, {
   tableName: 'shifts',
   timestamps: true,
