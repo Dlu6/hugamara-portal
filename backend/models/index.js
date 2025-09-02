@@ -24,6 +24,8 @@ Outlet.hasMany(User, { foreignKey: "outletId", as: "users" });
 // Reservation relationships
 Reservation.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
 Outlet.hasMany(Reservation, { foreignKey: "outletId", as: "reservations" });
+Reservation.belongsTo(Table, { foreignKey: "tableId", as: "table" });
+Table.hasMany(Reservation, { foreignKey: "tableId", as: "reservations" });
 
 // Ticket relationships
 Ticket.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });

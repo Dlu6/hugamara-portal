@@ -135,7 +135,7 @@ const startServer = async () => {
 
     // Sync database (in development) - use force: false to avoid deadlocks
     if (NODE_ENV === "development") {
-      await sequelize.sync({ force: false, alter: false });
+      await sequelize.sync({ force: false, alter: true });
       console.log("✅ Database synchronized.");
     }
 

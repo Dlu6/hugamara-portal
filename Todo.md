@@ -41,10 +41,11 @@
 
 - [x] Backend: Create Table, Reservation, ReservationGuest models
 - [x] Backend: Build tableController (CRUD)
-- [ ] Backend: Build reservationController (CRUD)
+- [x] Backend: Build reservationController (CRUD)
 - [x] Backend: Create table routes (/api/tables)
-- [ ] Backend: Create reservation routes (/api/reservations)
+- [x] Backend: Create reservation routes (/api/reservations)
 - [x] Frontend: Tables page with CRUD (create/edit/delete) & toasts
+- [x] Frontend: Reservations page with CRUD, guest management, table seating & toasts
 - [ ] Frontend: Create ReservationCalendar page
 - [ ] Frontend: Create BookingForm page
 - [ ] Frontend: Build tableSlice (Redux)
@@ -199,25 +200,30 @@
 - [x] Authentication system (complete)
 - [x] User management system (complete)
 - [x] Unified error handling (toasts + inline field errors)
-- [x] Outlet management (basic)
+- [x] Outlet management (complete)
   - [x] CRUD wired in UI, validation surfaced, toast feedback
   - [x] Detail page with opening hours; status computed per timezone
+- [x] Table management (complete)
+  - [x] Backend CRUD operations with validation
+  - [x] Frontend CRUD UI with toasts and inline validation
+- [x] Reservation system (complete)
+  - [x] Backend CRUD operations with table associations
+  - [x] Frontend CRUD UI with guest management, table seating, status updates
+  - [x] Quick guest creation, dark theme with proper contrast
 - [x] Database models (basic + auth models)
 - [x] CORS configuration
 - [x] Redux store setup (auth & users)
 - [x] Complete Login page integration
 - [x] Environment variables configuration
-- [ ] Table management
-- [ ] Reservation system
 
 ## Next Priority
 
 1. ✅ Complete Login page integration with new auth system
 2. ✅ Add user management UI components
 3. ✅ **Outlets management UI** – add CRUD with validation & toasts
-4. 🔄 **Fix User Management visibility in sidebar**
-5. 🔄 **Build table management system (Tables CRUD)**
-6. 🔄 **Implement reservation system**
-7. 🔄 **Complete order management system**
-8. 🔄 **Build menu management system**
-9. 🔄 **Complete inventory management system**
+4. ✅ **Build table management system (Tables CRUD)**
+5. ✅ **Implement reservation system**
+6. 🔄 **Complete order management system**
+7. 🔄 **Build menu management system**
+8. 🔄 **Complete inventory management system**
+9. 🔄 **Build guest management system**
