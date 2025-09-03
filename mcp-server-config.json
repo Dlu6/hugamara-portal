@@ -1,0 +1,40 @@
+{
+  "name": "hugamara-ec2-server",
+  "description": "MCP Server configuration for Hugamara EC2 instance",
+  "connection": {
+    "type": "ssh",
+    "host": "ec2-3-108-42-65.ap-south-1.compute.amazonaws.com",
+    "user": "admin",
+    "keyFile": "~/Downloads/hugamara.pem",
+    "commands": {
+      "connect": "ssh -i \"hugamara.pem\" admin@ec2-3-108-42-65.ap-south-1.compute.amazonaws.com",
+      "connectAsRoot": "sudo ssh -i \"hugamara.pem\" admin@ec2-3-108-42-65.ap-south-1.compute.amazonaws.com && sudo -i"
+    }
+  },
+  "serverDetails": {
+    "publicIP": "3.108.42.65",
+    "internalIP": "172.31.47.77",
+    "region": "ap-south-1",
+    "os": "Debian GNU/Linux",
+    "kernel": "6.1.0-38-cloud-amd64",
+    "domain": "cs.hugamara.com"
+  },
+  "projectPaths": {
+    "local": "/Users/Mydhe Files/Hugamara",
+    "remote": "/home/admin/hugamara"
+  },
+  "services": {
+    "backend": {
+      "port": 5000,
+      "pm2Name": "hugamara-backend"
+    },
+    "frontend": {
+      "port": 3000,
+      "buildPath": "/home/admin/hugamara/client/build"
+    },
+    "nginx": {
+      "configPath": "/etc/nginx/sites-available/hugamara",
+      "domain": "cs.hugamara.com"
+    }
+  }
+}
