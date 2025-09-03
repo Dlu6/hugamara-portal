@@ -149,14 +149,6 @@ The system comes with pre-seeded test users:
 - `maze.manager@hugamara.com` / `password123` - Maze
 - `mazebistro.manager@hugamara.com` / `password123` - The Maze Bistro
 
-## API Testing
-
-Test the backend API:
-
-```bash
-node test-auth.js
-```
-
 ## Development
 
 ### Backend Development

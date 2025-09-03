@@ -23,6 +23,9 @@ import eventRoutes from "./routes/events.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import tableRoutes from "./routes/tables.js";
 import menuRoutes from "./routes/menu.js";
+import staffRoutes from "./routes/staff.js";
+import paymentRoutes from "./routes/payments.js";
+import reportRoutes from "./routes/reports.js";
 
 // Import middleware
 import { authenticateToken } from "./middleware/auth.js";
@@ -100,6 +103,9 @@ app.use("/api/events", authenticateToken, eventRoutes);
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/tables", authenticateToken, tableRoutes);
 app.use("/api/menu", authenticateToken, menuRoutes);
+app.use("/api/staff", authenticateToken, staffRoutes);
+app.use("/api/payments", authenticateToken, paymentRoutes);
+app.use("/api/reports", authenticateToken, reportRoutes);
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
@@ -136,10 +142,12 @@ const startServer = async () => {
     console.log("✅ Database connection established successfully.");
 
     // Sync database (in development) - use force: false to avoid deadlocks
-    if (NODE_ENV === "development") {
-      await sequelize.sync({ force: false, alter: true });
-      console.log("✅ Database synchronized.");
-    }
+    // Temporarily disabled to avoid MySQL key limit issues
+    // if (NODE_ENV === "development") {
+    //   await sequelize.sync({ force: false, alter: true });
+    //   console.log("✅ Database synchronized.");
+    // }
+    // DISABLED: MySQL key limit error
 
     // Start server
     server.listen(PORT, () => {

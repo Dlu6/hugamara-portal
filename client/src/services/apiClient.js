@@ -115,15 +115,74 @@ export const outletsAPI = {
 };
 export const ordersAPI = createResourceAPI("orders");
 export const reservationsAPI = createResourceAPI("reservations");
-export const inventoryAPI = createResourceAPI("inventory");
-export const guestsAPI = createResourceAPI("guests");
-export const ticketsAPI = createResourceAPI("tickets");
-export const eventsAPI = createResourceAPI("events");
+export const inventoryAPI = {
+  ...createResourceAPI("inventory"),
+  getStats: () => api.get("/inventory/stats"),
+  getLowStock: () => api.get("/inventory/low-stock"),
+  getExpiring: (days = 7) =>
+    api.get("/inventory/expiring", { params: { days } }),
+  updateStock: (id, data) => api.patch(`/inventory/${id}/stock`, data),
+  bulkUpdateStock: (data) => api.patch("/inventory/bulk-stock", data),
+};
+export const guestsAPI = {
+  ...createResourceAPI("guests"),
+  getStats: (period = "month") =>
+    api.get("/guests/stats", { params: { period } }),
+  search: (query) => api.get("/guests/search", { params: { q: query } }),
+  getByLoyaltyTier: (tier) => api.get(`/guests/loyalty/${tier}`),
+  updateLoyaltyPoints: (id, data) => api.patch(`/guests/${id}/loyalty`, data),
+  getHistory: (id) => api.get(`/guests/${id}/history`),
+};
+export const ticketsAPI = {
+  ...createResourceAPI("tickets"),
+  getStats: (period = "week") =>
+    api.get("/tickets/stats", { params: { period } }),
+  getOverdue: () => api.get("/tickets/overdue"),
+  getByCategory: (category) => api.get(`/tickets/category/${category}`),
+  updateStatus: (id, data) => api.patch(`/tickets/${id}/status`, data),
+  addComment: (id, data) => api.post(`/tickets/${id}/comment`, data),
+};
+export const eventsAPI = {
+  ...createResourceAPI("events"),
+  getStats: (period = "month") =>
+    api.get("/events/stats", { params: { period } }),
+  getUpcoming: (days = 30) => api.get("/events/upcoming", { params: { days } }),
+  getCalendar: (month, year) =>
+    api.get("/events/calendar", { params: { month, year } }),
+  getByType: (eventType) => api.get(`/events/type/${eventType}`),
+  updateStatus: (id, data) => api.patch(`/events/${id}/status`, data),
+  updateAttendance: (id, data) => api.patch(`/events/${id}/attendance`, data),
+};
 export const menuItemsAPI = createResourceAPI("menu-items");
 export const menuAPI = createResourceAPI("menu");
 export const tablesAPI = createResourceAPI("tables");
-export const staffAPI = createResourceAPI("staff");
+export const staffAPI = {
+  ...createResourceAPI("staff"),
+  getStats: () => api.get("/staff/stats"),
+  getNewHires: (days = 90) => api.get("/staff/new-hires", { params: { days } }),
+  getByDepartment: (department) => api.get(`/staff/department/${department}`),
+  updatePerformance: (id, data) => api.patch(`/staff/${id}/performance`, data),
+};
 export const shiftsAPI = createResourceAPI("shifts");
-export const paymentsAPI = createResourceAPI("payments");
+export const paymentsAPI = {
+  ...createResourceAPI("payments"),
+  getStats: (period = "today") =>
+    api.get("/payments/stats", { params: { period } }),
+  getMethods: () => api.get("/payments/methods"),
+  processPayment: (id, data) => api.patch(`/payments/${id}/process`, data),
+  refundPayment: (id, data) => api.patch(`/payments/${id}/refund`, data),
+};
+
+export const reportsAPI = {
+  getDashboard: (period = "week") =>
+    api.get("/reports/dashboard", { params: { period } }),
+  getRevenue: (params = "") => api.get(`/reports/revenue?${params}`),
+  getSales: (params = "") => api.get(`/reports/sales?${params}`),
+  getInventory: (params = "") => api.get(`/reports/inventory?${params}`),
+  getStaff: (params = "") => api.get(`/reports/staff?${params}`),
+  getEvents: (params = "") => api.get(`/reports/events?${params}`),
+  getCustomers: (params = "") => api.get(`/reports/customers?${params}`),
+  export: (params = "") => api.get(`/reports/export?${params}`),
+};
 
 export default api;

@@ -126,6 +126,15 @@ const Guest = sequelize.define('Guest', {
     allowNull: true,
     defaultValue: []
   },
+  outletId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    field: 'outlet_id',
+    references: {
+      model: 'outlets',
+      key: 'id'
+    }
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,

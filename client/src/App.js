@@ -13,7 +13,6 @@ import "./styles/App.css";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
-import AuthTest from "./components/auth/AuthTest";
 
 // Main Pages
 import Dashboard from "./pages/Dashboard";
@@ -320,9 +319,6 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-
-        {/* Test Route */}
-        <Route path="/auth-test" element={<AuthTest />} />
 
         {/* Unauthorized Route */}
         <Route
