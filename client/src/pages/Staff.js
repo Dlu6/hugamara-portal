@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Users,
   Plus,
@@ -14,238 +15,229 @@ import {
   Clock,
   UserCheck,
   UserX,
+  RefreshCw,
+  Download,
+  Upload,
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
-import { staffAPI } from "../services/apiClient";
+import {
+  fetchStaff,
+  createStaff,
+  updateStaff,
+  deleteStaff,
+  fetchStaffStats,
+  updateStaffStatus,
+  updateStaffPerformance,
+  setFilters,
+  setFormData,
+  setShowForm,
+  setEditingStaff,
+  setViewingStaff,
+  setPerformanceModal,
+  setPerformanceData,
+  clearError,
+} from "../store/slices/staffSlice";
+import {
+  selectStaff,
+  selectFilteredStaff,
+  selectStaffStats,
+  selectStaffLoading,
+  selectStaffError,
+  selectStaffFilters,
+  selectStaffFormData,
+  selectStaffFormErrors,
+  selectShowStaffForm,
+  selectEditingStaff,
+  selectViewingStaff,
+  selectPerformanceModal,
+  selectPerformanceData,
+} from "../store/slices/staffSlice";
 
 const Staff = () => {
-  const [staff, setStaff] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingStaff, setEditingStaff] = useState(null);
-  const [viewingStaff, setViewingStaff] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [formData, setFormData] = useState({
-    employeeId: "",
-    position: "",
-    department: "front_of_house",
-    hireDate: "",
-    terminationDate: "",
-    isActive: true,
-    hourlyRate: 0,
-    salary: 0,
-    payFrequency: "hourly",
-    emergencyContact: {
-      name: "",
-      phone: "",
-      relationship: "",
-    },
-    skills: [],
-    certifications: [],
-    performanceRating: 0,
-    notes: "",
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [performanceModal, setPerformanceModal] = useState(null);
-  const [performanceData, setPerformanceData] = useState({
-    performanceRating: 0,
-    reviewNotes: "",
-  });
+  const dispatch = useDispatch();
   const { showSuccess, showError } = useToast();
 
+  // Redux state
+  const staff = useSelector(selectStaff);
+  const filteredStaff = useSelector(selectFilteredStaff);
+  const stats = useSelector(selectStaffStats);
+  const loading = useSelector(selectStaffLoading);
+  const error = useSelector(selectStaffError);
+  const filters = useSelector(selectStaffFilters);
+  const formData = useSelector(selectStaffFormData);
+  const formErrors = useSelector(selectStaffFormErrors);
+  const showForm = useSelector(selectShowStaffForm);
+  const editingStaff = useSelector(selectEditingStaff);
+  const viewingStaff = useSelector(selectViewingStaff);
+  const performanceModal = useSelector(selectPerformanceModal);
+  const performanceData = useSelector(selectPerformanceData);
+
+  // Local state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+
+  // Load data on component mount
   useEffect(() => {
-    fetchStaff();
-    fetchStats();
-  }, []);
+    dispatch(fetchStaff());
+    dispatch(fetchStaffStats());
+  }, [dispatch]);
 
-  const fetchStaff = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      if (departmentFilter) params.append("department", departmentFilter);
-      if (statusFilter !== "") params.append("isActive", statusFilter);
-
-      const response = await staffAPI.getAll(params.toString());
-      setStaff(response.staff || []);
-    } catch (error) {
-      console.error("Failed to fetch staff:", error);
-      showError("Failed to fetch staff", error?.response?.data?.message || "");
-    } finally {
-      setLoading(false);
-    }
+  // Handle search and filtering
+  const handleSearch = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    dispatch(setFilters({ search: value }));
   };
 
-  const fetchStats = async () => {
-    try {
-      const response = await staffAPI.getStats();
-      setStats(response.stats || {});
-    } catch (error) {
-      console.error("Failed to fetch staff stats:", error);
-    }
+  const handleDepartmentFilter = (department) => {
+    setSelectedDepartment(department);
+    dispatch(setFilters({ department }));
   };
 
-  const resetForm = () => {
-    setFormData({
-      employeeId: "",
-      position: "",
-      department: "front_of_house",
-      hireDate: "",
-      terminationDate: "",
-      isActive: true,
-      hourlyRate: 0,
-      salary: 0,
-      payFrequency: "hourly",
-      emergencyContact: {
-        name: "",
-        phone: "",
-        relationship: "",
-      },
-      skills: [],
-      certifications: [],
-      performanceRating: 0,
-      notes: "",
-    });
-    setFormErrors({});
-    setEditingStaff(null);
+  const handleStatusFilter = (status) => {
+    setStatusFilter(status);
+    dispatch(setFilters({ status }));
   };
 
-  const openCreateModal = () => {
-    resetForm();
-    setShowForm(true);
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    const newValue = type === "checkbox" ? checked : value;
+    dispatch(setFormData({ [name]: newValue }));
   };
 
-  const openEditModal = (staffMember) => {
-    setFormData({
-      employeeId: staffMember.employeeId || "",
-      position: staffMember.position || "",
-      department: staffMember.department || "front_of_house",
-      hireDate: staffMember.hireDate ? staffMember.hireDate.split("T")[0] : "",
-      terminationDate: staffMember.terminationDate
-        ? staffMember.terminationDate.split("T")[0]
-        : "",
-      isActive: staffMember.isActive || true,
-      hourlyRate: staffMember.hourlyRate || 0,
-      salary: staffMember.salary || 0,
-      payFrequency: staffMember.payFrequency || "hourly",
-      emergencyContact: staffMember.emergencyContact || {
-        name: "",
-        phone: "",
-        relationship: "",
-      },
-      skills: staffMember.skills || [],
-      certifications: staffMember.certifications || [],
-      performanceRating: staffMember.performanceRating || 0,
-      notes: staffMember.notes || "",
-    });
-    setEditingStaff(staffMember);
-    setShowForm(true);
+  const handleNestedInputChange = (parentKey, field, value) => {
+    dispatch(
+      setFormData({
+        [parentKey]: {
+          ...formData[parentKey],
+          [field]: value,
+        },
+      })
+    );
   };
 
-  const openViewModal = (staffMember) => {
-    setViewingStaff(staffMember);
-  };
-
-  const openPerformanceModal = (staffMember) => {
-    setPerformanceModal(staffMember);
-    setPerformanceData({
-      performanceRating: staffMember.performanceRating || 0,
-      reviewNotes: "",
-    });
+  const handleArrayChange = (name, value) => {
+    dispatch(setFormData({ [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      setFormErrors({});
 
+    try {
       if (editingStaff) {
-        await staffAPI.update(editingStaff.id, formData);
+        await dispatch(
+          updateStaff({
+            id: editingStaff.id,
+            staffData: formData,
+          })
+        ).unwrap();
         showSuccess("Staff member updated successfully");
       } else {
-        await staffAPI.create(formData);
+        await dispatch(createStaff(formData)).unwrap();
         showSuccess("Staff member created successfully");
       }
 
-      setShowForm(false);
-      resetForm();
-      fetchStaff();
-      fetchStats();
+      dispatch(setShowForm(false));
+      dispatch(setEditingStaff(null));
+      dispatch(fetchStaff());
+      dispatch(fetchStaffStats());
     } catch (error) {
-      console.error("Failed to save staff member:", error);
-      if (error?.response?.data?.details) {
-        const errors = {};
-        error.response.data.details.forEach((detail) => {
-          errors[detail.field] = detail.message;
-        });
-        setFormErrors(errors);
-      } else {
-        showError(
-          "Failed to save staff member",
-          error?.response?.data?.message || ""
-        );
+      showError(error.message || "Failed to save staff member");
+    }
+  };
+
+  const handleEdit = (staffMember) => {
+    dispatch(setEditingStaff(staffMember));
+    dispatch(setFormData(staffMember));
+    dispatch(setShowForm(true));
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this staff member?")) {
+      try {
+        await dispatch(deleteStaff(id)).unwrap();
+        showSuccess("Staff member deleted successfully");
+        dispatch(fetchStaff());
+        dispatch(fetchStaffStats());
+      } catch (error) {
+        showError(error.message || "Failed to delete staff member");
       }
     }
   };
 
-  const handleDelete = async (id) => {
-    if (
-      !window.confirm("Are you sure you want to terminate this staff member?")
-    )
-      return;
+  const handleView = (staffMember) => {
+    dispatch(setViewingStaff(staffMember));
+  };
 
+  const handleStatusUpdate = async (id, status) => {
     try {
-      await staffAPI.delete(id);
-      showSuccess("Staff member terminated successfully");
-      fetchStaff();
-      fetchStats();
+      await dispatch(updateStaffStatus({ id, status })).unwrap();
+      showSuccess("Staff status updated successfully");
+      dispatch(fetchStaff());
+      dispatch(fetchStaffStats());
     } catch (error) {
-      console.error("Failed to terminate staff member:", error);
-      showError(
-        "Failed to terminate staff member",
-        error?.response?.data?.message || ""
-      );
+      showError(error.message || "Failed to update staff status");
     }
   };
 
   const handlePerformanceUpdate = async (e) => {
     e.preventDefault();
+
     try {
-      await staffAPI.updatePerformance(performanceModal.id, performanceData);
+      await dispatch(
+        updateStaffPerformance({
+          id: performanceModal.id,
+          performanceData,
+        })
+      ).unwrap();
+
       showSuccess("Performance updated successfully");
-      setPerformanceModal(null);
-      fetchStaff();
-    } catch (error) {
-      console.error("Failed to update performance:", error);
-      showError(
-        "Failed to update performance",
-        error?.response?.data?.message || ""
+      dispatch(setPerformanceModal(null));
+      dispatch(
+        setPerformanceData({
+          rating: 0,
+          comments: "",
+          goals: [],
+          achievements: [],
+        })
       );
+      dispatch(fetchStaff());
+    } catch (error) {
+      showError(error.message || "Failed to update performance");
     }
   };
 
-  const getDepartmentColor = (department) => {
-    const colors = {
-      front_of_house: "text-blue-500 bg-blue-900/20",
-      back_of_house: "text-green-500 bg-green-900/20",
-      kitchen: "text-orange-500 bg-orange-900/20",
-      bar: "text-purple-500 bg-purple-900/20",
-      management: "text-red-500 bg-red-900/20",
-      security: "text-gray-500 bg-gray-900/20",
-      cleaning: "text-cyan-500 bg-cyan-900/20",
-      maintenance: "text-yellow-500 bg-yellow-900/20",
-    };
-    return colors[department] || "text-neutral-500 bg-neutral-900/20";
+  const resetForm = () => {
+    dispatch(
+      setFormData({
+        employeeId: "",
+        position: "",
+        department: "front_of_house",
+        hireDate: "",
+        terminationDate: "",
+        isActive: true,
+        hourlyRate: 0,
+        salary: 0,
+        payFrequency: "hourly",
+        emergencyContact: {
+          name: "",
+          phone: "",
+          relationship: "",
+        },
+        skills: [],
+        certifications: [],
+        performanceRating: 0,
+        notes: "",
+      })
+    );
+    dispatch(setFormErrors({}));
   };
 
-  const formatDepartment = (department) => {
-    return department
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+  const openCreateForm = () => {
+    resetForm();
+    dispatch(setEditingStaff(null));
+    dispatch(setShowForm(true));
   };
 
   const formatCurrency = (amount) => {
@@ -253,325 +245,439 @@ const Staff = () => {
       style: "currency",
       currency: "UGX",
       minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
-  const getTenure = (hireDate) => {
-    const now = new Date();
-    const hire = new Date(hireDate);
-    const diffTime = now - hire;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const years = Math.floor(diffDays / 365);
-    const months = Math.floor((diffDays % 365) / 30);
-
-    if (years > 0) {
-      return `${years}y ${months}m`;
-    } else if (months > 0) {
-      return `${months}m`;
-    } else {
-      return `${diffDays}d`;
-    }
+  const formatDepartment = (department) => {
+    const departmentMap = {
+      front_of_house: "Front of House",
+      back_of_house: "Back of House",
+      management: "Management",
+      bar: "Bar",
+      kitchen: "Kitchen",
+      service: "Service",
+      cleaning: "Cleaning",
+      security: "Security",
+      maintenance: "Maintenance",
+      other: "Other",
+    };
+    return departmentMap[department] || department;
   };
 
-  if (loading)
-    return (
-      <div className="p-6 bg-neutral-900 text-white min-h-screen">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading staff...</div>
+  const getDepartmentColor = (department) => {
+    const colorMap = {
+      front_of_house: "bg-blue-100 text-blue-800",
+      back_of_house: "bg-green-100 text-green-800",
+      management: "bg-purple-100 text-purple-800",
+      bar: "bg-yellow-100 text-yellow-800",
+      kitchen: "bg-red-100 text-red-800",
+      service: "bg-indigo-100 text-indigo-800",
+      cleaning: "bg-gray-100 text-gray-800",
+      security: "bg-orange-100 text-orange-800",
+      maintenance: "bg-teal-100 text-teal-800",
+      other: "bg-neutral-100 text-neutral-800",
+    };
+    return colorMap[department] || "bg-neutral-100 text-neutral-800";
+  };
+
+  const getStatusColor = (isActive) => {
+    return isActive ? "text-green-600" : "text-red-600";
+  };
+
+  const getStatusIcon = (isActive) => {
+    return isActive ? UserCheck : UserX;
+  };
+
+  const getCategoryOptions = () => [
+    { value: "front_of_house", label: "Front of House" },
+    { value: "back_of_house", label: "Back of House" },
+    { value: "management", label: "Management" },
+    { value: "bar", label: "Bar" },
+    { value: "kitchen", label: "Kitchen" },
+    { value: "service", label: "Service" },
+    { value: "cleaning", label: "Cleaning" },
+    { value: "security", label: "Security" },
+    { value: "maintenance", label: "Maintenance" },
+    { value: "other", label: "Other" },
+  ];
+
+  const getPayFrequencyOptions = () => [
+    { value: "hourly", label: "Hourly" },
+    { value: "salary", label: "Salary" },
+  ];
+
+  const getRelationshipOptions = () => [
+    { value: "spouse", label: "Spouse" },
+    { value: "parent", label: "Parent" },
+    { value: "sibling", label: "Sibling" },
+    { value: "child", label: "Child" },
+    { value: "friend", label: "Friend" },
+    { value: "other", label: "Other" },
+  ];
+
+  const getSkillOptions = () => [
+    { value: "customer_service", label: "Customer Service" },
+    { value: "food_preparation", label: "Food Preparation" },
+    { value: "bartending", label: "Bartending" },
+    { value: "waiting", label: "Waiting" },
+    { value: "cleaning", label: "Cleaning" },
+    { value: "cash_handling", label: "Cash Handling" },
+    { value: "inventory_management", label: "Inventory Management" },
+    { value: "team_leadership", label: "Team Leadership" },
+    { value: "problem_solving", label: "Problem Solving" },
+    { value: "multitasking", label: "Multitasking" },
+  ];
+
+  const getCertificationOptions = () => [
+    { value: "food_safety", label: "Food Safety Certification" },
+    { value: "alcohol_service", label: "Alcohol Service Certification" },
+    { value: "first_aid", label: "First Aid Certification" },
+    { value: "cpr", label: "CPR Certification" },
+    { value: "fire_safety", label: "Fire Safety Certification" },
+    { value: "customer_service", label: "Customer Service Certification" },
+  ];
+
+  const StatCard = ({ title, value, icon: Icon, color = "blue", subtitle }) => (
+    <div className="bg-neutral-800 rounded-lg shadow-lg p-6 border border-neutral-700">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className={`p-3 rounded-full bg-${color}-100 bg-opacity-20`}>
+            <Icon className={`h-6 w-6 text-${color}-400`} />
+          </div>
+          <div className="ml-4">
+            <p className="text-sm font-medium text-neutral-400">{title}</p>
+            <p className="text-2xl font-semibold text-white">{value}</p>
+            {subtitle && <p className="text-xs text-neutral-500">{subtitle}</p>}
+          </div>
         </div>
       </div>
+    </div>
+  );
+
+  if (loading && staff.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
+  }
 
   return (
-    <div className="p-6 bg-neutral-900 text-white min-h-screen">
+    <div className="p-6 bg-neutral-900 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Staff Management</h1>
-          <p className="text-neutral-400 mt-1">
-            Manage your staff members, performance, and departments
-          </p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Users className="w-8 h-8 text-blue-400" />
+              Staff Management
+            </h1>
+            <p className="text-neutral-400 mt-1">
+              Manage your staff members, track performance, and handle
+              scheduling
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => dispatch(fetchStaff())}
+              className="px-4 py-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            <button
+              onClick={openCreateForm}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Staff
+            </button>
+          </div>
         </div>
-        <button
-          onClick={openCreateModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add Staff
-        </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-neutral-400 text-sm">Total Staff</p>
-              <p className="text-2xl font-bold text-white">
-                {stats.totalStaff || 0}
-              </p>
-            </div>
-            <Users className="h-8 w-8 text-blue-500" />
-          </div>
-        </div>
-
-        <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-neutral-400 text-sm">Active Staff</p>
-              <p className="text-2xl font-bold text-green-500">
-                {stats.activeStaff || 0}
-              </p>
-            </div>
-            <UserCheck className="h-8 w-8 text-green-500" />
-          </div>
-        </div>
-
-        <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-neutral-400 text-sm">New Hires</p>
-              <p className="text-2xl font-bold text-amber-500">
-                {stats.newHires || 0}
-              </p>
-            </div>
-            <TrendingUp className="h-8 w-8 text-amber-500" />
-          </div>
-        </div>
-
-        <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-neutral-400 text-sm">Avg Performance</p>
-              <p className="text-2xl font-bold text-purple-500">
-                {stats.avgPerformance?.toFixed(1) || "0.0"}
-              </p>
-            </div>
-            <Award className="h-8 w-8 text-purple-500" />
-          </div>
-        </div>
-
-        <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-neutral-400 text-sm">Inactive</p>
-              <p className="text-2xl font-bold text-red-500">
-                {stats.inactiveStaff || 0}
-              </p>
-            </div>
-            <UserX className="h-8 w-8 text-red-500" />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <StatCard
+          title="Total Staff"
+          value={stats.totalStaff || 0}
+          icon={Users}
+          color="blue"
+          subtitle="All employees"
+        />
+        <StatCard
+          title="Active Staff"
+          value={stats.activeStaff || 0}
+          icon={UserCheck}
+          color="green"
+          subtitle="Currently working"
+        />
+        <StatCard
+          title="Departments"
+          value={stats.totalDepartments || 0}
+          icon={Award}
+          color="purple"
+          subtitle="Active departments"
+        />
+        <StatCard
+          title="Avg Performance"
+          value={stats.averagePerformance || 0}
+          icon={TrendingUp}
+          color="yellow"
+          subtitle="Overall rating"
+        />
       </div>
 
       {/* Filters */}
-      <div className="bg-neutral-800 p-4 rounded-lg shadow-lg mb-6">
+      <div className="bg-neutral-800 rounded-lg shadow-lg p-6 mb-6 border border-neutral-700">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex-1 min-w-64">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search staff..."
+                placeholder="Search staff members..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg w-full text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={handleSearch}
+                className="w-full pl-10 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
 
           <select
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={selectedDepartment}
+            onChange={(e) => handleDepartmentFilter(e.target.value)}
+            className="px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Departments</option>
-            <option value="front_of_house">Front of House</option>
-            <option value="back_of_house">Back of House</option>
-            <option value="kitchen">Kitchen</option>
-            <option value="bar">Bar</option>
-            <option value="management">Management</option>
-            <option value="security">Security</option>
-            <option value="cleaning">Cleaning</option>
-            <option value="maintenance">Maintenance</option>
+            {getCategoryOptions().map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => handleStatusFilter(e.target.value)}
+            className="px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Status</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </select>
-
-          <button
-            onClick={fetchStaff}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-          >
-            <Search className="h-4 w-4" />
-            Search
-          </button>
         </div>
       </div>
 
       {/* Staff Table */}
-      <div className="bg-neutral-800 rounded-lg shadow-lg overflow-hidden">
+      <div className="bg-neutral-800 rounded-lg shadow-lg border border-neutral-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-neutral-700">
               <tr>
-                <th className="px-4 py-3 text-left text-white font-medium">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">
                   Employee
                 </th>
-                <th className="px-4 py-3 text-left text-white font-medium">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">
                   Department
                 </th>
-                <th className="px-4 py-3 text-left text-white font-medium">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">
                   Position
                 </th>
-                <th className="px-4 py-3 text-left text-white font-medium">
-                  Tenure
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">
+                  Pay
                 </th>
-                <th className="px-4 py-3 text-left text-white font-medium">
-                  Pay Rate
-                </th>
-                <th className="px-4 py-3 text-left text-white font-medium">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">
                   Performance
                 </th>
-                <th className="px-4 py-3 text-left text-white font-medium">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-white font-medium">
+                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {staff.map((staffMember) => (
-                <tr
-                  key={staffMember.id}
-                  className="border-t border-neutral-700 hover:bg-neutral-750"
-                >
-                  <td className="px-4 py-3">
-                    <div>
-                      <div className="font-medium text-white">
-                        {staffMember.employeeId}
+            <tbody className="bg-neutral-800 divide-y divide-neutral-700">
+              {filteredStaff.map((staffMember) => {
+                const StatusIcon = getStatusIcon(staffMember.isActive);
+                return (
+                  <tr key={staffMember.id} className="hover:bg-neutral-750">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-white">
+                          {staffMember.firstName} {staffMember.lastName}
+                        </div>
+                        <div className="text-sm text-neutral-400">
+                          {staffMember.employeeId &&
+                            `ID: ${staffMember.employeeId}`}
+                        </div>
                       </div>
-                      <div className="text-sm text-neutral-400">
-                        Hired:{" "}
-                        {new Date(staffMember.hireDate).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getDepartmentColor(
-                        staffMember.department
-                      )}`}
-                    >
-                      {formatDepartment(staffMember.department)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-white">
-                    {staffMember.position}
-                  </td>
-                  <td className="px-4 py-3 text-white">
-                    {getTenure(staffMember.hireDate)}
-                  </td>
-                  <td className="px-4 py-3 text-white">
-                    {staffMember.hourlyRate
-                      ? formatCurrency(staffMember.hourlyRate) + "/hr"
-                      : staffMember.salary
-                      ? formatCurrency(staffMember.salary) +
-                        "/" +
-                        staffMember.payFrequency
-                      : "N/A"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <span className="text-white">
-                        {staffMember.performanceRating || "N/A"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getDepartmentColor(
+                          staffMember.department
+                        )}`}
+                      >
+                        {formatDepartment(staffMember.department)}
                       </span>
-                      {staffMember.performanceRating && (
-                        <Award className="h-3 w-3 text-yellow-500" />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        staffMember.isActive
-                          ? "text-green-500 bg-green-900/20"
-                          : "text-red-500 bg-red-900/20"
-                      }`}
-                    >
-                      {staffMember.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openViewModal(staffMember)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="View Details"
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                      {staffMember.position}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                      {staffMember.payFrequency === "hourly"
+                        ? `${formatCurrency(staffMember.hourlyRate)}/hr`
+                        : `${formatCurrency(staffMember.salary)}/yr`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex items-center">
+                          {[...Array(5)].map((_, i) => (
+                            <Award
+                              key={i}
+                              className={`w-4 h-4 ${
+                                i < (staffMember.performanceRating || 0)
+                                  ? "text-yellow-400"
+                                  : "text-neutral-400"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="ml-2 text-sm text-neutral-400">
+                          {staffMember.performanceRating || 0}/5
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div
+                        className={`flex items-center gap-2 ${getStatusColor(
+                          staffMember.isActive
+                        )}`}
                       >
-                        <Eye className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => openEditModal(staffMember)}
-                        className="bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="Edit Staff"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => openPerformanceModal(staffMember)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="Update Performance"
-                      >
-                        <Award className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(staffMember.id)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="Terminate Staff"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                        <StatusIcon className="w-4 h-4" />
+                        <span className="text-sm">
+                          {staffMember.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleView(staffMember)}
+                          className="text-blue-400 hover:text-blue-300"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(staffMember)}
+                          className="text-yellow-400 hover:text-yellow-300"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            dispatch(setPerformanceModal(staffMember))
+                          }
+                          className="text-green-400 hover:text-green-300"
+                        >
+                          <Award className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleStatusUpdate(
+                              staffMember.id,
+                              !staffMember.isActive
+                            )
+                          }
+                          className={`${
+                            staffMember.isActive
+                              ? "text-red-400 hover:text-red-300"
+                              : "text-green-400 hover:text-green-300"
+                          }`}
+                        >
+                          {staffMember.isActive ? (
+                            <UserX className="w-4 h-4" />
+                          ) : (
+                            <UserCheck className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(staffMember.id)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {filteredStaff.length === 0 && (
+          <div className="text-center py-12">
+            <Users className="mx-auto h-12 w-12 text-neutral-400" />
+            <h3 className="mt-2 text-sm font-medium text-white">
+              No staff members
+            </h3>
+            <p className="mt-1 text-sm text-neutral-400">
+              Get started by adding a new staff member.
+            </p>
+            <div className="mt-6">
+              <button
+                onClick={openCreateForm}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Staff
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-neutral-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-neutral-700">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-white mb-4">
-                {editingStaff ? "Edit Staff Member" : "Add Staff Member"}
-              </h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-white">
+                  {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
+                </h2>
+                <button
+                  onClick={() => dispatch(setShowForm(false))}
+                  className="text-neutral-400 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Basic Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Employee ID
+                      Employee ID *
                     </label>
                     <input
                       type="text"
+                      name="employeeId"
                       value={formData.employeeId}
-                      onChange={(e) =>
-                        setFormData({ ...formData, employeeId: e.target.value })
-                      }
-                      className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Auto-generated if empty"
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
                     />
+                    {formErrors.employeeId && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.employeeId}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -580,19 +686,14 @@ const Staff = () => {
                     </label>
                     <input
                       type="text"
+                      name="position"
                       value={formData.position}
-                      onChange={(e) =>
-                        setFormData({ ...formData, position: e.target.value })
-                      }
-                      className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.position
-                          ? "border-red-500"
-                          : "border-neutral-600"
-                      }`}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                     {formErrors.position && (
-                      <p className="text-red-500 text-sm mt-1">
+                      <p className="text-red-400 text-xs mt-1">
                         {formErrors.position}
                       </p>
                     )}
@@ -603,31 +704,18 @@ const Staff = () => {
                       Department *
                     </label>
                     <select
+                      name="department"
                       value={formData.department}
-                      onChange={(e) =>
-                        setFormData({ ...formData, department: e.target.value })
-                      }
-                      className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.department
-                          ? "border-red-500"
-                          : "border-neutral-600"
-                      }`}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="front_of_house">Front of House</option>
-                      <option value="back_of_house">Back of House</option>
-                      <option value="kitchen">Kitchen</option>
-                      <option value="bar">Bar</option>
-                      <option value="management">Management</option>
-                      <option value="security">Security</option>
-                      <option value="cleaning">Cleaning</option>
-                      <option value="maintenance">Maintenance</option>
+                      {getCategoryOptions().map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
-                    {formErrors.department && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors.department}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -636,156 +724,276 @@ const Staff = () => {
                     </label>
                     <input
                       type="date"
+                      name="hireDate"
                       value={formData.hireDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, hireDate: e.target.value })
-                      }
-                      className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.hireDate
-                          ? "border-red-500"
-                          : "border-neutral-600"
-                      }`}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                     {formErrors.hireDate && (
-                      <p className="text-red-500 text-sm mt-1">
+                      <p className="text-red-400 text-xs mt-1">
                         {formErrors.hireDate}
                       </p>
                     )}
                   </div>
+                </div>
 
+                {/* Pay Information */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-neutral-300 mb-1">
                       Pay Frequency *
                     </label>
                     <select
+                      name="payFrequency"
                       value={formData.payFrequency}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          payFrequency: e.target.value,
-                        })
-                      }
-                      className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        formErrors.payFrequency
-                          ? "border-red-500"
-                          : "border-neutral-600"
-                      }`}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     >
-                      <option value="hourly">Hourly</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="biweekly">Bi-weekly</option>
-                      <option value="monthly">Monthly</option>
+                      {getPayFrequencyOptions().map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
-                    {formErrors.payFrequency && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {formErrors.payFrequency}
-                      </p>
-                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Hourly Rate (UGX)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.hourlyRate}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          hourlyRate: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="100"
-                    />
-                  </div>
+                  {formData.payFrequency === "hourly" && (
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Hourly Rate *
+                      </label>
+                      <input
+                        type="number"
+                        name="hourlyRate"
+                        value={formData.hourlyRate}
+                        onChange={handleInputChange}
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.hourlyRate && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.hourlyRate}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Salary (UGX)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.salary}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          salary: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      step="1000"
-                    />
-                  </div>
+                  {formData.payFrequency === "salary" && (
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Annual Salary *
+                      </label>
+                      <input
+                        type="number"
+                        name="salary"
+                        value={formData.salary}
+                        onChange={handleInputChange}
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.salary && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.salary}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Performance Rating
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.performanceRating}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          performanceRating: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="0"
-                      max="5"
-                      step="0.1"
-                    />
+                {/* Emergency Contact */}
+                <div>
+                  <h3 className="text-lg font-medium text-white mb-3">
+                    Emergency Contact
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Contact Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.emergencyContact?.name || ""}
+                        onChange={(e) =>
+                          handleNestedInputChange(
+                            "emergencyContact",
+                            "name",
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.emergencyContactName && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.emergencyContactName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Contact Phone *
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.emergencyContact?.phone || ""}
+                        onChange={(e) =>
+                          handleNestedInputChange(
+                            "emergencyContact",
+                            "phone",
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.emergencyContactPhone && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.emergencyContactPhone}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Relationship
+                      </label>
+                      <select
+                        value={formData.emergencyContact?.relationship || ""}
+                        onChange={(e) =>
+                          handleNestedInputChange(
+                            "emergencyContact",
+                            "relationship",
+                            e.target.value
+                          )
+                        }
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select relationship</option>
+                        {getRelationshipOptions().map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
+                {/* Skills and Certifications */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Skills
+                    </label>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {getSkillOptions().map((skill) => (
+                        <label key={skill.value} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={
+                              formData.skills?.includes(skill.value) || false
+                            }
+                            onChange={(e) => {
+                              const currentSkills = formData.skills || [];
+                              const newSkills = e.target.checked
+                                ? [...currentSkills, skill.value]
+                                : currentSkills.filter(
+                                    (s) => s !== skill.value
+                                  );
+                              handleArrayChange("skills", newSkills);
+                            }}
+                            className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-sm text-neutral-300">
+                            {skill.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Certifications
+                    </label>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {getCertificationOptions().map((cert) => (
+                        <label key={cert.value} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={
+                              formData.certifications?.includes(cert.value) ||
+                              false
+                            }
+                            onChange={(e) => {
+                              const currentCerts =
+                                formData.certifications || [];
+                              const newCerts = e.target.checked
+                                ? [...currentCerts, cert.value]
+                                : currentCerts.filter((c) => c !== cert.value);
+                              handleArrayChange("certifications", newCerts);
+                            }}
+                            className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="ml-2 text-sm text-neutral-300">
+                            {cert.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
                     Notes
                   </label>
                   <textarea
+                    name="notes"
                     value={formData.notes}
-                    onChange={(e) =>
-                      setFormData({ ...formData, notes: e.target.value })
-                    }
-                    className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={handleInputChange}
                     rows="3"
+                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={formData.isActive}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isActive: e.target.checked })
-                    }
-                    className="mr-2"
-                  />
-                  <label htmlFor="isActive" className="text-neutral-300">
-                    Active Staff Member
+                {/* Status */}
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      checked={formData.isActive}
+                      onChange={handleInputChange}
+                      className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm text-neutral-300">
+                      Active Employee
+                    </span>
                   </label>
                 </div>
 
-                <div className="flex gap-2 pt-4">
-                  <button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    {editingStaff ? "Update Staff" : "Add Staff"}
-                  </button>
+                <div className="flex justify-end gap-3 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowForm(false)}
-                    className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    onClick={() => dispatch(setShowForm(false))}
+                    className="px-4 py-2 text-neutral-300 hover:text-white transition-colors"
                   >
                     Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    {editingStaff ? "Update Staff" : "Create Staff"}
                   </button>
                 </div>
               </form>
@@ -796,145 +1004,263 @@ const Staff = () => {
 
       {/* Performance Update Modal */}
       {performanceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 p-6 rounded-lg w-96">
-            <h2 className="text-lg font-bold text-white mb-4">
-              Update Performance - {performanceModal.employeeId}
-            </h2>
-            <form onSubmit={handlePerformanceUpdate}>
-              <div className="space-y-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-md w-full border border-neutral-700">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">
+                  Update Performance - {performanceModal.firstName}{" "}
+                  {performanceModal.lastName}
+                </h3>
+                <button
+                  onClick={() => dispatch(setPerformanceModal(null))}
+                  className="text-neutral-400 hover:text-white"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handlePerformanceUpdate} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Performance Rating (0-5)
+                  <label className="block text-sm font-medium text-neutral-300 mb-2">
+                    Performance Rating (1-5)
                   </label>
-                  <input
-                    type="number"
-                    value={performanceData.performanceRating}
-                    onChange={(e) =>
-                      setPerformanceData({
-                        ...performanceData,
-                        performanceRating: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="0"
-                    max="5"
-                    step="0.1"
-                    required
-                  />
+                  <div className="flex items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => dispatch(setPerformanceData({ rating }))}
+                        className={`p-2 rounded ${
+                          performanceData.rating >= rating
+                            ? "bg-yellow-600 text-white"
+                            : "bg-neutral-700 text-neutral-400 hover:bg-neutral-600"
+                        }`}
+                      >
+                        <Award className="w-5 h-5" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Review Notes
+                    Comments
                   </label>
                   <textarea
-                    value={performanceData.reviewNotes}
+                    value={performanceData.comments}
                     onChange={(e) =>
-                      setPerformanceData({
-                        ...performanceData,
-                        reviewNotes: e.target.value,
-                      })
+                      dispatch(setPerformanceData({ comments: e.target.value }))
                     }
-                    className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
+                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  type="submit"
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Update Performance
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPerformanceModal(null)}
-                  className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => dispatch(setPerformanceModal(null))}
+                    className="px-4 py-2 text-neutral-300 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Update Performance
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* View Details Modal */}
+      {/* View Staff Modal */}
       {viewingStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 p-6 rounded-lg w-96 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-white mb-4">
-              Staff Details - {viewingStaff.employeeId}
-            </h2>
-            <div className="space-y-3">
-              <div>
-                <span className="text-neutral-400">Position:</span>
-                <span className="text-white ml-2">{viewingStaff.position}</span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Department:</span>
-                <span className="text-white ml-2">
-                  {formatDepartment(viewingStaff.department)}
-                </span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Hire Date:</span>
-                <span className="text-white ml-2">
-                  {new Date(viewingStaff.hireDate).toLocaleDateString()}
-                </span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Tenure:</span>
-                <span className="text-white ml-2">
-                  {getTenure(viewingStaff.hireDate)}
-                </span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Pay Rate:</span>
-                <span className="text-white ml-2">
-                  {viewingStaff.hourlyRate
-                    ? formatCurrency(viewingStaff.hourlyRate) + "/hr"
-                    : viewingStaff.salary
-                    ? formatCurrency(viewingStaff.salary) +
-                      "/" +
-                      viewingStaff.payFrequency
-                    : "N/A"}
-                </span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Performance Rating:</span>
-                <span className="text-white ml-2">
-                  {viewingStaff.performanceRating || "N/A"}
-                </span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Status:</span>
-                <span
-                  className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                    viewingStaff.isActive
-                      ? "text-green-500 bg-green-900/20"
-                      : "text-red-500 bg-red-900/20"
-                  }`}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full border border-neutral-700">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-white">
+                  {viewingStaff.firstName} {viewingStaff.lastName}
+                </h3>
+                <button
+                  onClick={() => dispatch(setViewingStaff(null))}
+                  className="text-neutral-400 hover:text-white"
                 >
-                  {viewingStaff.isActive ? "Active" : "Inactive"}
-                </span>
+                  ×
+                </button>
               </div>
-              {viewingStaff.notes && (
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <span className="text-neutral-400">Notes:</span>
-                  <p className="text-white mt-1">{viewingStaff.notes}</p>
+                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
+                    Basic Information
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Employee ID:</span>
+                      <span className="text-white">
+                        {viewingStaff.employeeId || "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Position:</span>
+                      <span className="text-white">
+                        {viewingStaff.position}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Department:</span>
+                      <span className="text-white">
+                        {formatDepartment(viewingStaff.department)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Hire Date:</span>
+                      <span className="text-white">
+                        {viewingStaff.hireDate
+                          ? new Date(viewingStaff.hireDate).toLocaleDateString()
+                          : "N/A"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
+                    Pay Information
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Pay Frequency:</span>
+                      <span className="text-white capitalize">
+                        {viewingStaff.payFrequency}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Rate:</span>
+                      <span className="text-white">
+                        {viewingStaff.payFrequency === "hourly"
+                          ? `${formatCurrency(viewingStaff.hourlyRate)}/hour`
+                          : `${formatCurrency(viewingStaff.salary)}/year`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Performance:</span>
+                      <span className="text-white">
+                        {viewingStaff.performanceRating || 0}/5
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Status:</span>
+                      <span
+                        className={`${getStatusColor(viewingStaff.isActive)}`}
+                      >
+                        {viewingStaff.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {viewingStaff.emergencyContact && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
+                    Emergency Contact
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-neutral-400">Name:</span>
+                      <span className="text-white ml-2">
+                        {viewingStaff.emergencyContact.name}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400">Phone:</span>
+                      <span className="text-white ml-2">
+                        {viewingStaff.emergencyContact.phone}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400">Relationship:</span>
+                      <span className="text-white ml-2 capitalize">
+                        {viewingStaff.emergencyContact.relationship}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setViewingStaff(null)}
-                className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Close
-              </button>
+
+              {viewingStaff.skills && viewingStaff.skills.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
+                    Skills
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {viewingStaff.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-2 py-1 bg-blue-100 bg-opacity-20 text-blue-300 rounded-full text-xs"
+                      >
+                        {getSkillOptions().find((s) => s.value === skill)
+                          ?.label || skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {viewingStaff.certifications &&
+                viewingStaff.certifications.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-neutral-300 mb-2">
+                      Certifications
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {viewingStaff.certifications.map((cert) => (
+                        <span
+                          key={cert}
+                          className="px-2 py-1 bg-green-100 bg-opacity-20 text-green-300 rounded-full text-xs"
+                        >
+                          {getCertificationOptions().find(
+                            (c) => c.value === cert
+                          )?.label || cert}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {viewingStaff.notes && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
+                    Notes
+                  </h4>
+                  <p className="text-sm text-white">{viewingStaff.notes}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => dispatch(setViewingStaff(null))}
+                  className="px-4 py-2 text-neutral-300 hover:text-white transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    dispatch(setViewingStaff(null));
+                    handleEdit(viewingStaff);
+                  }}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Edit Staff
+                </button>
+              </div>
             </div>
           </div>
         </div>

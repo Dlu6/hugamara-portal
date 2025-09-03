@@ -1,12 +1,24 @@
-import { Op } from 'sequelize';
-import { Order, Reservation, Guest, User, Outlet, Payment, Inventory, MenuItem, Table } from '../models/index.js';
+import { Op } from "sequelize";
+import { sequelize } from "../config/database.js";
+import {
+  Order,
+  Reservation,
+  Guest,
+  User,
+  Outlet,
+  Payment,
+  Inventory,
+  MenuItem,
+  Table,
+} from "../models/index.js";
 
 export const getDashboardStats = async (req, res) => {
   try {
     const { outletId } = req.query;
     const userOutletId = req.user.outletId;
-    
-    const targetOutletId = req.user.role === 'org_admin' ? (outletId || userOutletId) : userOutletId;
+
+    const targetOutletId =
+      req.user.role === "org_admin" ? outletId || userOutletId : userOutletId;
 
     const today = new Date();
     const startOfDay = new Date(today.setHours(0, 0, 0, 0));
@@ -19,7 +31,7 @@ export const getDashboardStats = async (req, res) => {
     // Get comprehensive stats
     const [
       todayOrders,
-      todayReservations, 
+      todayReservations,
       todayRevenue,
       totalGuests,
       weeklyRevenue,
@@ -30,41 +42,81 @@ export const getDashboardStats = async (req, res) => {
       totalTables,
       occupiedTables,
       totalMenuItems,
-      avgOrderValue
+      avgOrderValue,
     ] = await Promise.all([
       Order.count({
-        where: { ...whereClause, createdAt: { [Op.between]: [startOfDay, endOfDay] } }
+        where: {
+          ...whereClause,
+          createdAt: { [Op.between]: [startOfDay, endOfDay] },
+        },
       }),
       Reservation.count({
-        where: { ...whereClause, reservationDate: { [Op.eq]: today.toISOString().split('T')[0] } }
+        where: {
+          ...whereClause,
+          reservationDate: { [Op.eq]: today.toISOString().split("T")[0] },
+        },
       }),
-      Payment.sum('amount', {
-        where: { ...whereClause, paymentStatus: 'completed', createdAt: { [Op.between]: [startOfDay, endOfDay] } }
+      Payment.sum("amount", {
+        where: {
+          ...whereClause,
+          paymentStatus: "completed",
+          createdAt: { [Op.between]: [startOfDay, endOfDay] },
+        },
       }),
       Guest.count({ where: { isActive: true } }),
-      Payment.sum('amount', {
-        where: { ...whereClause, paymentStatus: 'completed', createdAt: { [Op.gte]: startOfWeek } }
+      Payment.sum("amount", {
+        where: {
+          ...whereClause,
+          paymentStatus: "completed",
+          createdAt: { [Op.gte]: startOfWeek },
+        },
       }),
-      Payment.sum('amount', {
-        where: { ...whereClause, paymentStatus: 'completed', createdAt: { [Op.gte]: startOfMonth } }
+      Payment.sum("amount", {
+        where: {
+          ...whereClause,
+          paymentStatus: "completed",
+          createdAt: { [Op.gte]: startOfMonth },
+        },
       }),
       Order.count({
-        where: { ...whereClause, status: { [Op.in]: ['pending', 'confirmed'] } }
+        where: {
+          ...whereClause,
+          status: { [Op.in]: ["pending", "confirmed"] },
+        },
       }),
       Reservation.count({
-        where: { ...whereClause, status: 'confirmed', reservationDate: { [Op.gte]: today.toISOString().split('T')[0] } }
+        where: {
+          ...whereClause,
+          status: "confirmed",
+          reservationDate: { [Op.gte]: today.toISOString().split("T")[0] },
+        },
       }),
       Inventory.count({
-        where: { ...whereClause, isActive: true, currentStock: { [Op.lte]: { [Op.col]: 'reorderPoint' } } }
+        where: {
+          ...whereClause,
+          isActive: true,
+          [Op.and]: [
+            sequelize.where(
+              sequelize.col("current_stock"),
+              Op.lte,
+              sequelize.col("reorder_point")
+            ),
+          ],
+        },
       }),
       Table.count({ where: whereClause }),
-      Table.count({ where: { ...whereClause, status: 'occupied' } }),
+      Table.count({ where: { ...whereClause, status: "occupied" } }),
       MenuItem.count({ where: { ...whereClause, isAvailable: true } }),
       Order.findOne({
         where: { ...whereClause, createdAt: { [Op.gte]: startOfMonth } },
-        attributes: [[Order.sequelize.fn('AVG', Order.sequelize.col('totalAmount')), 'avgValue']],
-        raw: true
-      })
+        attributes: [
+          [
+            Order.sequelize.fn("AVG", Order.sequelize.col("total_amount")),
+            "avgValue",
+          ],
+        ],
+        raw: true,
+      }),
     ]);
 
     res.json({
@@ -82,12 +134,12 @@ export const getDashboardStats = async (req, res) => {
         occupiedTables: occupiedTables || 0,
         availableTables: (totalTables || 0) - (occupiedTables || 0),
         totalMenuItems: totalMenuItems || 0,
-        avgOrderValue: parseFloat(avgOrderValue?.avgValue) || 0
-      }
+        avgOrderValue: parseFloat(avgOrderValue?.avgValue) || 0,
+      },
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
-    res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+    console.error("Dashboard stats error:", error);
+    res.status(500).json({ error: "Failed to fetch dashboard stats" });
   }
 };
 
@@ -95,41 +147,49 @@ export const getRecentActivity = async (req, res) => {
   try {
     const { outletId } = req.query;
     const userOutletId = req.user.outletId;
-    
-    const targetOutletId = req.user.role === 'org_admin' ? (outletId || userOutletId) : userOutletId;
+
+    const targetOutletId =
+      req.user.role === "org_admin" ? outletId || userOutletId : userOutletId;
     const whereClause = targetOutletId ? { outletId: targetOutletId } : {};
 
     const [recentOrders, recentReservations] = await Promise.all([
       Order.findAll({
         where: whereClause,
         limit: 5,
-        order: [['createdAt', 'DESC']],
-        attributes: ['id', 'orderNumber', 'totalAmount', 'status', 'createdAt']
+        order: [["createdAt", "DESC"]],
+        attributes: ["id", "orderNumber", "totalAmount", "status", "createdAt"],
       }),
       Reservation.findAll({
         where: whereClause,
         limit: 5,
-        order: [['createdAt', 'DESC']],
-        attributes: ['id', 'reservationNumber', 'partySize', 'status', 'reservationDate']
-      })
+        order: [["createdAt", "DESC"]],
+        attributes: [
+          "id",
+          "reservationNumber",
+          "partySize",
+          "status",
+          "reservationDate",
+        ],
+      }),
     ]);
 
     res.json({ recentOrders, recentReservations });
   } catch (error) {
-    console.error('Recent activity error:', error);
-    res.status(500).json({ error: 'Failed to fetch recent activity' });
+    console.error("Recent activity error:", error);
+    res.status(500).json({ error: "Failed to fetch recent activity" });
   }
 };
 
 export const getRevenueChart = async (req, res) => {
   try {
-    const { period = 'week', outletId } = req.query;
+    const { period = "week", outletId } = req.query;
     const userOutletId = req.user.outletId;
-    const targetOutletId = req.user.role === 'org_admin' ? (outletId || userOutletId) : userOutletId;
+    const targetOutletId =
+      req.user.role === "org_admin" ? outletId || userOutletId : userOutletId;
     const whereClause = targetOutletId ? { outletId: targetOutletId } : {};
 
     let days = 7;
-    if (period === 'month') days = 30;
+    if (period === "month") days = 30;
 
     const revenueData = [];
     for (let i = days - 1; i >= 0; i--) {
@@ -138,24 +198,24 @@ export const getRevenueChart = async (req, res) => {
       const dayStart = new Date(date.setHours(0, 0, 0, 0));
       const dayEnd = new Date(date.setHours(23, 59, 59, 999));
 
-      const revenue = await Payment.sum('amount', {
+      const revenue = await Payment.sum("amount", {
         where: {
           ...whereClause,
-          paymentStatus: 'completed',
-          createdAt: { [Op.between]: [dayStart, dayEnd] }
-        }
+          paymentStatus: "completed",
+          createdAt: { [Op.between]: [dayStart, dayEnd] },
+        },
       });
 
       revenueData.push({
-        date: dayStart.toISOString().split('T')[0],
-        revenue: revenue || 0
+        date: dayStart.toISOString().split("T")[0],
+        revenue: revenue || 0,
       });
     }
 
     res.json({ revenueData });
   } catch (error) {
-    console.error('Revenue chart error:', error);
-    res.status(500).json({ error: 'Failed to fetch revenue data' });
+    console.error("Revenue chart error:", error);
+    res.status(500).json({ error: "Failed to fetch revenue data" });
   }
 };
 
@@ -163,7 +223,8 @@ export const getTopMenuItems = async (req, res) => {
   try {
     const { outletId } = req.query;
     const userOutletId = req.user.outletId;
-    const targetOutletId = req.user.role === 'org_admin' ? (outletId || userOutletId) : userOutletId;
+    const targetOutletId =
+      req.user.role === "org_admin" ? outletId || userOutletId : userOutletId;
 
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -171,16 +232,25 @@ export const getTopMenuItems = async (req, res) => {
     const topItems = await MenuItem.findAll({
       where: { outletId: targetOutletId },
       attributes: [
-        'id', 'name', 'price',
-        [MenuItem.sequelize.literal('(SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE oi.menu_item_id = MenuItem.id AND o.created_at >= "' + startOfMonth.toISOString() + '")'), 'totalSold']
+        "id",
+        "name",
+        "price",
+        [
+          MenuItem.sequelize.literal(
+            '(SELECT COALESCE(SUM(oi.quantity), 0) FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE oi.menu_item_id = MenuItem.id AND o.created_at >= "' +
+              startOfMonth.toISOString() +
+              '")'
+          ),
+          "totalSold",
+        ],
       ],
-      order: [[MenuItem.sequelize.literal('totalSold'), 'DESC']],
-      limit: 5
+      order: [[MenuItem.sequelize.literal("totalSold"), "DESC"]],
+      limit: 5,
     });
 
     res.json({ topMenuItems: topItems });
   } catch (error) {
-    console.error('Top menu items error:', error);
-    res.status(500).json({ error: 'Failed to fetch top menu items' });
+    console.error("Top menu items error:", error);
+    res.status(500).json({ error: "Failed to fetch top menu items" });
   }
 };

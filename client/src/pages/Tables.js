@@ -1,161 +1,232 @@
-import React, { useEffect, useState } from "react";
-import { Table as TableIcon, Plus, Edit, Trash2, Search } from "lucide-react";
-import { tablesAPI, outletsAPI } from "../services/apiClient";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  Table as TableIcon,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  Filter,
+} from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
+import {
+  fetchTables,
+  fetchOutlets,
+  createTable,
+  updateTable,
+  deleteTable,
+  updateTableStatus,
+  setFormData,
+  setFormErrors,
+  setShowForm,
+  setEditingTable,
+  setViewingTable,
+  setFilters,
+  resetForm,
+  clearError,
+  selectTables,
+  selectFilteredTables,
+  selectOutlets,
+  selectTablesLoading,
+  selectTablesError,
+  selectTablesFormData,
+  selectTablesFormErrors,
+  selectShowTablesForm,
+  selectEditingTable,
+  selectViewingTable,
+  selectTablesFilters,
+} from "../store/slices/tablesSlice";
 
 const Tables = () => {
+  const dispatch = useDispatch();
   const { success: showSuccess, error: showError } = useToast();
 
-  const [items, setItems] = useState([]);
-  const [outlets, setOutlets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filterOutlet, setFilterOutlet] = useState("");
+  // Redux selectors
+  const tables = useSelector(selectTables);
+  const filteredTables = useSelector(selectFilteredTables);
+  const outlets = useSelector(selectOutlets);
+  const loading = useSelector(selectTablesLoading);
+  const error = useSelector(selectTablesError);
+  const formData = useSelector(selectTablesFormData);
+  const formErrors = useSelector(selectTablesFormErrors);
+  const showForm = useSelector(selectShowTablesForm);
+  const editingTable = useSelector(selectEditingTable);
+  const viewingTable = useSelector(selectViewingTable);
+  const filters = useSelector(selectTablesFilters);
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
-  const [selected, setSelected] = useState(null);
-
-  const emptyForm = {
-    outletId: "",
-    tableNumber: "",
-    name: "",
-    capacity: 2,
-    minCapacity: 1,
-    maxCapacity: 8,
-    tableType: "standard",
-    status: "available",
-    isActive: true,
-  };
-  const [form, setForm] = useState(emptyForm);
-  const [formErrors, setFormErrors] = useState({});
-
+  // Load data on component mount
   useEffect(() => {
-    load();
-    loadOutlets();
-  }, []);
+    dispatch(fetchTables());
+    dispatch(fetchOutlets());
+  }, [dispatch]);
 
-  const load = async () => {
-    try {
-      setLoading(true);
-      const res = await tablesAPI.getAll(
-        filterOutlet ? { outletId: filterOutlet } : {}
-      );
-      const list = res?.data?.tables || res?.data || [];
-      setItems(Array.isArray(list) ? list : []);
-    } catch (err) {
-      showError("Failed to load tables", err?.response?.data?.message || "");
-    } finally {
-      setLoading(false);
+  // Handle filter changes
+  useEffect(() => {
+    if (filters.outletId) {
+      dispatch(fetchTables({ outletId: filters.outletId }));
     }
-  };
+  }, [dispatch, filters.outletId]);
 
-  const loadOutlets = async () => {
-    try {
-      const res = await outletsAPI.getAll();
-      const list = res?.data?.outlets || res?.data || [];
-      setOutlets(Array.isArray(list) ? list : []);
-    } catch (err) {
-      // best-effort, ignore
+  // Show error messages
+  useEffect(() => {
+    if (error) {
+      showError("Operation failed", error);
+      dispatch(clearError());
     }
+  }, [error, showError, dispatch]);
+
+  // Event handlers
+  const handleSearch = (e) => {
+    dispatch(setFilters({ search: e.target.value }));
   };
 
-  const openCreate = () => {
-    setForm(emptyForm);
-    setFormErrors({});
-    setShowCreate(true);
+  const handleOutletFilter = (outletId) => {
+    dispatch(setFilters({ outletId }));
   };
 
-  const openEdit = (row) => {
-    setSelected(row);
-    setForm({
-      outletId: row.outletId,
-      tableNumber: row.tableNumber,
-      name: row.name || "",
-      capacity: row.capacity,
-      minCapacity: row.minCapacity,
-      maxCapacity: row.maxCapacity,
-      tableType: row.tableType,
-      status: row.status,
-      isActive: row.isActive,
-    });
-    setFormErrors({});
-    setShowEdit(true);
+  const handleStatusFilter = (status) => {
+    dispatch(setFilters({ status }));
   };
 
-  const handleCreate = async (e) => {
+  const handleTypeFilter = (tableType) => {
+    dispatch(setFilters({ tableType }));
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value, type } = e.target;
+    dispatch(
+      setFormData({
+        [name]: type === "number" ? parseInt(value || 0) : value,
+      })
+    );
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
-      const res = await tablesAPI.create(form);
-      const created = res?.data?.table || res?.data;
-      if (created?.id) setItems((prev) => [created, ...prev]);
-      else await load();
-      showSuccess("Table created", created.tableNumber);
-      setShowCreate(false);
-      setForm(emptyForm);
-    } catch (err) {
-      const data = err?.response?.data;
-      const details = data?.errors || data?.details || [];
-      const mapped = {};
-      details.forEach((d) => {
-        if (d?.field) mapped[d.field] = d.message;
-      });
-      setFormErrors(mapped);
-      showError("Create failed", data?.message || "Validation failed");
+      if (editingTable) {
+        const result = await dispatch(
+          updateTable({
+            id: editingTable.id,
+            tableData: formData,
+          })
+        ).unwrap();
+        showSuccess("Table updated", result.tableNumber);
+      } else {
+        const result = await dispatch(createTable(formData)).unwrap();
+        showSuccess("Table created", result.tableNumber);
+      }
+    } catch (error) {
+      // Error handling is done in the slice
     }
   };
 
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    try {
-      setFormErrors({});
-      const res = await tablesAPI.update(selected.id, form);
-      const updated = res?.data?.table || res?.data;
-      if (updated?.id)
-        setItems((prev) =>
-          prev.map((t) => (t.id === updated.id ? updated : t))
-        );
-      else await load();
-      showSuccess("Table updated", updated.tableNumber);
-      setShowEdit(false);
-      setSelected(null);
-    } catch (err) {
-      const data = err?.response?.data;
-      const details = data?.errors || data?.details || [];
-      const mapped = {};
-      details.forEach((d) => {
-        if (d?.field) mapped[d.field] = d.message;
-      });
-      setFormErrors(mapped);
-      showError("Update failed", data?.message || "Validation failed");
-    }
+  const handleEdit = (table) => {
+    dispatch(setEditingTable(table));
+    dispatch(setShowForm(true));
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete table?")) return;
     try {
-      await tablesAPI.delete(id);
-      setItems((prev) => prev.filter((t) => t.id !== id));
+      await dispatch(deleteTable(id)).unwrap();
       showSuccess("Table deleted", "Marked out of service");
-    } catch (err) {
-      showError("Delete failed", err?.response?.data?.message || "");
+    } catch (error) {
+      // Error handling is done in the slice
     }
   };
 
-  const filtered = items.filter((t) => {
-    const s = search.toLowerCase();
-    if (!s) return true;
-    return (
-      t.tableNumber?.toLowerCase().includes(s) ||
-      t.name?.toLowerCase().includes(s) ||
-      t.tableType?.toLowerCase().includes(s) ||
-      t.status?.toLowerCase().includes(s)
+  const handleView = (table) => {
+    dispatch(setViewingTable(table));
+  };
+
+  const handleStatusUpdate = async (id, status) => {
+    try {
+      await dispatch(updateTableStatus({ id, status })).unwrap();
+      showSuccess("Status updated", `Table status changed to ${status}`);
+    } catch (error) {
+      // Error handling is done in the slice
+    }
+  };
+
+  const resetFormData = () => {
+    dispatch(resetForm());
+    dispatch(setFormErrors({}));
+  };
+
+  const openCreateForm = () => {
+    resetFormData();
+    dispatch(setShowForm(true));
+  };
+
+  const closeForm = () => {
+    dispatch(setShowForm(false));
+    dispatch(setEditingTable(null));
+    resetFormData();
+  };
+
+  const clearFilters = () => {
+    dispatch(
+      setFilters({
+        search: "",
+        outletId: "",
+        status: "",
+        tableType: "",
+      })
     );
-  });
+  };
+
+  // Helper functions
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "available":
+        return "bg-green-100 text-green-800";
+      case "occupied":
+        return "bg-blue-100 text-blue-800";
+      case "reserved":
+        return "bg-yellow-100 text-yellow-800";
+      case "cleaning":
+        return "bg-purple-100 text-purple-800";
+      case "maintenance":
+        return "bg-orange-100 text-orange-800";
+      case "out_of_service":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatTableType = (type) => {
+    return type?.replace(/_/g, " ") || "";
+  };
+
+  const formatStatus = (status) => {
+    return status?.replace(/_/g, " ") || "";
+  };
+
+  const getTableTypeOptions = () => [
+    "standard",
+    "booth",
+    "bar",
+    "high_top",
+    "outdoor",
+    "private",
+    "vip",
+    "wheelchair_accessible",
+  ];
+
+  const getStatusOptions = () => [
+    "available",
+    "occupied",
+    "reserved",
+    "cleaning",
+    "maintenance",
+    "out_of_service",
+  ];
 
   return (
     <div className="p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <TableIcon className="w-8 h-8 text-indigo-600" />
@@ -166,57 +237,84 @@ const Tables = () => {
         </div>
         <button
           className="btn-primary inline-flex items-center gap-2"
-          onClick={openCreate}
+          onClick={openCreateForm}
         >
           <Plus className="w-4 h-4" /> New Table
         </button>
       </div>
 
+      {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={handleSearch}
               className="pl-10 w-full form-input"
-              placeholder="Search number, name, type, status"
+              placeholder="Search tables..."
             />
           </div>
+
+          {/* Outlet Filter */}
           <div>
             <select
-              value={filterOutlet}
-              onChange={(e) => setFilterOutlet(e.target.value)}
+              value={filters.outletId}
+              onChange={(e) => handleOutletFilter(e.target.value)}
               className="w-full form-input"
             >
               <option value="">All Outlets</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
+              {outlets.map((outlet) => (
+                <option key={outlet.id} value={outlet.id}>
+                  {outlet.name}
                 </option>
               ))}
             </select>
           </div>
-          <div className="flex items-center">
-            <button onClick={load} className="btn-secondary w-full">
-              Apply
-            </button>
-          </div>
-          <div className="flex items-center">
-            <button
-              onClick={() => {
-                setSearch("");
-                setFilterOutlet("");
-                load();
-              }}
-              className="btn-secondary w-full"
+
+          {/* Status Filter */}
+          <div>
+            <select
+              value={filters.status}
+              onChange={(e) => handleStatusFilter(e.target.value)}
+              className="w-full form-input"
             >
-              Clear
+              <option value="">All Statuses</option>
+              {getStatusOptions().map((status) => (
+                <option key={status} value={status}>
+                  {formatStatus(status)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <select
+              value={filters.tableType}
+              onChange={(e) => handleTypeFilter(e.target.value)}
+              className="w-full form-input"
+            >
+              <option value="">All Types</option>
+              {getTableTypeOptions().map((type) => (
+                <option key={type} value={type}>
+                  {formatTableType(type)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Clear Filters */}
+          <div className="flex items-center">
+            <button onClick={clearFilters} className="btn-secondary w-full">
+              Clear Filters
             </button>
           </div>
         </div>
       </div>
 
+      {/* Tables List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
@@ -249,33 +347,28 @@ const Tables = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filtered.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
+                {filteredTables.map((table) => (
+                  <tr key={table.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {t.tableNumber}
+                      {table.tableNumber}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {t.name || "-"}
+                      {table.name || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {t.minCapacity}-{t.maxCapacity} (cap {t.capacity})
+                      {table.minCapacity}-{table.maxCapacity} (cap{" "}
+                      {table.capacity})
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
-                      {t.tableType.replace("_", " ")}
+                      {formatTableType(table.tableType)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          t.status === "available"
-                            ? "bg-green-100 text-green-800"
-                            : t.status === "reserved"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : t.status === "occupied"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                          table.status
+                        )}`}
                       >
-                        {t.status.replace("_", " ")}
+                        {formatStatus(table.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -283,14 +376,14 @@ const Tables = () => {
                         <button
                           className="text-indigo-600 hover:text-indigo-900"
                           title="Edit"
-                          onClick={() => openEdit(t)}
+                          onClick={() => handleEdit(table)}
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           className="text-red-600 hover:text-red-900"
                           title="Delete"
-                          onClick={() => handleDelete(t.id)}
+                          onClick={() => handleDelete(table.id)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -298,37 +391,47 @@ const Tables = () => {
                     </td>
                   </tr>
                 ))}
+                {filteredTables.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan="6"
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      No tables found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Create Modal */}
-      {showCreate && (
+      {/* Create/Edit Modal */}
+      {showForm && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                New Table
+                {editingTable ? "Edit Table" : "New Table"}
               </h3>
-              <form onSubmit={handleCreate} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Outlet */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Outlet
                   </label>
                   <select
-                    value={form.outletId}
-                    onChange={(e) =>
-                      setForm({ ...form, outletId: e.target.value })
-                    }
+                    name="outletId"
+                    value={formData.outletId}
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     required
                   >
                     <option value="">Select outlet</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
+                    {outlets.map((outlet) => (
+                      <option key={outlet.id} value={outlet.id}>
+                        {outlet.name}
                       </option>
                     ))}
                   </select>
@@ -338,200 +441,16 @@ const Tables = () => {
                     </div>
                   )}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Table Number
-                  </label>
-                  <input
-                    value={form.tableNumber}
-                    onChange={(e) =>
-                      setForm({ ...form, tableNumber: e.target.value })
-                    }
-                    className="mt-1 w-full form-input"
-                    required
-                  />
-                  {formErrors.tableNumber && (
-                    <div className="text-xs text-red-600 mt-1">
-                      {formErrors.tableNumber}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Name
-                  </label>
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="mt-1 w-full form-input"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Capacity
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={form.capacity}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          capacity: parseInt(e.target.value || 0),
-                        })
-                      }
-                      className="mt-1 w-full form-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Min
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={form.minCapacity}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          minCapacity: parseInt(e.target.value || 0),
-                        })
-                      }
-                      className="mt-1 w-full form-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Max
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={form.maxCapacity}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          maxCapacity: parseInt(e.target.value || 0),
-                        })
-                      }
-                      className="mt-1 w-full form-input"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Type
-                  </label>
-                  <select
-                    value={form.tableType}
-                    onChange={(e) =>
-                      setForm({ ...form, tableType: e.target.value })
-                    }
-                    className="mt-1 w-full form-input"
-                  >
-                    {[
-                      "standard",
-                      "booth",
-                      "bar",
-                      "high_top",
-                      "outdoor",
-                      "private",
-                      "vip",
-                      "wheelchair_accessible",
-                    ].map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt.replace("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Status
-                  </label>
-                  <select
-                    value={form.status}
-                    onChange={(e) =>
-                      setForm({ ...form, status: e.target.value })
-                    }
-                    className="mt-1 w-full form-input"
-                  >
-                    {[
-                      "available",
-                      "occupied",
-                      "reserved",
-                      "cleaning",
-                      "maintenance",
-                      "out_of_service",
-                    ].map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt.replace("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreate(false)}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn-primary">
-                    Create
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Edit Modal */}
-      {showEdit && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Edit Table
-              </h3>
-              <form onSubmit={handleUpdate} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Outlet
-                  </label>
-                  <select
-                    value={form.outletId}
-                    onChange={(e) =>
-                      setForm({ ...form, outletId: e.target.value })
-                    }
-                    className="mt-1 w-full form-input"
-                    required
-                  >
-                    <option value="">Select outlet</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.outletId && (
-                    <div className="text-xs text-red-600 mt-1">
-                      {formErrors.outletId}
-                    </div>
-                  )}
-                </div>
+                {/* Table Number */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Table Number
                   </label>
                   <input
-                    value={form.tableNumber}
-                    onChange={(e) =>
-                      setForm({ ...form, tableNumber: e.target.value })
-                    }
+                    name="tableNumber"
+                    value={formData.tableNumber}
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     required
                   />
@@ -541,16 +460,21 @@ const Tables = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Name
                   </label>
                   <input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                   />
                 </div>
+
+                {/* Capacity Fields */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
@@ -558,14 +482,10 @@ const Tables = () => {
                     </label>
                     <input
                       type="number"
+                      name="capacity"
                       min={1}
-                      value={form.capacity}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          capacity: parseInt(e.target.value || 0),
-                        })
-                      }
+                      value={formData.capacity}
+                      onChange={handleInputChange}
                       className="mt-1 w-full form-input"
                     />
                   </div>
@@ -575,14 +495,10 @@ const Tables = () => {
                     </label>
                     <input
                       type="number"
+                      name="minCapacity"
                       min={1}
-                      value={form.minCapacity}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          minCapacity: parseInt(e.target.value || 0),
-                        })
-                      }
+                      value={formData.minCapacity}
+                      onChange={handleInputChange}
                       className="mt-1 w-full form-input"
                     />
                   </div>
@@ -592,80 +508,68 @@ const Tables = () => {
                     </label>
                     <input
                       type="number"
+                      name="maxCapacity"
                       min={1}
-                      value={form.maxCapacity}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          maxCapacity: parseInt(e.target.value || 0),
-                        })
-                      }
+                      value={formData.maxCapacity}
+                      onChange={handleInputChange}
                       className="mt-1 w-full form-input"
                     />
                   </div>
                 </div>
+
+                {/* Table Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Type
                   </label>
                   <select
-                    value={form.tableType}
-                    onChange={(e) =>
-                      setForm({ ...form, tableType: e.target.value })
-                    }
+                    name="tableType"
+                    value={formData.tableType}
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                   >
-                    {[
-                      "standard",
-                      "booth",
-                      "bar",
-                      "high_top",
-                      "outdoor",
-                      "private",
-                      "vip",
-                      "wheelchair_accessible",
-                    ].map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt.replace("_", " ")}
+                    {getTableTypeOptions().map((type) => (
+                      <option key={type} value={type}>
+                        {formatTableType(type)}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                {/* Status */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
                     Status
                   </label>
                   <select
-                    value={form.status}
-                    onChange={(e) =>
-                      setForm({ ...form, status: e.target.value })
-                    }
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                   >
-                    {[
-                      "available",
-                      "occupied",
-                      "reserved",
-                      "cleaning",
-                      "maintenance",
-                      "out_of_service",
-                    ].map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt.replace("_", " ")}
+                    {getStatusOptions().map((status) => (
+                      <option key={status} value={status}>
+                        {formatStatus(status)}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                {/* Form Actions */}
                 <div className="flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowEdit(false)}
+                    onClick={closeForm}
                     className="btn-secondary"
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Update
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? "Saving..." : editingTable ? "Update" : "Create"}
                   </button>
                 </div>
               </form>

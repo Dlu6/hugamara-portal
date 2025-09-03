@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   CreditCard,
   Plus,
@@ -18,181 +19,137 @@ import {
   Banknote,
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
-import { paymentsAPI, ordersAPI } from "../services/apiClient";
+import {
+  fetchPayments,
+  fetchPaymentStats,
+  fetchOrders,
+  createPayment,
+  updatePayment,
+  deletePayment,
+  processPayment,
+  refundPayment,
+  setFormData,
+  setFormErrors,
+  setShowForm,
+  setEditingPayment,
+  setViewingPayment,
+  setRefundModal,
+  setRefundData,
+  setFilters,
+  resetForm,
+  clearError,
+  selectPayments,
+  selectPaymentStats,
+  selectPaymentOrders,
+  selectPaymentsLoading,
+  selectPaymentsError,
+  selectPaymentsFormData,
+  selectPaymentsFormErrors,
+  selectPaymentsShowForm,
+  selectPaymentsEditingPayment,
+  selectPaymentsViewingPayment,
+  selectPaymentsRefundModal,
+  selectPaymentsRefundData,
+  selectPaymentsFilters,
+} from "../store/slices/paymentsSlice";
 
 const Payments = () => {
-  const [payments, setPayments] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingPayment, setEditingPayment] = useState(null);
-  const [viewingPayment, setViewingPayment] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [methodFilter, setMethodFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-  const [formData, setFormData] = useState({
-    orderId: "",
-    amount: 0,
-    currency: "UGX",
-    paymentMethod: "cash",
-    paymentStatus: "pending",
-    transactionId: "",
-    referenceNumber: "",
-    cardType: "",
-    cardLast4: "",
-    mobileMoneyProvider: "",
-    mobileMoneyNumber: "",
-    bankName: "",
-    accountNumber: "",
-    tipAmount: 0,
-    serviceCharge: 0,
-    taxAmount: 0,
-    discountAmount: 0,
-    discountReason: "",
-    notes: "",
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [refundModal, setRefundModal] = useState(null);
-  const [refundData, setRefundData] = useState({
-    refundReason: "",
-    refundAmount: 0,
-  });
+  const dispatch = useDispatch();
+  const payments = useSelector(selectPayments);
+  const stats = useSelector(selectPaymentStats);
+  const orders = useSelector(selectPaymentOrders);
+  const loading = useSelector(selectPaymentsLoading);
+  const error = useSelector(selectPaymentsError);
+  const formData = useSelector(selectPaymentsFormData);
+  const formErrors = useSelector(selectPaymentsFormErrors);
+  const showForm = useSelector(selectPaymentsShowForm);
+  const editingPayment = useSelector(selectPaymentsEditingPayment);
+  const viewingPayment = useSelector(selectPaymentsViewingPayment);
+  const refundModal = useSelector(selectPaymentsRefundModal);
+  const refundData = useSelector(selectPaymentsRefundData);
+  const filters = useSelector(selectPaymentsFilters);
+
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
-    fetchPayments();
-    fetchOrders();
-    fetchStats();
-  }, []);
+    dispatch(fetchPayments(filters));
+    dispatch(fetchOrders());
+    dispatch(fetchPaymentStats());
+  }, [dispatch, filters]);
 
-  const fetchPayments = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      if (methodFilter) params.append("paymentMethod", methodFilter);
-      if (statusFilter) params.append("paymentStatus", statusFilter);
-      if (dateFilter) params.append("dateFrom", dateFilter);
-
-      const response = await paymentsAPI.getAll(params.toString());
-      setPayments(response.payments || []);
-    } catch (error) {
-      console.error("Failed to fetch payments:", error);
-      showError(
-        "Failed to fetch payments",
-        error?.response?.data?.message || ""
-      );
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error) {
+      showError("Error", error);
+      dispatch(clearError());
     }
-  };
-
-  const fetchOrders = async () => {
-    try {
-      const response = await ordersAPI.getAll();
-      setOrders(response.orders || []);
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const response = await paymentsAPI.getStats();
-      setStats(response.stats || {});
-    } catch (error) {
-      console.error("Failed to fetch payment stats:", error);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      orderId: "",
-      amount: 0,
-      currency: "UGX",
-      paymentMethod: "cash",
-      paymentStatus: "pending",
-      transactionId: "",
-      referenceNumber: "",
-      cardType: "",
-      cardLast4: "",
-      mobileMoneyProvider: "",
-      mobileMoneyNumber: "",
-      bankName: "",
-      accountNumber: "",
-      tipAmount: 0,
-      serviceCharge: 0,
-      taxAmount: 0,
-      discountAmount: 0,
-      discountReason: "",
-      notes: "",
-    });
-    setFormErrors({});
-    setEditingPayment(null);
-  };
+  }, [error, showError, dispatch]);
 
   const openCreateModal = () => {
-    resetForm();
-    setShowForm(true);
+    dispatch(resetForm());
+    dispatch(setShowForm(true));
   };
 
   const openEditModal = (payment) => {
-    setFormData({
-      orderId: payment.orderId || "",
-      amount: payment.amount || 0,
-      currency: payment.currency || "UGX",
-      paymentMethod: payment.paymentMethod || "cash",
-      paymentStatus: payment.paymentStatus || "pending",
-      transactionId: payment.transactionId || "",
-      referenceNumber: payment.referenceNumber || "",
-      cardType: payment.cardType || "",
-      cardLast4: payment.cardLast4 || "",
-      mobileMoneyProvider: payment.mobileMoneyProvider || "",
-      mobileMoneyNumber: payment.mobileMoneyNumber || "",
-      bankName: payment.bankName || "",
-      accountNumber: payment.accountNumber || "",
-      tipAmount: payment.tipAmount || 0,
-      serviceCharge: payment.serviceCharge || 0,
-      taxAmount: payment.taxAmount || 0,
-      discountAmount: payment.discountAmount || 0,
-      discountReason: payment.discountReason || "",
-      notes: payment.notes || "",
-    });
-    setEditingPayment(payment);
-    setShowForm(true);
+    dispatch(
+      setFormData({
+        orderId: payment.orderId || "",
+        amount: payment.amount || 0,
+        currency: payment.currency || "UGX",
+        paymentMethod: payment.paymentMethod || "cash",
+        paymentStatus: payment.paymentStatus || "pending",
+        transactionId: payment.transactionId || "",
+        referenceNumber: payment.referenceNumber || "",
+        cardType: payment.cardType || "",
+        cardLast4: payment.cardLast4 || "",
+        mobileMoneyProvider: payment.mobileMoneyProvider || "",
+        mobileMoneyNumber: payment.mobileMoneyNumber || "",
+        bankName: payment.bankName || "",
+        accountNumber: payment.accountNumber || "",
+        tipAmount: payment.tipAmount || 0,
+        serviceCharge: payment.serviceCharge || 0,
+        taxAmount: payment.taxAmount || 0,
+        discountAmount: payment.discountAmount || 0,
+        discountReason: payment.discountReason || "",
+        notes: payment.notes || "",
+      })
+    );
+    dispatch(setEditingPayment(payment));
+    dispatch(setShowForm(true));
   };
 
   const openViewModal = (payment) => {
-    setViewingPayment(payment);
+    dispatch(setViewingPayment(payment));
   };
 
   const openRefundModal = (payment) => {
-    setRefundModal(payment);
-    setRefundData({
-      refundReason: "",
-      refundAmount: payment.amount,
-    });
+    dispatch(setRefundModal(payment));
+    dispatch(
+      setRefundData({
+        refundReason: "",
+        refundAmount: payment.amount,
+      })
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
+      dispatch(setFormErrors({}));
 
       if (editingPayment) {
-        await paymentsAPI.update(editingPayment.id, formData);
+        await dispatch(
+          updatePayment({ id: editingPayment.id, data: formData })
+        ).unwrap();
         showSuccess("Payment updated successfully");
       } else {
-        await paymentsAPI.create(formData);
+        await dispatch(createPayment(formData)).unwrap();
         showSuccess("Payment created successfully");
       }
 
-      setShowForm(false);
-      resetForm();
-      fetchPayments();
-      fetchStats();
+      dispatch(setShowForm(false));
+      dispatch(resetForm());
+      dispatch(fetchPayments(filters));
+      dispatch(fetchPaymentStats());
     } catch (error) {
       console.error("Failed to save payment:", error);
       if (error?.response?.data?.details) {
@@ -200,7 +157,7 @@ const Payments = () => {
         error.response.data.details.forEach((detail) => {
           errors[detail.field] = detail.message;
         });
-        setFormErrors(errors);
+        dispatch(setFormErrors(errors));
       } else {
         showError(
           "Failed to save payment",
@@ -215,10 +172,10 @@ const Payments = () => {
       return;
 
     try {
-      await paymentsAPI.delete(id);
+      await dispatch(deletePayment(id)).unwrap();
       showSuccess("Payment deleted successfully");
-      fetchPayments();
-      fetchStats();
+      dispatch(fetchPayments(filters));
+      dispatch(fetchPaymentStats());
     } catch (error) {
       console.error("Failed to delete payment:", error);
       showError(
@@ -230,9 +187,9 @@ const Payments = () => {
 
   const handleProcessPayment = async (id) => {
     try {
-      await paymentsAPI.processPayment(id, {});
+      await dispatch(processPayment({ id, data: {} })).unwrap();
       showSuccess("Payment processing initiated");
-      fetchPayments();
+      dispatch(fetchPayments(filters));
     } catch (error) {
       console.error("Failed to process payment:", error);
       showError(
@@ -245,11 +202,13 @@ const Payments = () => {
   const handleRefund = async (e) => {
     e.preventDefault();
     try {
-      await paymentsAPI.refundPayment(refundModal.id, refundData);
+      await dispatch(
+        refundPayment({ id: refundModal.id, refundData })
+      ).unwrap();
       showSuccess("Payment refunded successfully");
-      setRefundModal(null);
-      fetchPayments();
-      fetchStats();
+      dispatch(setRefundModal(null));
+      dispatch(fetchPayments(filters));
+      dispatch(fetchPaymentStats());
     } catch (error) {
       console.error("Failed to refund payment:", error);
       showError(
@@ -257,6 +216,10 @@ const Payments = () => {
         error?.response?.data?.message || ""
       );
     }
+  };
+
+  const handleSearch = () => {
+    dispatch(fetchPayments(filters));
   };
 
   const getMethodIcon = (method) => {
@@ -409,16 +372,20 @@ const Payments = () => {
               <input
                 type="text"
                 placeholder="Search payments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filters.search}
+                onChange={(e) =>
+                  dispatch(setFilters({ search: e.target.value }))
+                }
                 className="pl-10 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg w-full text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           <select
-            value={methodFilter}
-            onChange={(e) => setMethodFilter(e.target.value)}
+            value={filters.paymentMethod}
+            onChange={(e) =>
+              dispatch(setFilters({ paymentMethod: e.target.value }))
+            }
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Methods</option>
@@ -432,8 +399,10 @@ const Payments = () => {
           </select>
 
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            value={filters.paymentStatus}
+            onChange={(e) =>
+              dispatch(setFilters({ paymentStatus: e.target.value }))
+            }
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Status</option>
@@ -448,13 +417,13 @@ const Payments = () => {
 
           <input
             type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+            value={filters.dateFrom}
+            onChange={(e) => dispatch(setFilters({ dateFrom: e.target.value }))}
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
           <button
-            onClick={fetchPayments}
+            onClick={handleSearch}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Search className="h-4 w-4" />
@@ -619,7 +588,7 @@ const Payments = () => {
                     <select
                       value={formData.orderId}
                       onChange={(e) =>
-                        setFormData({ ...formData, orderId: e.target.value })
+                        dispatch(setFormData({ orderId: e.target.value }))
                       }
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.orderId
@@ -651,10 +620,11 @@ const Payments = () => {
                       type="number"
                       value={formData.amount}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          amount: parseFloat(e.target.value) || 0,
-                        })
+                        dispatch(
+                          setFormData({
+                            amount: parseFloat(e.target.value) || 0,
+                          })
+                        )
                       }
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.amount
@@ -679,10 +649,11 @@ const Payments = () => {
                     <select
                       value={formData.paymentMethod}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          paymentMethod: e.target.value,
-                        })
+                        dispatch(
+                          setFormData({
+                            paymentMethod: e.target.value,
+                          })
+                        )
                       }
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.paymentMethod
@@ -713,10 +684,11 @@ const Payments = () => {
                     <select
                       value={formData.paymentStatus}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          paymentStatus: e.target.value,
-                        })
+                        dispatch(
+                          setFormData({
+                            paymentStatus: e.target.value,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
@@ -736,10 +708,11 @@ const Payments = () => {
                       type="text"
                       value={formData.transactionId}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          transactionId: e.target.value,
-                        })
+                        dispatch(
+                          setFormData({
+                            transactionId: e.target.value,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -753,10 +726,11 @@ const Payments = () => {
                       type="text"
                       value={formData.referenceNumber}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          referenceNumber: e.target.value,
-                        })
+                        dispatch(
+                          setFormData({
+                            referenceNumber: e.target.value,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -770,10 +744,11 @@ const Payments = () => {
                       type="number"
                       value={formData.tipAmount}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          tipAmount: parseFloat(e.target.value) || 0,
-                        })
+                        dispatch(
+                          setFormData({
+                            tipAmount: parseFloat(e.target.value) || 0,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -789,10 +764,11 @@ const Payments = () => {
                       type="number"
                       value={formData.serviceCharge}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          serviceCharge: parseFloat(e.target.value) || 0,
-                        })
+                        dispatch(
+                          setFormData({
+                            serviceCharge: parseFloat(e.target.value) || 0,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -808,10 +784,11 @@ const Payments = () => {
                       type="number"
                       value={formData.taxAmount}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          taxAmount: parseFloat(e.target.value) || 0,
-                        })
+                        dispatch(
+                          setFormData({
+                            taxAmount: parseFloat(e.target.value) || 0,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -827,10 +804,11 @@ const Payments = () => {
                       type="number"
                       value={formData.discountAmount}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          discountAmount: parseFloat(e.target.value) || 0,
-                        })
+                        dispatch(
+                          setFormData({
+                            discountAmount: parseFloat(e.target.value) || 0,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -846,7 +824,7 @@ const Payments = () => {
                   <textarea
                     value={formData.notes}
                     onChange={(e) =>
-                      setFormData({ ...formData, notes: e.target.value })
+                      dispatch(setFormData({ notes: e.target.value }))
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
@@ -862,7 +840,7 @@ const Payments = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowForm(false)}
+                    onClick={() => dispatch(setShowForm(false))}
                     className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                   >
                     Cancel
@@ -900,10 +878,11 @@ const Payments = () => {
                     type="number"
                     value={refundData.refundAmount}
                     onChange={(e) =>
-                      setRefundData({
-                        ...refundData,
-                        refundAmount: parseFloat(e.target.value) || 0,
-                      })
+                      dispatch(
+                        setRefundData({
+                          refundAmount: parseFloat(e.target.value) || 0,
+                        })
+                      )
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min="0"
@@ -920,10 +899,11 @@ const Payments = () => {
                   <textarea
                     value={refundData.refundReason}
                     onChange={(e) =>
-                      setRefundData({
-                        ...refundData,
-                        refundReason: e.target.value,
-                      })
+                      dispatch(
+                        setRefundData({
+                          refundReason: e.target.value,
+                        })
+                      )
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
@@ -940,7 +920,7 @@ const Payments = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRefundModal(null)}
+                  onClick={() => dispatch(setRefundModal(null))}
                   className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Cancel
@@ -1020,7 +1000,7 @@ const Payments = () => {
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => setViewingPayment(null)}
+                onClick={() => dispatch(setViewingPayment(null))}
                 className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 Close

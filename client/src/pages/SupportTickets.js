@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   MessageSquare,
   Plus,
@@ -19,147 +20,136 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
-import { ticketsAPI } from "../services/apiClient";
+import {
+  fetchTickets,
+  fetchTicketStats,
+  createTicket,
+  updateTicket,
+  deleteTicket,
+  updateTicketStatus,
+  addTicketComment,
+  setFormData,
+  setFormErrors,
+  setShowForm,
+  setEditingTicket,
+  setViewingTicket,
+  setStatusModal,
+  setStatusData,
+  setCommentModal,
+  setCommentData,
+  setFilters,
+  resetForm,
+  clearError,
+  selectTickets,
+  selectTicketStats,
+  selectTicketsLoading,
+  selectTicketsStatsLoading,
+  selectTicketsError,
+  selectTicketsFormData,
+  selectTicketsFormErrors,
+  selectTicketsShowForm,
+  selectTicketsEditingTicket,
+  selectTicketsViewingTicket,
+  selectTicketsStatusModal,
+  selectTicketsStatusData,
+  selectTicketsCommentModal,
+  selectTicketsCommentData,
+  selectTicketsFilters,
+} from "../store/slices/ticketSlice";
 
 const SupportTickets = () => {
-  const [tickets, setTickets] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingTicket, setEditingTicket] = useState(null);
-  const [viewingTicket, setViewingTicket] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "other",
-    priority: "medium",
-    status: "open",
-    location: "",
-    estimatedResolutionTime: 0,
-    tags: [],
-    resolutionNotes: "",
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [statusModal, setStatusModal] = useState(null);
-  const [statusData, setStatusData] = useState({
-    status: "open",
-    resolutionNotes: "",
-  });
-  const [commentModal, setCommentModal] = useState(null);
-  const [commentData, setCommentData] = useState({ comment: "" });
+  const dispatch = useDispatch();
+  const tickets = useSelector(selectTickets);
+  const stats = useSelector(selectTicketStats);
+  const loading = useSelector(selectTicketsLoading);
+  const statsLoading = useSelector(selectTicketsStatsLoading);
+  const error = useSelector(selectTicketsError);
+  const formData = useSelector(selectTicketsFormData);
+  const formErrors = useSelector(selectTicketsFormErrors);
+  const showForm = useSelector(selectTicketsShowForm);
+  const editingTicket = useSelector(selectTicketsEditingTicket);
+  const viewingTicket = useSelector(selectTicketsViewingTicket);
+  const statusModal = useSelector(selectTicketsStatusModal);
+  const statusData = useSelector(selectTicketsStatusData);
+  const commentModal = useSelector(selectTicketsCommentModal);
+  const commentData = useSelector(selectTicketsCommentData);
+  const filters = useSelector(selectTicketsFilters);
+
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
-    fetchTickets();
-    fetchStats();
-  }, []);
+    dispatch(fetchTickets(filters));
+    dispatch(fetchTicketStats());
+  }, [dispatch, filters]);
 
-  const fetchTickets = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      if (categoryFilter) params.append("category", categoryFilter);
-      if (priorityFilter) params.append("priority", priorityFilter);
-      if (statusFilter) params.append("status", statusFilter);
-
-      const response = await ticketsAPI.getAll(params.toString());
-      setTickets(response.tickets || []);
-    } catch (error) {
-      console.error("Failed to fetch tickets:", error);
-      showError(
-        "Failed to fetch tickets",
-        error?.response?.data?.message || ""
-      );
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error) {
+      showError("Error", error);
+      dispatch(clearError());
     }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const response = await ticketsAPI.getStats();
-      setStats(response.stats || {});
-    } catch (error) {
-      console.error("Failed to fetch ticket stats:", error);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      category: "other",
-      priority: "medium",
-      status: "open",
-      location: "",
-      estimatedResolutionTime: 0,
-      tags: [],
-      resolutionNotes: "",
-    });
-    setFormErrors({});
-    setEditingTicket(null);
-  };
+  }, [error, showError, dispatch]);
 
   const openCreateModal = () => {
-    resetForm();
-    setShowForm(true);
+    dispatch(resetForm());
+    dispatch(setShowForm(true));
   };
 
   const openEditModal = (ticket) => {
-    setFormData({
-      title: ticket.title || "",
-      description: ticket.description || "",
-      category: ticket.category || "other",
-      priority: ticket.priority || "medium",
-      status: ticket.status || "open",
-      location: ticket.location || "",
-      estimatedResolutionTime: ticket.estimatedResolutionTime || 0,
-      tags: ticket.tags || [],
-      resolutionNotes: ticket.resolutionNotes || "",
-    });
-    setEditingTicket(ticket);
-    setShowForm(true);
+    dispatch(
+      setFormData({
+        title: ticket.title || "",
+        description: ticket.description || "",
+        category: ticket.category || "other",
+        priority: ticket.priority || "medium",
+        status: ticket.status || "open",
+        location: ticket.location || "",
+        estimatedResolutionTime: ticket.estimatedResolutionTime || 0,
+        tags: ticket.tags || [],
+        resolutionNotes: ticket.resolutionNotes || "",
+      })
+    );
+    dispatch(setEditingTicket(ticket));
+    dispatch(setShowForm(true));
   };
 
   const openViewModal = (ticket) => {
-    setViewingTicket(ticket);
+    dispatch(setViewingTicket(ticket));
   };
 
   const openStatusModal = (ticket) => {
-    setStatusModal(ticket);
-    setStatusData({
-      status: ticket.status,
-      resolutionNotes: ticket.resolutionNotes || "",
-    });
+    dispatch(setStatusModal(ticket));
+    dispatch(
+      setStatusData({
+        status: ticket.status,
+        resolutionNotes: ticket.resolutionNotes || "",
+      })
+    );
   };
 
   const openCommentModal = (ticket) => {
-    setCommentModal(ticket);
-    setCommentData({ comment: "" });
+    dispatch(setCommentModal(ticket));
+    dispatch(setCommentData({ comment: "" }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
+      dispatch(setFormErrors({}));
 
       if (editingTicket) {
-        await ticketsAPI.update(editingTicket.id, formData);
+        await dispatch(
+          updateTicket({ id: editingTicket.id, data: formData })
+        ).unwrap();
         showSuccess("Ticket updated successfully");
       } else {
-        await ticketsAPI.create(formData);
+        await dispatch(createTicket(formData)).unwrap();
         showSuccess("Ticket created successfully");
       }
 
-      setShowForm(false);
-      resetForm();
-      fetchTickets();
-      fetchStats();
+      dispatch(setShowForm(false));
+      dispatch(resetForm());
+      dispatch(fetchTickets(filters));
+      dispatch(fetchTicketStats());
     } catch (error) {
       console.error("Failed to save ticket:", error);
       if (error?.response?.data?.details) {
@@ -167,7 +157,7 @@ const SupportTickets = () => {
         error.response.data.details.forEach((detail) => {
           errors[detail.field] = detail.message;
         });
-        setFormErrors(errors);
+        dispatch(setFormErrors(errors));
       } else {
         showError(
           "Failed to save ticket",
@@ -181,10 +171,10 @@ const SupportTickets = () => {
     if (!window.confirm("Are you sure you want to delete this ticket?")) return;
 
     try {
-      await ticketsAPI.delete(id);
+      await dispatch(deleteTicket(id)).unwrap();
       showSuccess("Ticket deleted successfully");
-      fetchTickets();
-      fetchStats();
+      dispatch(fetchTickets(filters));
+      dispatch(fetchTicketStats());
     } catch (error) {
       console.error("Failed to delete ticket:", error);
       showError(
@@ -197,11 +187,13 @@ const SupportTickets = () => {
   const handleStatusUpdate = async (e) => {
     e.preventDefault();
     try {
-      await ticketsAPI.updateStatus(statusModal.id, statusData);
+      await dispatch(
+        updateTicketStatus({ id: statusModal.id, statusData })
+      ).unwrap();
       showSuccess("Ticket status updated successfully");
-      setStatusModal(null);
-      fetchTickets();
-      fetchStats();
+      dispatch(setStatusModal(null));
+      dispatch(fetchTickets(filters));
+      dispatch(fetchTicketStats());
     } catch (error) {
       console.error("Failed to update ticket status:", error);
       showError(
@@ -214,14 +206,20 @@ const SupportTickets = () => {
   const handleAddComment = async (e) => {
     e.preventDefault();
     try {
-      await ticketsAPI.addComment(commentModal.id, commentData);
+      await dispatch(
+        addTicketComment({ id: commentModal.id, commentData })
+      ).unwrap();
       showSuccess("Comment added successfully");
-      setCommentModal(null);
-      fetchTickets();
+      dispatch(setCommentModal(null));
+      dispatch(fetchTickets(filters));
     } catch (error) {
       console.error("Failed to add comment:", error);
       showError("Failed to add comment", error?.response?.data?.message || "");
     }
+  };
+
+  const handleSearch = () => {
+    dispatch(fetchTickets(filters));
   };
 
   const getPriorityColor = (priority) => {
@@ -392,16 +390,18 @@ const SupportTickets = () => {
               <input
                 type="text"
                 placeholder="Search tickets..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filters.search}
+                onChange={(e) =>
+                  dispatch(setFilters({ search: e.target.value }))
+                }
                 className="pl-10 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg w-full text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            value={filters.category}
+            onChange={(e) => dispatch(setFilters({ category: e.target.value }))}
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Categories</option>
@@ -416,8 +416,8 @@ const SupportTickets = () => {
           </select>
 
           <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
+            value={filters.priority}
+            onChange={(e) => dispatch(setFilters({ priority: e.target.value }))}
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Priorities</option>
@@ -428,8 +428,8 @@ const SupportTickets = () => {
           </select>
 
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            value={filters.status}
+            onChange={(e) => dispatch(setFilters({ status: e.target.value }))}
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Status</option>
@@ -441,7 +441,7 @@ const SupportTickets = () => {
           </select>
 
           <button
-            onClick={fetchTickets}
+            onClick={handleSearch}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Search className="h-4 w-4" />
@@ -590,7 +590,7 @@ const SupportTickets = () => {
                     type="text"
                     value={formData.title}
                     onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
+                      dispatch(setFormData({ title: e.target.value }))
                     }
                     className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       formErrors.title ? "border-red-500" : "border-neutral-600"
@@ -611,7 +611,7 @@ const SupportTickets = () => {
                   <textarea
                     value={formData.description}
                     onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
+                      dispatch(setFormData({ description: e.target.value }))
                     }
                     className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       formErrors.description
@@ -636,7 +636,7 @@ const SupportTickets = () => {
                     <select
                       value={formData.category}
                       onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
+                        dispatch(setFormData({ category: e.target.value }))
                       }
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.category
@@ -670,7 +670,7 @@ const SupportTickets = () => {
                     <select
                       value={formData.priority}
                       onChange={(e) =>
-                        setFormData({ ...formData, priority: e.target.value })
+                        dispatch(setFormData({ priority: e.target.value }))
                       }
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.priority
@@ -699,7 +699,7 @@ const SupportTickets = () => {
                       type="text"
                       value={formData.location}
                       onChange={(e) =>
-                        setFormData({ ...formData, location: e.target.value })
+                        dispatch(setFormData({ location: e.target.value }))
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -713,11 +713,12 @@ const SupportTickets = () => {
                       type="number"
                       value={formData.estimatedResolutionTime}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          estimatedResolutionTime:
-                            parseInt(e.target.value) || 0,
-                        })
+                        dispatch(
+                          setFormData({
+                            estimatedResolutionTime:
+                              parseInt(e.target.value) || 0,
+                          })
+                        )
                       }
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
@@ -734,7 +735,7 @@ const SupportTickets = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowForm(false)}
+                    onClick={() => dispatch(setShowForm(false))}
                     className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                   >
                     Cancel
@@ -762,7 +763,7 @@ const SupportTickets = () => {
                   <select
                     value={statusData.status}
                     onChange={(e) =>
-                      setStatusData({ ...statusData, status: e.target.value })
+                      dispatch(setStatusData({ status: e.target.value }))
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
@@ -782,10 +783,11 @@ const SupportTickets = () => {
                   <textarea
                     value={statusData.resolutionNotes}
                     onChange={(e) =>
-                      setStatusData({
-                        ...statusData,
-                        resolutionNotes: e.target.value,
-                      })
+                      dispatch(
+                        setStatusData({
+                          resolutionNotes: e.target.value,
+                        })
+                      )
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
@@ -801,7 +803,7 @@ const SupportTickets = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatusModal(null)}
+                  onClick={() => dispatch(setStatusModal(null))}
                   className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Cancel
@@ -828,10 +830,11 @@ const SupportTickets = () => {
                   <textarea
                     value={commentData.comment}
                     onChange={(e) =>
-                      setCommentData({
-                        ...commentData,
-                        comment: e.target.value,
-                      })
+                      dispatch(
+                        setCommentData({
+                          comment: e.target.value,
+                        })
+                      )
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
@@ -848,7 +851,7 @@ const SupportTickets = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCommentModal(null)}
+                  onClick={() => dispatch(setCommentModal(null))}
                   className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Cancel
@@ -926,7 +929,7 @@ const SupportTickets = () => {
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => setViewingTicket(null)}
+                onClick={() => dispatch(setViewingTicket(null))}
                 className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 Close

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Calendar,
   Plus,
@@ -21,188 +22,147 @@ import {
   Building,
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
-import { eventsAPI } from "../services/apiClient";
+import {
+  fetchEvents,
+  fetchEventStats,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  updateEventStatus,
+  updateEventAttendance,
+  setFormData,
+  setFormErrors,
+  setShowForm,
+  setEditingEvent,
+  setViewingEvent,
+  setStatusModal,
+  setStatusData,
+  setAttendanceModal,
+  setAttendanceData,
+  setFilters,
+  resetForm,
+  clearError,
+  selectEvents,
+  selectFilteredEvents,
+  selectEventStats,
+  selectEventsLoading,
+  selectEventsStatsLoading,
+  selectEventsError,
+  selectEventsFormData,
+  selectEventsFormErrors,
+  selectShowEventsForm,
+  selectEditingEvent,
+  selectViewingEvent,
+  selectStatusModal,
+  selectStatusData,
+  selectAttendanceModal,
+  selectAttendanceData,
+  selectEventsFilters,
+} from "../store/slices/eventsSlice";
 
 const EventManagement = () => {
-  const [events, setEvents] = useState([]);
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingEvent, setEditingEvent] = useState(null);
-  const [viewingEvent, setViewingEvent] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    eventType: "other",
-    startDate: "",
-    endDate: "",
-    startTime: "",
-    endTime: "",
-    capacity: 0,
-    expectedAttendance: 0,
-    actualAttendance: 0,
-    isTicketed: false,
-    ticketPrice: 0,
-    ticketQuantity: 0,
-    status: "draft",
-    budget: 0,
-    actualCost: 0,
-    revenue: 0,
-    performers: [],
-    requirements: [],
-    marketingPlan: "",
-    notes: "",
-    tags: [],
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [statusModal, setStatusModal] = useState(null);
-  const [statusData, setStatusData] = useState({ status: "draft" });
-  const [attendanceModal, setAttendanceModal] = useState(null);
-  const [attendanceData, setAttendanceData] = useState({ actualAttendance: 0 });
+  const dispatch = useDispatch();
   const { showSuccess, showError } = useToast();
 
+  const events = useSelector(selectEvents);
+  const filteredEvents = useSelector(selectFilteredEvents);
+  const stats = useSelector(selectEventStats);
+  const loading = useSelector(selectEventsLoading);
+  const statsLoading = useSelector(selectEventsStatsLoading);
+  const error = useSelector(selectEventsError);
+  const formData = useSelector(selectEventsFormData);
+  const formErrors = useSelector(selectEventsFormErrors);
+  const showForm = useSelector(selectShowEventsForm);
+  const editingEvent = useSelector(selectEditingEvent);
+  const viewingEvent = useSelector(selectViewingEvent);
+  const statusModal = useSelector(selectStatusModal);
+  const statusData = useSelector(selectStatusData);
+  const attendanceModal = useSelector(selectAttendanceModal);
+  const attendanceData = useSelector(selectAttendanceData);
+  const filters = useSelector(selectEventsFilters);
+
   useEffect(() => {
-    fetchEvents();
-    fetchStats();
-  }, []);
+    dispatch(fetchEvents());
+    dispatch(fetchEventStats());
+  }, [dispatch]);
 
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      if (typeFilter) params.append("eventType", typeFilter);
-      if (statusFilter) params.append("status", statusFilter);
-      if (dateFilter) params.append("dateFrom", dateFilter);
-
-      const response = await eventsAPI.getAll(params.toString());
-      setEvents(response.events || []);
-    } catch (error) {
-      console.error("Failed to fetch events:", error);
-      showError("Failed to fetch events", error?.response?.data?.message || "");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error) {
+      showError("Operation failed", error);
+      dispatch(clearError());
     }
-  };
+  }, [error, showError, dispatch]);
 
-  const fetchStats = async () => {
-    try {
-      const response = await eventsAPI.getStats();
-      setStats(response.stats || {});
-    } catch (error) {
-      console.error("Failed to fetch event stats:", error);
-    }
-  };
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (filters.search) params.append("search", filters.search);
+    if (filters.eventType) params.append("eventType", filters.eventType);
+    if (filters.status) params.append("status", filters.status);
+    if (filters.dateFrom) params.append("dateFrom", filters.dateFrom);
 
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      eventType: "other",
-      startDate: "",
-      endDate: "",
-      startTime: "",
-      endTime: "",
-      capacity: 0,
-      expectedAttendance: 0,
-      actualAttendance: 0,
-      isTicketed: false,
-      ticketPrice: 0,
-      ticketQuantity: 0,
-      status: "draft",
-      budget: 0,
-      actualCost: 0,
-      revenue: 0,
-      performers: [],
-      requirements: [],
-      marketingPlan: "",
-      notes: "",
-      tags: [],
-    });
-    setFormErrors({});
-    setEditingEvent(null);
+    dispatch(fetchEvents(params.toString()));
   };
 
   const openCreateModal = () => {
-    resetForm();
-    setShowForm(true);
+    dispatch(resetForm());
+    dispatch(setShowForm(true));
   };
 
   const openEditModal = (event) => {
-    setFormData({
-      title: event.title || "",
-      description: event.description || "",
-      eventType: event.eventType || "other",
-      startDate: event.startDate ? event.startDate.split("T")[0] : "",
-      endDate: event.endDate ? event.endDate.split("T")[0] : "",
-      startTime: event.startTime || "",
-      endTime: event.endTime || "",
-      capacity: event.capacity || 0,
-      expectedAttendance: event.expectedAttendance || 0,
-      actualAttendance: event.actualAttendance || 0,
-      isTicketed: event.isTicketed || false,
-      ticketPrice: event.ticketPrice || 0,
-      ticketQuantity: event.ticketQuantity || 0,
-      status: event.status || "draft",
-      budget: event.budget || 0,
-      actualCost: event.actualCost || 0,
-      revenue: event.revenue || 0,
-      performers: event.performers || [],
-      requirements: event.requirements || [],
-      marketingPlan: event.marketingPlan || "",
-      notes: event.notes || "",
-      tags: event.tags || [],
-    });
-    setEditingEvent(event);
-    setShowForm(true);
+    dispatch(setEditingEvent(event));
+    dispatch(setShowForm(true));
   };
 
   const openViewModal = (event) => {
-    setViewingEvent(event);
+    dispatch(setViewingEvent(event));
   };
 
   const openStatusModal = (event) => {
-    setStatusModal(event);
-    setStatusData({ status: event.status });
+    dispatch(setStatusModal(event));
   };
 
   const openAttendanceModal = (event) => {
-    setAttendanceModal(event);
-    setAttendanceData({ actualAttendance: event.actualAttendance || 0 });
+    dispatch(setAttendanceModal(event));
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    dispatch(
+      setFormData({
+        [name]:
+          type === "checkbox"
+            ? checked
+            : type === "number"
+            ? name.includes("Price") ||
+              name.includes("Cost") ||
+              name.includes("budget") ||
+              name.includes("revenue")
+              ? parseFloat(value) || 0
+              : parseInt(value) || 0
+            : value,
+      })
+    );
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
-
       if (editingEvent) {
-        await eventsAPI.update(editingEvent.id, formData);
+        const result = await dispatch(
+          updateEvent({
+            id: editingEvent.id,
+            eventData: formData,
+          })
+        ).unwrap();
         showSuccess("Event updated successfully");
       } else {
-        await eventsAPI.create(formData);
+        const result = await dispatch(createEvent(formData)).unwrap();
         showSuccess("Event created successfully");
       }
-
-      setShowForm(false);
-      resetForm();
-      fetchEvents();
-      fetchStats();
+      dispatch(fetchEvents());
+      dispatch(fetchEventStats());
     } catch (error) {
-      console.error("Failed to save event:", error);
-      if (error?.response?.data?.details) {
-        const errors = {};
-        error.response.data.details.forEach((detail) => {
-          errors[detail.field] = detail.message;
-        });
-        setFormErrors(errors);
-      } else {
-        showError("Failed to save event", error?.response?.data?.message || "");
-      }
+      // Error handling is done in the slice
     }
   };
 
@@ -210,47 +170,46 @@ const EventManagement = () => {
     if (!window.confirm("Are you sure you want to delete this event?")) return;
 
     try {
-      await eventsAPI.delete(id);
+      await dispatch(deleteEvent(id)).unwrap();
       showSuccess("Event deleted successfully");
-      fetchEvents();
-      fetchStats();
+      dispatch(fetchEvents());
+      dispatch(fetchEventStats());
     } catch (error) {
-      console.error("Failed to delete event:", error);
-      showError("Failed to delete event", error?.response?.data?.message || "");
+      // Error handling is done in the slice
     }
   };
 
   const handleStatusUpdate = async (e) => {
     e.preventDefault();
     try {
-      await eventsAPI.updateStatus(statusModal.id, statusData);
+      await dispatch(
+        updateEventStatus({
+          id: statusModal.id,
+          statusData,
+        })
+      ).unwrap();
       showSuccess("Event status updated successfully");
-      setStatusModal(null);
-      fetchEvents();
-      fetchStats();
+      dispatch(fetchEvents());
+      dispatch(fetchEventStats());
     } catch (error) {
-      console.error("Failed to update event status:", error);
-      showError(
-        "Failed to update event status",
-        error?.response?.data?.message || ""
-      );
+      // Error handling is done in the slice
     }
   };
 
   const handleAttendanceUpdate = async (e) => {
     e.preventDefault();
     try {
-      await eventsAPI.updateAttendance(attendanceModal.id, attendanceData);
+      await dispatch(
+        updateEventAttendance({
+          id: attendanceModal.id,
+          attendanceData,
+        })
+      ).unwrap();
       showSuccess("Event attendance updated successfully");
-      setAttendanceModal(null);
-      fetchEvents();
-      fetchStats();
+      dispatch(fetchEvents());
+      dispatch(fetchEventStats());
     } catch (error) {
-      console.error("Failed to update event attendance:", error);
-      showError(
-        "Failed to update event attendance",
-        error?.response?.data?.message || ""
-      );
+      // Error handling is done in the slice
     }
   };
 
@@ -309,23 +268,6 @@ const EventManagement = () => {
       currency: "UGX",
       minimumFractionDigits: 0,
     }).format(amount);
-  };
-
-  const getTimeAgo = (date) => {
-    const now = new Date();
-    const eventDate = new Date(date);
-    const diffTime = now - eventDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-    const diffMinutes = Math.floor(diffTime / (1000 * 60));
-
-    if (diffDays > 0) {
-      return `${diffDays}d ago`;
-    } else if (diffHours > 0) {
-      return `${diffHours}h ago`;
-    } else {
-      return `${diffMinutes}m ago`;
-    }
   };
 
   if (loading)
@@ -428,16 +370,20 @@ const EventManagement = () => {
               <input
                 type="text"
                 placeholder="Search events..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={filters.search}
+                onChange={(e) =>
+                  dispatch(setFilters({ search: e.target.value }))
+                }
                 className="pl-10 pr-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg w-full text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            value={filters.eventType}
+            onChange={(e) =>
+              dispatch(setFilters({ eventType: e.target.value }))
+            }
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Types</option>
@@ -452,8 +398,8 @@ const EventManagement = () => {
           </select>
 
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            value={filters.status}
+            onChange={(e) => dispatch(setFilters({ status: e.target.value }))}
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Status</option>
@@ -466,13 +412,13 @@ const EventManagement = () => {
 
           <input
             type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+            value={filters.dateFrom}
+            onChange={(e) => dispatch(setFilters({ dateFrom: e.target.value }))}
             className="px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
           <button
-            onClick={fetchEvents}
+            onClick={handleSearch}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <Search className="h-4 w-4" />
@@ -511,7 +457,7 @@ const EventManagement = () => {
               </tr>
             </thead>
             <tbody>
-              {events.map((event) => (
+              {filteredEvents.map((event) => (
                 <tr
                   key={event.id}
                   className="border-t border-neutral-700 hover:bg-neutral-750"
@@ -608,6 +554,16 @@ const EventManagement = () => {
                   </td>
                 </tr>
               ))}
+              {filteredEvents.length === 0 && !loading && (
+                <tr>
+                  <td
+                    colSpan="7"
+                    className="px-6 py-4 text-center text-gray-500"
+                  >
+                    No events found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -629,10 +585,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="text"
+                      name="title"
                       value={formData.title}
-                      onChange={(e) =>
-                        setFormData({ ...formData, title: e.target.value })
-                      }
+                      onChange={handleInputChange}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.title
                           ? "border-red-500"
@@ -652,10 +607,9 @@ const EventManagement = () => {
                       Event Type *
                     </label>
                     <select
+                      name="eventType"
                       value={formData.eventType}
-                      onChange={(e) =>
-                        setFormData({ ...formData, eventType: e.target.value })
-                      }
+                      onChange={handleInputChange}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.eventType
                           ? "border-red-500"
@@ -685,10 +639,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="date"
+                      name="startDate"
                       value={formData.startDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, startDate: e.target.value })
-                      }
+                      onChange={handleInputChange}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.startDate
                           ? "border-red-500"
@@ -709,10 +662,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="date"
+                      name="endDate"
                       value={formData.endDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, endDate: e.target.value })
-                      }
+                      onChange={handleInputChange}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.endDate
                           ? "border-red-500"
@@ -733,10 +685,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="time"
+                      name="startTime"
                       value={formData.startTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, startTime: e.target.value })
-                      }
+                      onChange={handleInputChange}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.startTime
                           ? "border-red-500"
@@ -757,10 +708,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="time"
+                      name="endTime"
                       value={formData.endTime}
-                      onChange={(e) =>
-                        setFormData({ ...formData, endTime: e.target.value })
-                      }
+                      onChange={handleInputChange}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.endTime
                           ? "border-red-500"
@@ -781,13 +731,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="number"
+                      name="capacity"
                       value={formData.capacity}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          capacity: parseInt(e.target.value) || 0,
-                        })
-                      }
+                      onChange={handleInputChange}
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
                     />
@@ -799,13 +745,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="number"
+                      name="expectedAttendance"
                       value={formData.expectedAttendance}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          expectedAttendance: parseInt(e.target.value) || 0,
-                        })
-                      }
+                      onChange={handleInputChange}
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
                     />
@@ -817,13 +759,9 @@ const EventManagement = () => {
                     </label>
                     <input
                       type="number"
+                      name="budget"
                       value={formData.budget}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          budget: parseFloat(e.target.value) || 0,
-                        })
-                      }
+                      onChange={handleInputChange}
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       min="0"
                       step="1000"
@@ -835,10 +773,9 @@ const EventManagement = () => {
                       Status
                     </label>
                     <select
+                      name="status"
                       value={formData.status}
-                      onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value })
-                      }
+                      onChange={handleInputChange}
                       className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="draft">Draft</option>
@@ -855,10 +792,9 @@ const EventManagement = () => {
                     Description
                   </label>
                   <textarea
+                    name="description"
                     value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
+                    onChange={handleInputChange}
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
                   />
@@ -869,13 +805,9 @@ const EventManagement = () => {
                     Marketing Plan
                   </label>
                   <textarea
+                    name="marketingPlan"
                     value={formData.marketingPlan}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        marketingPlan: e.target.value,
-                      })
-                    }
+                    onChange={handleInputChange}
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
                   />
@@ -886,10 +818,9 @@ const EventManagement = () => {
                     Notes
                   </label>
                   <textarea
+                    name="notes"
                     value={formData.notes}
-                    onChange={(e) =>
-                      setFormData({ ...formData, notes: e.target.value })
-                    }
+                    onChange={handleInputChange}
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows="3"
                   />
@@ -899,10 +830,9 @@ const EventManagement = () => {
                   <input
                     type="checkbox"
                     id="isTicketed"
+                    name="isTicketed"
                     checked={formData.isTicketed}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isTicketed: e.target.checked })
-                    }
+                    onChange={handleInputChange}
                     className="mr-2"
                   />
                   <label htmlFor="isTicketed" className="text-neutral-300">
@@ -918,13 +848,9 @@ const EventManagement = () => {
                       </label>
                       <input
                         type="number"
+                        name="ticketPrice"
                         value={formData.ticketPrice}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            ticketPrice: parseFloat(e.target.value) || 0,
-                          })
-                        }
+                        onChange={handleInputChange}
                         className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="0"
                         step="1000"
@@ -937,13 +863,9 @@ const EventManagement = () => {
                       </label>
                       <input
                         type="number"
+                        name="ticketQuantity"
                         value={formData.ticketQuantity}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            ticketQuantity: parseInt(e.target.value) || 0,
-                          })
-                        }
+                        onChange={handleInputChange}
                         className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         min="0"
                       />
@@ -955,12 +877,17 @@ const EventManagement = () => {
                   <button
                     type="submit"
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    disabled={loading}
                   >
-                    {editingEvent ? "Update Event" : "Create Event"}
+                    {loading
+                      ? "Saving..."
+                      : editingEvent
+                      ? "Update Event"
+                      : "Create Event"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowForm(false)}
+                    onClick={() => dispatch(setShowForm(false))}
                     className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                   >
                     Cancel
@@ -988,7 +915,7 @@ const EventManagement = () => {
                   <select
                     value={statusData.status}
                     onChange={(e) =>
-                      setStatusData({ ...statusData, status: e.target.value })
+                      dispatch(setStatusData({ status: e.target.value }))
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
@@ -1005,12 +932,13 @@ const EventManagement = () => {
                 <button
                   type="submit"
                   className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  disabled={loading}
                 >
-                  Update Status
+                  {loading ? "Updating..." : "Update Status"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setStatusModal(null)}
+                  onClick={() => dispatch(setStatusModal(null))}
                   className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Cancel
@@ -1038,10 +966,11 @@ const EventManagement = () => {
                     type="number"
                     value={attendanceData.actualAttendance}
                     onChange={(e) =>
-                      setAttendanceData({
-                        ...attendanceData,
-                        actualAttendance: parseInt(e.target.value) || 0,
-                      })
+                      dispatch(
+                        setAttendanceData({
+                          actualAttendance: parseInt(e.target.value) || 0,
+                        })
+                      )
                     }
                     className="w-full p-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min="0"
@@ -1053,12 +982,13 @@ const EventManagement = () => {
                 <button
                   type="submit"
                   className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  disabled={loading}
                 >
-                  Update Attendance
+                  {loading ? "Updating..." : "Update Attendance"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAttendanceModal(null)}
+                  onClick={() => dispatch(setAttendanceModal(null))}
                   className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Cancel
@@ -1147,7 +1077,7 @@ const EventManagement = () => {
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => setViewingEvent(null)}
+                onClick={() => dispatch(setViewingEvent(null))}
                 className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 Close

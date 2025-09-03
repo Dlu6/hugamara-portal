@@ -37,7 +37,7 @@ const Reports = () => {
     eventType: "",
     status: "",
   });
-  const { showSuccess, showError } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   useEffect(() => {
     fetchDashboardStats();

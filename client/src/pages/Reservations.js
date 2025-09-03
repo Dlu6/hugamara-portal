@@ -1,423 +1,349 @@
-import React, { useState, useEffect } from "react";
-import { Calendar, Plus, Search, Filter } from "lucide-react";
-import {
-  reservationsAPI,
-  tablesAPI,
-  guestsAPI,
-  ordersAPI,
-} from "../services/apiClient";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { Calendar, Plus, Search, Filter } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
+import {
+  fetchReservations,
+  fetchTables,
+  fetchGuests,
+  createReservation,
+  updateReservation,
+  deleteReservation,
+  updateReservationStatus,
+  seatReservation,
+  createGuest,
+  createOrderFromReservation,
+  setFormData,
+  setFormErrors,
+  setShowForm,
+  setEditingReservation,
+  setViewingReservation,
+  setSeatModal,
+  setGuestForm,
+  setGuestFormErrors,
+  setShowGuestForm,
+  setFilters,
+  resetForm,
+  resetGuestForm,
+  clearError,
+  selectReservations,
+  selectFilteredReservations,
+  selectTables,
+  selectGuests,
+  selectReservationsLoading,
+  selectTablesLoading,
+  selectGuestsLoading,
+  selectReservationsError,
+  selectReservationsFormData,
+  selectReservationsFormErrors,
+  selectShowReservationsForm,
+  selectEditingReservation,
+  selectViewingReservation,
+  selectSeatModal,
+  selectGuestForm,
+  selectGuestFormErrors,
+  selectShowGuestForm,
+  selectReservationsFilters,
+  selectAvailableTables,
+} from "../store/slices/reservationsSlice";
 
 const Reservations = () => {
-  const { success: showSuccess, error: showError } = useToast();
-  const [reservations, setReservations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
-    guestId: "",
-    reservationDate: "",
-    reservationTime: "",
-    partySize: 1,
-    specialRequests: "",
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [tables, setTables] = useState([]);
-  const [seatModal, setSeatModal] = useState({
-    open: false,
-    reservationId: null,
-    tableId: "",
-  });
-  const [guests, setGuests] = useState([]);
-  const [showGuestForm, setShowGuestForm] = useState(false);
-  const [guestForm, setGuestForm] = useState({
-    firstName: "",
-    lastName: "",
-    phone: "",
-  });
-  const [guestErrors, setGuestErrors] = useState({});
+  const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { success: showSuccess, error: showError } = useToast();
 
+  // Redux selectors
+  const reservations = useSelector(selectReservations);
+  const filteredReservations = useSelector(selectFilteredReservations);
+  const tables = useSelector(selectTables);
+  const guests = useSelector(selectGuests);
+  const loading = useSelector(selectReservationsLoading);
+  const tablesLoading = useSelector(selectTablesLoading);
+  const guestsLoading = useSelector(selectGuestsLoading);
+  const error = useSelector(selectReservationsError);
+  const formData = useSelector(selectReservationsFormData);
+  const formErrors = useSelector(selectReservationsFormErrors);
+  const showForm = useSelector(selectShowReservationsForm);
+  const editingReservation = useSelector(selectEditingReservation);
+  const viewingReservation = useSelector(selectViewingReservation);
+  const seatModal = useSelector(selectSeatModal);
+  const guestForm = useSelector(selectGuestForm);
+  const guestFormErrors = useSelector(selectGuestFormErrors);
+  const showGuestForm = useSelector(selectShowGuestForm);
+  const filters = useSelector(selectReservationsFilters);
+  const availableTables = useSelector(selectAvailableTables);
+
+  // Load data on component mount
   useEffect(() => {
-    fetchReservations();
-    fetchTables();
-    fetchGuests();
-  }, []);
+    dispatch(fetchReservations());
+    dispatch(fetchTables());
+    dispatch(fetchGuests());
+  }, [dispatch]);
 
-  const fetchReservations = async () => {
-    try {
-      const response = await reservationsAPI.getAll();
-      const list = response?.data?.reservations || response?.data || [];
-      setReservations(Array.isArray(list) ? list : []);
-    } catch (error) {
-      console.error("Failed to fetch reservations:", error);
-      showError(
-        "Failed to load reservations",
-        error?.response?.data?.message || ""
-      );
-    } finally {
-      setLoading(false);
+  // Show error messages
+  useEffect(() => {
+    if (error) {
+      showError("Operation failed", error);
+      dispatch(clearError());
     }
+  }, [error, showError, dispatch]);
+
+  // Event handlers
+  const handleSearch = (e) => {
+    dispatch(setFilters({ search: e.target.value }));
   };
 
-  const fetchTables = async () => {
-    try {
-      const res = await tablesAPI.getAll();
-      const list = res?.data?.tables || res?.data || [];
-      setTables(Array.isArray(list) ? list : []);
-    } catch (err) {
-      // non-blocking
-    }
+  const handleStatusFilter = (status) => {
+    dispatch(setFilters({ status }));
   };
 
-  const fetchGuests = async () => {
-    try {
-      const res = await guestsAPI.getAll({ limit: 100 });
-      const list = res?.data?.guests || res?.data || [];
-      setGuests(Array.isArray(list) ? list : []);
-    } catch (err) {
-      // non-blocking
-    }
+  const handleDateFilter = (date) => {
+    dispatch(setFilters({ date }));
   };
 
-  const handleCreateGuest = async () => {
-    try {
-      setGuestErrors({});
-      const res = await guestsAPI.create(guestForm);
-      const created = res?.data?.guest || res?.data;
-      if (created?.id) {
-        setGuests((prev) => [created, ...prev]);
-        setFormData((prev) => ({ ...prev, guestId: created.id }));
-        setShowGuestForm(false);
-        setGuestForm({ firstName: "", lastName: "", phone: "" });
-        showSuccess("Guest added", "Guest created and selected");
-      } else {
-        await fetchGuests();
-      }
-    } catch (error) {
-      const data = error?.response?.data;
-      const details = data?.errors || data?.details || [];
-      if (Array.isArray(details)) {
-        const mapped = {};
-        details.forEach((d) => {
-          if (d?.field) mapped[d.field] = d.message;
-        });
-        setGuestErrors(mapped);
-      }
-      showError("Create guest failed", data?.message || "Validation failed");
-    }
+  const handleInputChange = (e) => {
+    const { name, value, type } = e.target;
+    dispatch(
+      setFormData({
+        [name]: type === "number" ? parseInt(value || 0) : value,
+      })
+    );
   };
 
-  const handleCreateOrder = async (reservation) => {
-    try {
-      const orderData = {
-        orderType: "dine_in",
-        tableId: reservation.tableId,
-        reservationId: reservation.id,
-        guestId: reservation.guestId,
-        priority: "normal",
-        specialInstructions: `Order for reservation ${reservation.reservationNumber}`,
-      };
-
-      const response = await ordersAPI.create(orderData);
-      showSuccess(
-        "Order created",
-        `Order created for reservation ${reservation.reservationNumber}`
-      );
-
-      // Navigate to orders page to view the new order
-      navigate("/orders");
-    } catch (error) {
-      console.error("Failed to create order:", error);
-      showError("Order creation failed", error?.response?.data?.message || "");
-    }
+  const handleGuestInputChange = (e) => {
+    const { name, value } = e.target;
+    dispatch(setGuestForm({ [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
-      const res = await reservationsAPI.create(formData);
-      setShowForm(false);
-      setFormData({
-        guestId: "",
-        reservationDate: "",
-        reservationTime: "",
-        partySize: 1,
-        specialRequests: "",
-      });
-      const created = res?.data?.reservation || res?.data;
-      if (created?.id) {
-        setReservations((prev) => [created, ...prev]);
+      if (editingReservation) {
+        const result = await dispatch(
+          updateReservation({
+            id: editingReservation.id,
+            reservationData: formData,
+          })
+        ).unwrap();
+        showSuccess("Reservation updated", "Updated successfully");
       } else {
-        fetchReservations();
+        const result = await dispatch(createReservation(formData)).unwrap();
+        showSuccess("Reservation created", "Saved successfully");
       }
-      showSuccess("Reservation created", "Saved successfully");
     } catch (error) {
-      console.error("Failed to create reservation:", error);
-      const data = error?.response?.data;
-      const details = data?.errors || data?.details || [];
-      if (Array.isArray(details)) {
-        const mapped = {};
-        details.forEach((d) => {
-          if (d?.field) mapped[d.field] = d.message;
-        });
-        setFormErrors(mapped);
-      }
-      showError("Create failed", data?.message || "Validation failed");
+      // Error handling is done in the slice
     }
   };
 
-  const updateStatus = async (id, status) => {
+  const handleCreateGuest = async () => {
     try {
-      await reservationsAPI.update(id, { status });
-      setReservations((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status } : r))
-      );
+      const result = await dispatch(createGuest(guestForm)).unwrap();
+      showSuccess("Guest added", "Guest created and selected");
+    } catch (error) {
+      // Error handling is done in the slice
+    }
+  };
+
+  const handleStatusUpdate = async (id, status) => {
+    try {
+      await dispatch(updateReservationStatus({ id, status })).unwrap();
       showSuccess("Status updated", status);
     } catch (error) {
-      console.error("Failed to update reservation:", error);
-      showError("Update failed", error?.response?.data?.message || "");
+      // Error handling is done in the slice
     }
   };
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  const handleSeatReservation = async () => {
+    if (!seatModal.tableId) return;
+    try {
+      await dispatch(
+        seatReservation({
+          id: seatModal.reservationId,
+          tableId: seatModal.tableId,
+        })
+      ).unwrap();
+      showSuccess("Reservation seated", "Table assigned");
+    } catch (error) {
+      // Error handling is done in the slice
+    }
+  };
+
+  const handleCreateOrder = async (reservation) => {
+    try {
+      await dispatch(createOrderFromReservation(reservation)).unwrap();
+      showSuccess(
+        "Order created",
+        `Order created for reservation ${reservation.reservationNumber}`
+      );
+      navigate("/orders");
+    } catch (error) {
+      // Error handling is done in the slice
+    }
+  };
+
+  const openCreateForm = () => {
+    dispatch(resetForm());
+    dispatch(setShowForm(true));
+  };
+
+  const closeForm = () => {
+    dispatch(setShowForm(false));
+    dispatch(setEditingReservation(null));
+    dispatch(resetForm());
+  };
+
+  const openSeatModal = (reservationId) => {
+    dispatch(
+      setSeatModal({
+        open: true,
+        reservationId,
+        tableId: "",
+      })
+    );
+  };
+
+  const closeSeatModal = () => {
+    dispatch(
+      setSeatModal({
+        open: false,
+        reservationId: null,
+        tableId: "",
+      })
+    );
+  };
+
+  const toggleGuestForm = () => {
+    dispatch(setShowGuestForm(!showGuestForm));
+    if (showGuestForm) {
+      dispatch(resetGuestForm());
+    }
+  };
+
+  // Helper functions
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "confirmed":
+        return "bg-green-600/20 text-green-300";
+      case "pending":
+        return "bg-amber-600/20 text-amber-300";
+      case "seated":
+        return "bg-blue-600/20 text-blue-300";
+      case "completed":
+        return "bg-emerald-600/20 text-emerald-300";
+      case "cancelled":
+        return "bg-red-600/20 text-red-300";
+      case "no_show":
+        return "bg-gray-600/20 text-gray-300";
+      default:
+        return "bg-neutral-700 text-gray-200";
+    }
+  };
+
+  const getStatusOptions = () => [
+    "pending",
+    "confirmed",
+    "seated",
+    "completed",
+    "cancelled",
+    "no_show",
+  ];
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading reservations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
+      {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Reservations</h1>
+        <div className="flex items-center gap-3">
+          <Calendar className="w-8 h-8 text-indigo-600" />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Reservations</h1>
+            <p className="text-gray-600">
+              Manage table reservations and seating
+            </p>
+          </div>
+        </div>
         <button
-          onClick={() => setShowForm(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          onClick={openCreateForm}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
         >
           <Plus className="h-4 w-4" />
           New Reservation
         </button>
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-900 text-white p-6 rounded-lg w-96 shadow-xl">
-            <h2 className="text-lg font-bold mb-4">New Reservation</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm text-neutral-300">Guest</label>
-                    <button
-                      type="button"
-                      className="text-xs px-2 py-1 rounded bg-neutral-800 border border-neutral-700"
-                      onClick={() => setShowGuestForm((v) => !v)}
-                    >
-                      {showGuestForm ? "Close" : "Quick add"}
-                    </button>
-                  </div>
-                  {guests.length === 0 && !showGuestForm && (
-                    <div className="text-xs text-neutral-400 mb-2">
-                      No guests found. Use Quick add to create one.
-                    </div>
-                  )}
-                  <select
-                    value={formData.guestId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, guestId: e.target.value })
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
-                    required
-                  >
-                    <option value="">Select guest</option>
-                    {guests.map((g) => (
-                      <option key={g.id} value={g.id} className="text-gray-900">
-                        {g.firstName} {g.lastName}{" "}
-                        {g.phone ? `• ${g.phone}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.guestId && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.guestId}
-                    </div>
-                  )}
-                  {showGuestForm && (
-                    <div className="mt-3 space-y-2 p-3 rounded bg-neutral-800 border border-neutral-700">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="First name"
-                          value={guestForm.firstName}
-                          onChange={(e) =>
-                            setGuestForm({
-                              ...guestForm,
-                              firstName: e.target.value,
-                            })
-                          }
-                          className="w-1/2 p-2 border rounded bg-neutral-900 border-neutral-700 text-white placeholder-neutral-500"
-                          required
-                        />
-                        <input
-                          type="text"
-                          placeholder="Last name"
-                          value={guestForm.lastName}
-                          onChange={(e) =>
-                            setGuestForm({
-                              ...guestForm,
-                              lastName: e.target.value,
-                            })
-                          }
-                          className="w-1/2 p-2 border rounded bg-neutral-900 border-neutral-700 text-white placeholder-neutral-500"
-                          required
-                        />
-                      </div>
-                      <input
-                        type="tel"
-                        placeholder="Phone (optional)"
-                        value={guestForm.phone}
-                        onChange={(e) =>
-                          setGuestForm({ ...guestForm, phone: e.target.value })
-                        }
-                        className="w-full p-2 border rounded bg-neutral-900 border-neutral-700 text-white placeholder-neutral-500"
-                      />
-                      {(guestErrors.firstName ||
-                        guestErrors.lastName ||
-                        guestErrors.phone) && (
-                        <div className="text-xs text-red-400">
-                          {guestErrors.firstName ||
-                            guestErrors.lastName ||
-                            guestErrors.phone}
-                        </div>
-                      )}
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={handleCreateGuest}
-                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm"
-                        >
-                          Save guest
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowGuestForm(false)}
-                          className="bg-neutral-700 text-white px-3 py-1.5 rounded text-sm"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {formErrors.guestId && (
-                  <div className="text-xs text-red-400">
-                    {formErrors.guestId}
-                  </div>
-                )}
-                <input
-                  type="date"
-                  value={formData.reservationDate}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      reservationDate: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
-                  required
-                />
-                {formErrors.reservationDate && (
-                  <div className="text-xs text-red-400">
-                    {formErrors.reservationDate}
-                  </div>
-                )}
-                <input
-                  type="time"
-                  value={formData.reservationTime}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      reservationTime: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
-                  required
-                />
-                {formErrors.reservationTime && (
-                  <div className="text-xs text-red-400">
-                    {formErrors.reservationTime}
-                  </div>
-                )}
-                <input
-                  type="number"
-                  placeholder="Party Size"
-                  value={formData.partySize}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      partySize: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
-                  min="1"
-                  required
-                />
-                {formErrors.partySize && (
-                  <div className="text-xs text-red-400">
-                    {formErrors.partySize}
-                  </div>
-                )}
-                <textarea
-                  placeholder="Special Requests"
-                  value={formData.specialRequests}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      specialRequests: e.target.value,
-                    })
-                  }
-                  className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
-                />
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded shadow"
-                >
-                  Create
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="bg-neutral-700 text-white px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              value={filters.search}
+              onChange={handleSearch}
+              className="pl-10 w-full form-input"
+              placeholder="Search reservations..."
+            />
           </div>
-        </div>
-      )}
-
-      <div className="bg-neutral-900 rounded-lg shadow-lg border border-neutral-800">
-        <div className="p-4 border-b">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search reservations..."
-                className="pl-10 pr-4 py-2 border rounded-lg w-full bg-neutral-800 border-neutral-700 text-gray-100 placeholder-neutral-400"
-              />
-            </div>
-            <button className="flex items-center gap-2 px-4 py-2 border rounded-lg bg-neutral-800 border-neutral-700 text-gray-100">
-              <Filter className="h-4 w-4" />
-              Filter
+          <div>
+            <select
+              value={filters.status}
+              onChange={(e) => handleStatusFilter(e.target.value)}
+              className="w-full form-input"
+            >
+              <option value="">All Statuses</option>
+              {getStatusOptions().map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0).toUpperCase() +
+                    status.slice(1).replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <input
+              type="date"
+              value={filters.date}
+              onChange={(e) => handleDateFilter(e.target.value)}
+              className="w-full form-input"
+            />
+          </div>
+          <div className="flex items-center">
+            <button
+              onClick={() =>
+                dispatch(
+                  setFilters({
+                    search: "",
+                    status: "",
+                    date: "",
+                    partySize: "",
+                  })
+                )
+              }
+              className="btn-secondary w-full"
+            >
+              Clear Filters
             </button>
           </div>
         </div>
+      </div>
 
+      {/* Reservations List */}
+      <div className="bg-neutral-900 rounded-lg shadow-lg border border-neutral-800">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-neutral-800 text-gray-300">
               <tr>
+                <th className="px-4 py-3 text-left">Guest</th>
                 <th className="px-4 py-3 text-left">Date</th>
                 <th className="px-4 py-3 text-left">Time</th>
                 <th className="px-4 py-3 text-left">Party Size</th>
@@ -426,31 +352,24 @@ const Reservations = () => {
               </tr>
             </thead>
             <tbody>
-              {reservations.map((reservation) => (
+              {filteredReservations.map((reservation) => (
                 <tr
                   key={reservation.id}
-                  className="border-t border-neutral-800"
+                  className="border-t border-neutral-800 text-white"
                 >
+                  <td className="px-4 py-3">
+                    {reservation.guest
+                      ? `${reservation.guest.firstName} ${reservation.guest.lastName}`
+                      : `Guest ID: ${reservation.guestId}`}
+                  </td>
                   <td className="px-4 py-3">{reservation.reservationDate}</td>
                   <td className="px-4 py-3">{reservation.reservationTime}</td>
                   <td className="px-4 py-3">{reservation.partySize}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-1 rounded text-sm ${
-                        reservation.status === "confirmed"
-                          ? "bg-green-600/20 text-green-300"
-                          : reservation.status === "pending"
-                          ? "bg-amber-600/20 text-amber-300"
-                          : reservation.status === "seated"
-                          ? "bg-blue-600/20 text-blue-300"
-                          : reservation.status === "completed"
-                          ? "bg-emerald-600/20 text-emerald-300"
-                          : reservation.status === "cancelled"
-                          ? "bg-red-600/20 text-red-300"
-                          : reservation.status === "no_show"
-                          ? "bg-gray-600/20 text-gray-300"
-                          : "bg-neutral-700 text-gray-200"
-                      }`}
+                      className={`px-2 py-1 rounded text-sm ${getStatusColor(
+                        reservation.status
+                      )}`}
                     >
                       {reservation.status}
                     </span>
@@ -460,33 +379,28 @@ const Reservations = () => {
                       <select
                         value={reservation.status}
                         onChange={(e) =>
-                          updateStatus(reservation.id, e.target.value)
+                          handleStatusUpdate(reservation.id, e.target.value)
                         }
                         className="rounded px-2 py-1 text-sm bg-neutral-800 border border-neutral-700 text-gray-100"
                       >
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="seated">Seated</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
+                        {getStatusOptions().map((status) => (
+                          <option key={status} value={status}>
+                            {status.charAt(0).toUpperCase() +
+                              status.slice(1).replace("_", " ")}
+                          </option>
+                        ))}
                       </select>
                       {reservation.status === "confirmed" && (
                         <button
-                          className="text-sm px-2 py-1 border border-neutral-700 bg-neutral-800 text-gray-100 rounded"
-                          onClick={() =>
-                            setSeatModal({
-                              open: true,
-                              reservationId: reservation.id,
-                              tableId: "",
-                            })
-                          }
+                          className="text-sm px-2 py-1 border border-neutral-700 bg-neutral-800 text-gray-100 rounded hover:bg-neutral-700"
+                          onClick={() => openSeatModal(reservation.id)}
                         >
                           Seat
                         </button>
                       )}
                       {reservation.status === "seated" && (
                         <button
-                          className="text-sm px-2 py-1 border border-green-700 bg-green-800 text-green-100 rounded ml-2"
+                          className="text-sm px-2 py-1 border border-green-700 bg-green-800 text-green-100 rounded ml-2 hover:bg-green-700"
                           onClick={() => handleCreateOrder(reservation)}
                         >
                           Create Order
@@ -496,10 +410,197 @@ const Reservations = () => {
                   </td>
                 </tr>
               ))}
+              {filteredReservations.length === 0 && (
+                <tr>
+                  <td
+                    colSpan="6"
+                    className="px-4 py-8 text-center text-gray-400"
+                  >
+                    No reservations found
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Create/Edit Reservation Modal */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-neutral-900 text-white p-6 rounded-lg w-96 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold mb-4">
+              {editingReservation ? "Edit Reservation" : "New Reservation"}
+            </h2>
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                {/* Guest Selection */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm text-neutral-300">Guest</label>
+                    <button
+                      type="button"
+                      className="text-xs px-2 py-1 rounded bg-neutral-800 border border-neutral-700 hover:bg-neutral-700"
+                      onClick={toggleGuestForm}
+                    >
+                      {showGuestForm ? "Close" : "Quick add"}
+                    </button>
+                  </div>
+                  <select
+                    name="guestId"
+                    value={formData.guestId}
+                    onChange={handleInputChange}
+                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    required
+                  >
+                    <option value="">Select guest</option>
+                    {guests.map((guest) => (
+                      <option key={guest.id} value={guest.id}>
+                        {guest.firstName} {guest.lastName}
+                        {guest.phone ? ` • ${guest.phone}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.guestId && (
+                    <div className="text-xs text-red-400 mt-1">
+                      {formErrors.guestId}
+                    </div>
+                  )}
+
+                  {/* Quick Guest Form */}
+                  {showGuestForm && (
+                    <div className="mt-3 space-y-2 p-3 rounded bg-neutral-800 border border-neutral-700">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          name="firstName"
+                          placeholder="First name"
+                          value={guestForm.firstName}
+                          onChange={handleGuestInputChange}
+                          className="w-1/2 p-2 border rounded bg-neutral-900 border-neutral-700 text-white placeholder-neutral-500"
+                          required
+                        />
+                        <input
+                          type="text"
+                          name="lastName"
+                          placeholder="Last name"
+                          value={guestForm.lastName}
+                          onChange={handleGuestInputChange}
+                          className="w-1/2 p-2 border rounded bg-neutral-900 border-neutral-700 text-white placeholder-neutral-500"
+                          required
+                        />
+                      </div>
+                      <input
+                        type="tel"
+                        name="phone"
+                        placeholder="Phone (optional)"
+                        value={guestForm.phone}
+                        onChange={handleGuestInputChange}
+                        className="w-full p-2 border rounded bg-neutral-900 border-neutral-700 text-white placeholder-neutral-500"
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCreateGuest}
+                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700"
+                          disabled={guestsLoading}
+                        >
+                          {guestsLoading ? "Saving..." : "Save guest"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleGuestForm}
+                          className="bg-neutral-700 text-white px-3 py-1.5 rounded text-sm hover:bg-neutral-600"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Date, Time, Party Size, Special Requests */}
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    name="reservationDate"
+                    value={formData.reservationDate}
+                    onChange={handleInputChange}
+                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-1">
+                    Time
+                  </label>
+                  <input
+                    type="time"
+                    name="reservationTime"
+                    value={formData.reservationTime}
+                    onChange={handleInputChange}
+                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-1">
+                    Party Size
+                  </label>
+                  <input
+                    type="number"
+                    name="partySize"
+                    value={formData.partySize}
+                    onChange={handleInputChange}
+                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    min="1"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-neutral-300 mb-1">
+                    Special Requests
+                  </label>
+                  <textarea
+                    name="specialRequests"
+                    value={formData.specialRequests}
+                    onChange={handleInputChange}
+                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
+                    rows="3"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
+                  disabled={loading}
+                >
+                  {loading
+                    ? "Saving..."
+                    : editingReservation
+                    ? "Update"
+                    : "Create"}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="bg-neutral-700 text-white px-4 py-2 rounded hover:bg-neutral-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Seat Reservation Modal */}
       {seatModal.open && (
@@ -510,66 +611,30 @@ const Reservations = () => {
               <select
                 value={seatModal.tableId}
                 onChange={(e) =>
-                  setSeatModal({ ...seatModal, tableId: e.target.value })
+                  dispatch(setSeatModal({ tableId: e.target.value }))
                 }
                 className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
               >
                 <option value="">Select table</option>
-                {tables
-                  .filter((t) => t.status === "available" && t.isActive)
-                  .map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.tableNumber} • {t.minCapacity}-{t.maxCapacity}
-                    </option>
-                  ))}
+                {availableTables.map((table) => (
+                  <option key={table.id} value={table.id}>
+                    {table.tableNumber} • {table.minCapacity}-
+                    {table.maxCapacity}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={async () => {
-                  if (!seatModal.tableId) return;
-                  try {
-                    await reservationsAPI.update(seatModal.reservationId, {
-                      status: "seated",
-                      tableId: seatModal.tableId,
-                    });
-                    setReservations((prev) =>
-                      prev.map((r) =>
-                        r.id === seatModal.reservationId
-                          ? {
-                              ...r,
-                              status: "seated",
-                              tableId: seatModal.tableId,
-                            }
-                          : r
-                      )
-                    );
-                    showSuccess("Reservation seated", "Table assigned");
-                    setSeatModal({
-                      open: false,
-                      reservationId: null,
-                      tableId: "",
-                    });
-                  } catch (err) {
-                    showError(
-                      "Seat failed",
-                      err?.response?.data?.message || ""
-                    );
-                  }
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
+                onClick={handleSeatReservation}
+                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                disabled={!seatModal.tableId || loading}
               >
-                Confirm
+                {loading ? "Seating..." : "Confirm"}
               </button>
               <button
-                onClick={() =>
-                  setSeatModal({
-                    open: false,
-                    reservationId: null,
-                    tableId: "",
-                  })
-                }
-                className="bg-neutral-700 text-white px-4 py-2 rounded"
+                onClick={closeSeatModal}
+                className="bg-neutral-700 text-white px-4 py-2 rounded hover:bg-neutral-600"
               >
                 Cancel
               </button>

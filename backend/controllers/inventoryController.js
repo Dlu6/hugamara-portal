@@ -1,4 +1,5 @@
 import { Op } from "sequelize";
+import { sequelize } from "../config/database.js";
 import { Inventory } from "../models/index.js";
 
 export const getAllInventory = async (req, res) => {
@@ -28,7 +29,11 @@ export const getAllInventory = async (req, res) => {
 
     if (lowStock === "true") {
       whereClause[Op.and] = [
-        { currentStock: { [Op.lte]: { [Op.col]: "reorderPoint" } } },
+        sequelize.where(
+          sequelize.col("current_stock"),
+          Op.lte,
+          sequelize.col("reorder_point")
+        ),
       ];
     }
 
@@ -164,7 +169,11 @@ export const getLowStockItems = async (req, res) => {
         outletId: userOutletId,
         isActive: true,
         [Op.and]: [
-          { currentStock: { [Op.lte]: { [Op.col]: "reorderPoint" } } },
+          sequelize.where(
+            sequelize.col("current_stock"),
+            Op.lte,
+            sequelize.col("reorder_point")
+          ),
         ],
       },
       order: [["currentStock", "ASC"]],
@@ -220,7 +229,11 @@ export const getInventoryStats = async (req, res) => {
           outletId: userOutletId,
           isActive: true,
           [Op.and]: [
-            { currentStock: { [Op.lte]: { [Op.col]: "reorderPoint" } } },
+            sequelize.where(
+              sequelize.col("current_stock"),
+              Op.lte,
+              sequelize.col("reorder_point")
+            ),
           ],
         },
       }),
@@ -244,8 +257,17 @@ export const getInventoryStats = async (req, res) => {
           },
         },
       }),
-      Inventory.sum("currentStock * unitCost", {
+      Inventory.findAll({
         where: { outletId: userOutletId, isActive: true },
+        attributes: ["currentStock", "unitCost"],
+        raw: true,
+      }).then((items) => {
+        return items.reduce((total, item) => {
+          const stock =
+            parseFloat(item.current_stock || item.currentStock) || 0;
+          const cost = parseFloat(item.unit_cost || item.unitCost) || 0;
+          return total + stock * cost;
+        }, 0);
       }),
     ]);
 

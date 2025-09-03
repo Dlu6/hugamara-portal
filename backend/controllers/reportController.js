@@ -1,4 +1,5 @@
 import { Op } from "sequelize";
+import { sequelize } from "../config/database.js";
 import {
   Order,
   OrderItem,
@@ -85,7 +86,7 @@ export const getDashboardStats = async (req, res) => {
         where: { outletId: userOutletId, createdAt: dateFilter },
         attributes: [
           [
-            Order.sequelize.fn("AVG", Order.sequelize.col("totalAmount")),
+            Order.sequelize.fn("AVG", Order.sequelize.col("total_amount")),
             "avg",
           ],
         ],
@@ -93,8 +94,8 @@ export const getDashboardStats = async (req, res) => {
       }),
       OrderItem.findAll({
         where: {
-          "$order.outletId$": userOutletId,
-          "$order.createdAt$": dateFilter,
+          "$order.outlet_id$": userOutletId,
+          "$order.created_at$": dateFilter,
         },
         include: [
           {
@@ -144,7 +145,11 @@ export const getDashboardStats = async (req, res) => {
           outletId: userOutletId,
           isActive: true,
           [Op.and]: [
-            { currentStock: { [Op.lte]: { [Op.col]: "reorderPoint" } } },
+            sequelize.where(
+              sequelize.col("current_stock"),
+              Op.lte,
+              sequelize.col("reorder_point")
+            ),
           ],
         },
         limit: 5,
@@ -280,10 +285,10 @@ export const getSalesReport = async (req, res) => {
     const { startDate, endDate, category } = req.query;
     const userOutletId = req.user.outletId;
 
-    const whereClause = { "$order.outletId$": userOutletId };
+    const whereClause = { "$order.outlet_id$": userOutletId };
 
     if (startDate && endDate) {
-      whereClause["$order.createdAt$"] = {
+      whereClause["$order.created_at$"] = {
         [Op.between]: [new Date(startDate), new Date(endDate)],
       };
     }
@@ -400,7 +405,11 @@ export const getInventoryReport = async (req, res) => {
     if (category) whereClause.category = category;
     if (lowStock === "true") {
       whereClause[Op.and] = [
-        { currentStock: { [Op.lte]: { [Op.col]: "reorderPoint" } } },
+        sequelize.where(
+          sequelize.col("current_stock"),
+          Op.lte,
+          sequelize.col("reorder_point")
+        ),
       ];
     }
 
@@ -445,7 +454,11 @@ export const getInventoryReport = async (req, res) => {
         outletId: userOutletId,
         isActive: true,
         [Op.and]: [
-          { currentStock: { [Op.lte]: { [Op.col]: "reorderPoint" } } },
+          sequelize.where(
+            sequelize.col("current_stock"),
+            Op.lte,
+            sequelize.col("reorder_point")
+          ),
         ],
       },
       attributes: [

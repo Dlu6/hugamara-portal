@@ -1,122 +1,84 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { Plus, Search, Filter, Eye, Edit, Trash2 } from "lucide-react";
-import {
-  ordersAPI,
-  tablesAPI,
-  reservationsAPI,
-  guestsAPI,
-  menuAPI,
-} from "../services/apiClient";
 import { useToast } from "../components/ui/ToastProvider";
+import {
+  fetchOrders,
+  fetchOrderById,
+  createOrder,
+  updateOrderStatus,
+  deleteOrder,
+  fetchTables,
+  fetchReservations,
+  fetchGuests,
+  fetchMenuItems,
+  setFormData,
+  setFormErrors,
+  setShowForm,
+  setShowDetail,
+  setShowMenuItems,
+  setFilters,
+  resetForm,
+  clearError,
+  selectOrders,
+  selectSelectedOrder,
+  selectTables,
+  selectReservations,
+  selectGuests,
+  selectMenuItems,
+  selectOrdersLoading,
+  selectOrdersError,
+  selectOrdersFormData,
+  selectOrdersFormErrors,
+  selectOrdersShowForm,
+  selectOrdersShowDetail,
+  selectOrdersShowMenuItems,
+  selectOrdersFilters,
+} from "../store/slices/ordersSlice";
 
 const Orders = () => {
+  const dispatch = useDispatch();
+  const orders = useSelector(selectOrders);
+  const selectedOrder = useSelector(selectSelectedOrder);
+  const tables = useSelector(selectTables);
+  const reservations = useSelector(selectReservations);
+  const guests = useSelector(selectGuests);
+  const menuItems = useSelector(selectMenuItems);
+  const loading = useSelector(selectOrdersLoading);
+  const error = useSelector(selectOrdersError);
+  const formData = useSelector(selectOrdersFormData);
+  const formErrors = useSelector(selectOrdersFormErrors);
+  const showForm = useSelector(selectOrdersShowForm);
+  const showDetail = useSelector(selectOrdersShowDetail);
+  const showMenuItems = useSelector(selectOrdersShowMenuItems);
+  const filters = useSelector(selectOrdersFilters);
+
   const { success: showSuccess, error: showError } = useToast();
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [showDetail, setShowDetail] = useState({ open: false, orderId: null });
-  const [formData, setFormData] = useState({
-    orderType: "dine_in",
-    tableId: "",
-    reservationId: "",
-    guestId: "",
-    priority: "normal",
-    paymentMethod: "",
-    specialInstructions: "",
-    items: [],
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [tables, setTables] = useState([]);
-  const [reservations, setReservations] = useState([]);
-  const [guests, setGuests] = useState([]);
-  const [menuItems, setMenuItems] = useState([]);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [showMenuItems, setShowMenuItems] = useState(false);
 
   useEffect(() => {
-    fetchOrders();
-    fetchTables();
-    fetchReservations();
-    fetchGuests();
-    fetchMenuItems();
-  }, []);
+    dispatch(fetchOrders(filters));
+    dispatch(fetchTables());
+    dispatch(fetchReservations());
+    dispatch(fetchGuests());
+    dispatch(fetchMenuItems());
+  }, [dispatch, filters]);
 
-  const fetchOrders = async () => {
-    try {
-      const response = await ordersAPI.getAll();
-      const list = response?.data?.orders || response?.data || [];
-      setOrders(Array.isArray(list) ? list : []);
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
-      showError("Failed to load orders", error?.response?.data?.message || "");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error) {
+      showError("Error", error);
+      dispatch(clearError());
     }
-  };
-
-  const fetchTables = async () => {
-    try {
-      const res = await tablesAPI.getAll();
-      const list = res?.data?.tables || res?.data || [];
-      setTables(Array.isArray(list) ? list : []);
-    } catch (err) {
-      // non-blocking
-    }
-  };
-
-  const fetchReservations = async () => {
-    try {
-      const res = await reservationsAPI.getAll();
-      const list = res?.data?.reservations || res?.data || [];
-      setReservations(Array.isArray(list) ? list : []);
-    } catch (err) {
-      // non-blocking
-    }
-  };
-
-  const fetchGuests = async () => {
-    try {
-      const res = await guestsAPI.getAll({ limit: 100 });
-      const list = res?.data?.guests || res?.data || [];
-      setGuests(Array.isArray(list) ? list : []);
-    } catch (err) {
-      // non-blocking
-    }
-  };
-
-  const fetchMenuItems = async () => {
-    try {
-      const res = await menuAPI.getAll({ limit: 100 });
-      const list = res?.data?.menuItems || res?.data || [];
-      setMenuItems(Array.isArray(list) ? list : []);
-    } catch (err) {
-      // non-blocking
-    }
-  };
+  }, [error, showError, dispatch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
-      const res = await ordersAPI.create(formData);
-      setShowForm(false);
-      setFormData({
-        orderType: "dine_in",
-        tableId: "",
-        reservationId: "",
-        guestId: "",
-        priority: "normal",
-        paymentMethod: "",
-        specialInstructions: "",
-        items: [],
-      });
-      const created = res?.data?.order || res?.data;
-      if (created?.id) {
-        setOrders((prev) => [created, ...prev]);
-      } else {
-        fetchOrders();
-      }
+      dispatch(setFormErrors({}));
+      await dispatch(createOrder(formData)).unwrap();
       showSuccess("Order created", "Order saved successfully");
+      dispatch(setShowForm(false));
+      dispatch(resetForm());
+      dispatch(fetchOrders(filters));
     } catch (error) {
       console.error("Failed to create order:", error);
       const data = error?.response?.data;
@@ -126,7 +88,7 @@ const Orders = () => {
         details.forEach((d) => {
           if (d?.field) mapped[d.field] = d.message;
         });
-        setFormErrors(mapped);
+        dispatch(setFormErrors(mapped));
       }
       showError("Create failed", data?.message || "Validation failed");
     }
@@ -134,10 +96,7 @@ const Orders = () => {
 
   const updateStatus = async (id, status) => {
     try {
-      await ordersAPI.patch(`${id}/status`, { status });
-      setOrders((prev) =>
-        prev.map((o) => (o.id === id ? { ...o, status } : o))
-      );
+      await dispatch(updateOrderStatus({ id, status })).unwrap();
       showSuccess("Status updated", `Order status changed to ${status}`);
     } catch (error) {
       console.error("Failed to update order status:", error);
@@ -149,9 +108,9 @@ const Orders = () => {
     if (!window.confirm("Are you sure you want to cancel this order?")) return;
 
     try {
-      await ordersAPI.delete(id);
-      setOrders((prev) => prev.filter((o) => o.id !== id));
+      await dispatch(deleteOrder(id)).unwrap();
       showSuccess("Order cancelled", "Order has been cancelled");
+      dispatch(fetchOrders(filters));
     } catch (error) {
       console.error("Failed to delete order:", error);
       showError("Delete failed", error?.response?.data?.message || "");
@@ -160,9 +119,8 @@ const Orders = () => {
 
   const handleViewDetail = async (orderId) => {
     try {
-      const response = await ordersAPI.getById(orderId);
-      setSelectedOrder(response?.data?.order || response?.data);
-      setShowDetail({ open: true, orderId });
+      await dispatch(fetchOrderById(orderId)).unwrap();
+      dispatch(setShowDetail({ open: true, orderId }));
     } catch (error) {
       console.error("Failed to fetch order details:", error);
       showError(
@@ -199,7 +157,7 @@ const Orders = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Orders</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => dispatch(setShowForm(true))}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
@@ -219,7 +177,7 @@ const Orders = () => {
                   <select
                     value={formData.orderType}
                     onChange={(e) =>
-                      setFormData({ ...formData, orderType: e.target.value })
+                      dispatch(setFormData({ orderType: e.target.value }))
                     }
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
                     required
@@ -242,7 +200,7 @@ const Orders = () => {
                   <select
                     value={formData.tableId}
                     onChange={(e) =>
-                      setFormData({ ...formData, tableId: e.target.value })
+                      dispatch(setFormData({ tableId: e.target.value }))
                     }
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
                   >
@@ -273,10 +231,11 @@ const Orders = () => {
                   <select
                     value={formData.reservationId}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        reservationId: e.target.value,
-                      })
+                      dispatch(
+                        setFormData({
+                          reservationId: e.target.value,
+                        })
+                      )
                     }
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
                   >
@@ -305,7 +264,7 @@ const Orders = () => {
                   <select
                     value={formData.guestId}
                     onChange={(e) =>
-                      setFormData({ ...formData, guestId: e.target.value })
+                      dispatch(setFormData({ guestId: e.target.value }))
                     }
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
                   >
@@ -329,7 +288,7 @@ const Orders = () => {
                   <select
                     value={formData.priority}
                     onChange={(e) =>
-                      setFormData({ ...formData, priority: e.target.value })
+                      dispatch(setFormData({ priority: e.target.value }))
                     }
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
                   >
@@ -352,10 +311,11 @@ const Orders = () => {
                   <select
                     value={formData.paymentMethod}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        paymentMethod: e.target.value,
-                      })
+                      dispatch(
+                        setFormData({
+                          paymentMethod: e.target.value,
+                        })
+                      )
                     }
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
                   >
@@ -380,10 +340,11 @@ const Orders = () => {
                   <textarea
                     value={formData.specialInstructions}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        specialInstructions: e.target.value,
-                      })
+                      dispatch(
+                        setFormData({
+                          specialInstructions: e.target.value,
+                        })
+                      )
                     }
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
                     placeholder="Any special instructions..."
@@ -400,7 +361,7 @@ const Orders = () => {
                   <label className="text-sm text-neutral-300">Menu Items</label>
                   <button
                     type="button"
-                    onClick={() => setShowMenuItems(!showMenuItems)}
+                    onClick={() => dispatch(setShowMenuItems(!showMenuItems))}
                     className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white text-left"
                   >
                     {formData.items.length > 0
@@ -435,32 +396,34 @@ const Orders = () => {
                                 (i) => i.menuItemId === item.id
                               );
                               if (existingItem) {
-                                setFormData({
-                                  ...formData,
-                                  items: formData.items.map((i) =>
-                                    i.menuItemId === item.id
-                                      ? {
-                                          ...i,
-                                          quantity: i.quantity + 1,
-                                          totalPrice:
-                                            (i.quantity + 1) * i.unitPrice,
-                                        }
-                                      : i
-                                  ),
-                                });
+                                dispatch(
+                                  setFormData({
+                                    items: formData.items.map((i) =>
+                                      i.menuItemId === item.id
+                                        ? {
+                                            ...i,
+                                            quantity: i.quantity + 1,
+                                            totalPrice:
+                                              (i.quantity + 1) * i.unitPrice,
+                                          }
+                                        : i
+                                    ),
+                                  })
+                                );
                               } else {
-                                setFormData({
-                                  ...formData,
-                                  items: [
-                                    ...formData.items,
-                                    {
-                                      menuItemId: item.id,
-                                      quantity: 1,
-                                      unitPrice: item.price,
-                                      totalPrice: item.price,
-                                    },
-                                  ],
-                                });
+                                dispatch(
+                                  setFormData({
+                                    items: [
+                                      ...formData.items,
+                                      {
+                                        menuItemId: item.id,
+                                        quantity: 1,
+                                        unitPrice: item.price,
+                                        totalPrice: item.price,
+                                      },
+                                    ],
+                                  })
+                                );
                               }
                             }}
                             className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded"
@@ -490,26 +453,29 @@ const Orders = () => {
                                 type="button"
                                 onClick={() => {
                                   if (item.quantity > 1) {
-                                    setFormData({
-                                      ...formData,
-                                      items: formData.items.map((i, idx) =>
-                                        idx === index
-                                          ? {
-                                              ...i,
-                                              quantity: i.quantity - 1,
-                                              totalPrice:
-                                                (i.quantity - 1) * i.unitPrice,
-                                            }
-                                          : i
-                                      ),
-                                    });
+                                    dispatch(
+                                      setFormData({
+                                        items: formData.items.map((i, idx) =>
+                                          idx === index
+                                            ? {
+                                                ...i,
+                                                quantity: i.quantity - 1,
+                                                totalPrice:
+                                                  (i.quantity - 1) *
+                                                  i.unitPrice,
+                                              }
+                                            : i
+                                        ),
+                                      })
+                                    );
                                   } else {
-                                    setFormData({
-                                      ...formData,
-                                      items: formData.items.filter(
-                                        (_, idx) => idx !== index
-                                      ),
-                                    });
+                                    dispatch(
+                                      setFormData({
+                                        items: formData.items.filter(
+                                          (_, idx) => idx !== index
+                                        ),
+                                      })
+                                    );
                                   }
                                 }}
                                 className="px-2 py-1 bg-red-600 text-white text-xs rounded"
@@ -522,19 +488,20 @@ const Orders = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setFormData({
-                                    ...formData,
-                                    items: formData.items.map((i, idx) =>
-                                      idx === index
-                                        ? {
-                                            ...i,
-                                            quantity: i.quantity + 1,
-                                            totalPrice:
-                                              (i.quantity + 1) * i.unitPrice,
-                                          }
-                                        : i
-                                    ),
-                                  });
+                                  dispatch(
+                                    setFormData({
+                                      items: formData.items.map((i, idx) =>
+                                        idx === index
+                                          ? {
+                                              ...i,
+                                              quantity: i.quantity + 1,
+                                              totalPrice:
+                                                (i.quantity + 1) * i.unitPrice,
+                                            }
+                                          : i
+                                      ),
+                                    })
+                                  );
                                 }}
                                 className="px-2 py-1 bg-green-600 text-white text-xs rounded"
                               >
@@ -568,7 +535,7 @@ const Orders = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => dispatch(setShowForm(false))}
                   className="bg-neutral-700 text-white px-4 py-2 rounded"
                 >
                   Cancel
@@ -641,7 +608,9 @@ const Orders = () => {
             </div>
             <div className="flex gap-2 mt-4">
               <button
-                onClick={() => setShowDetail({ open: false, orderId: null })}
+                onClick={() =>
+                  dispatch(setShowDetail({ open: false, orderId: null }))
+                }
                 className="bg-neutral-700 text-white px-4 py-2 rounded"
               >
                 Close
@@ -659,6 +628,10 @@ const Orders = () => {
               <input
                 type="text"
                 placeholder="Search orders..."
+                value={filters.search}
+                onChange={(e) =>
+                  dispatch(setFilters({ search: e.target.value }))
+                }
                 className="pl-10 pr-4 py-2 border rounded-lg w-full bg-neutral-800 border-neutral-700 text-gray-100 placeholder-neutral-400"
               />
             </div>

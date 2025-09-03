@@ -312,9 +312,10 @@
 │  🟢 USER MANAGEMENT: COMPLETE ✅                                               │
 │  🟢 OUTLET MANAGEMENT: COMPLETE ✅                                             │
 │  🟢 GUEST MANAGEMENT: COMPLETE ✅                                              │
-│  🟢 MENU MANAGEMENT: COMPLETE ✅                                               │
+│  🟡 MENU MANAGEMENT: IN PROGRESS                                             │
 │  🟢 AUTHENTICATION: COMPLETE ✅                                                │
 │  🟢 UI/UX SYSTEM: COMPLETE ✅                                                  │
+│  🟢 REDUX STATE MANAGEMENT: 80% COMPLETE ✅                                    │
 │                                                                                 │
 │  🎯 READY FOR PRODUCTION DEPLOYMENT! 🚀                                       │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -366,35 +367,44 @@ The system now provides a complete hospitality management workflow from reservat
 
 ## 🏗️ **COMPREHENSIVE MODULE ROADMAP**
 
-### **📦 Inventory Management System**
+### **📦 Inventory Management System** ✅ COMPLETE
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              📦 INVENTORY MODULE                               │
+│                              📦 INVENTORY MODULE - COMPLETE                    │
 │                                                                                 │
-│  Backend Components:                                                           │
+│  ✅ Backend Components:                                                        │
 │  • Inventory Model (itemName, category, quantity, minStock, maxStock)         │
 │  • StockMovement Model (type, quantity, reason, timestamp)                     │
 │  • Supplier Model (name, contact, paymentTerms)                               │
 │  • PurchaseOrder Model (supplier, items, status, deliveryDate)                │
 │  • InventoryController (CRUD + stock alerts + movement tracking)              │
 │  • Inventory Routes (/api/inventory) with validation                          │
+│  • Fixed Database Query Issues (proper Sequelize syntax for calculations)     │
 │                                                                                 │
-│  Frontend Components:                                                          │
+│  ✅ Frontend Components:                                                       │
 │  • InventoryDashboard (stock levels + alerts + quick actions)                 │
 │  • StockAlerts (low stock notifications + reorder suggestions)                │
 │  • StockMovement (in/out tracking + audit trail)                             │
 │  • SupplierManagement (vendor profiles + contact info)                        │
 │  • PurchaseOrders (order creation + tracking + receiving)                     │
 │  • InventoryReports (usage analytics + cost tracking)                         │
+│  • Redux State Management (inventorySlice with async thunks)                   │
 │                                                                                 │
-│  Key Features:                                                                 │
+│  ✅ Key Features:                                                              │
 │  • Real-time stock tracking across 6 outlets                                  │
 │  • Automated low-stock alerts and reorder suggestions                         │
 │  • Barcode scanning integration for quick updates                             │
 │  • Cost tracking and profit margin analysis                                   │
 │  • Supplier performance monitoring                                            │
 │  • Cross-outlet inventory transfers                                           │
+│  • Complete Redux integration with centralized state management               │
+│                                                                                 │
+│  🔧 Recent Fixes (Database Query Issues):                                     │
+│  • Fixed inventory stats calculation (currentStock * unitCost)                │
+│  • Fixed low stock queries using proper Sequelize column comparisons          │
+│  • Updated all controllers to use sequelize.where() for complex conditions    │
+│  • Resolved "Unknown column" errors in MySQL queries                          │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -595,6 +605,118 @@ The system now provides a complete hospitality management workflow from reservat
 - **Touch-Friendly**: Large buttons and intuitive gestures
 - **Local Network**: Optimized for Uganda's internet infrastructure
 - **Data Efficiency**: Minimal data usage for cost-conscious users
+
+---
+
+## 🔧 **RECENT TECHNICAL FIXES**
+
+### **Database Query Issues Resolution**
+
+#### **Problem**
+
+The inventory management system was experiencing database errors when accessing inventory statistics and low stock calculations. The errors were:
+
+```
+SequelizeDatabaseError: Unknown column 'currentStock * unitCost' in 'field list'
+```
+
+#### **Root Cause**
+
+The issues were caused by two main problems:
+
+1. **Complex Mathematical Expressions**: Sequelize's `sum()` method doesn't support expressions like `currentStock * unitCost`
+2. **Database Schema Mapping**: When using `sequelize.col()`, we need to use actual database column names (snake_case) not Sequelize model property names (camelCase)
+
+**Database Column Mapping:**
+
+- Model: `currentStock` → Database: `current_stock`
+- Model: `reorderPoint` → Database: `reorder_point`
+- Model: `unitCost` → Database: `unit_cost`
+- Model: `totalAmount` → Database: `total_amount`
+- Model: `outletId` → Database: `outlet_id`
+- Model: `createdAt` → Database: `created_at`
+
+#### **Solution Implemented**
+
+**1. Fixed Total Value Calculation:**
+
+```javascript
+// ❌ BEFORE (Broken)
+Inventory.sum("currentStock * unitCost", {
+  where: { outletId: userOutletId, isActive: true },
+});
+
+// ✅ AFTER (Fixed)
+Inventory.findAll({
+  where: { outletId: userOutletId, isActive: true },
+  attributes: ["currentStock", "unitCost"],
+  raw: true,
+}).then((items) => {
+  return items.reduce((total, item) => {
+    const stock = parseFloat(item.currentStock) || 0;
+    const cost = parseFloat(item.unitCost) || 0;
+    return total + stock * cost;
+  }, 0);
+});
+```
+
+**2. Fixed Low Stock Queries:**
+
+```javascript
+// ❌ BEFORE (Broken)
+where: {
+  currentStock: { [Op.lte]: { [Op.col]: "reorderPoint" } }
+}
+
+// ✅ AFTER (Fixed)
+where: {
+  [Op.and]: [
+    sequelize.where(
+      sequelize.col('current_stock'),    // Use database column name
+      Op.lte,
+      sequelize.col('reorder_point')     // Use database column name
+    ),
+  ],
+}
+```
+
+**3. Fixed JOIN Query Column References:**
+
+```javascript
+// ❌ BEFORE (Broken)
+where: {
+  "$order.outletId$": userOutletId,
+  "$order.createdAt$": dateFilter
+}
+
+// ✅ AFTER (Fixed)
+where: {
+  "$order.outlet_id$": userOutletId,    // Use database column name
+  "$order.created_at$": dateFilter      // Use database column name
+}
+```
+
+**4. Key Learning - Database Column Names:**
+
+- When using `sequelize.col()`, always use the actual database column names (snake_case)
+- When using JOIN syntax with `$model.field$`, use database column names (snake_case)
+- When using direct model queries, use Sequelize model property names (camelCase)
+
+#### **Files Modified**
+
+- `backend/controllers/inventoryController.js` - Fixed stats calculation and low stock queries
+- `backend/controllers/dashboardController.js` - Fixed low stock count in dashboard stats
+- `backend/controllers/reportController.js` - Fixed inventory report queries and JOIN column references
+
+#### **Impact**
+
+- ✅ Inventory page now loads without database errors
+- ✅ Inventory statistics display correctly
+- ✅ Low stock alerts function properly
+- ✅ Dashboard inventory metrics work correctly
+- ✅ Inventory reports generate successfully
+- ✅ Reports page dashboard stats load without errors
+- ✅ Sales reports and analytics work correctly
 
 ---
 

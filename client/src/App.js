@@ -22,6 +22,7 @@ import Orders from "./pages/Orders";
 import Inventory from "./pages/Inventory";
 import Guests from "./pages/Guests";
 import Events from "./pages/Events";
+import MenuManagement from "./pages/MenuManagement";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import UserProfile from "./pages/UserProfile";
@@ -230,6 +231,23 @@ const AppContent = () => {
                 ]}
               >
                 <Guests />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path={ROUTES.MENU.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.MENU}>
+              <UnifiedLayout
+                title={ROUTES.MENU.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Menu Management" },
+                ]}
+              >
+                <MenuManagement />
               </UnifiedLayout>
             </ProtectedRoute>
           }

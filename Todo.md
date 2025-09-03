@@ -55,18 +55,18 @@
 
 ### Menu & Inventory Management
 
-- [ ] Backend: Create Category, MenuItem, Inventory, StockMovement models
+- [ ] Backend: Create Category, MenuItem models
+- [x] Backend: Build inventoryController (CRUD)
+- [x] Backend: Create inventory routes (/api/inventory)
 - [ ] Backend: Build menuController (CRUD)
-- [ ] Backend: Build inventoryController (CRUD)
 - [ ] Backend: Create menu routes (/api/menu)
-- [ ] Backend: Create inventory routes (/api/inventory)
 - [ ] Frontend: Create MenuManagement page
-- [ ] Frontend: Create InventoryDashboard page
-- [ ] Frontend: Create StockAlerts page
+- [x] Frontend: Create InventoryDashboard page
+- [x] Frontend: Create StockAlerts page
 - [ ] Frontend: Build menuSlice (Redux)
-- [ ] Frontend: Build inventorySlice (Redux)
+- [x] Frontend: Build inventorySlice (Redux)
 - [ ] Frontend: Create menuService
-- [ ] Frontend: Create inventoryService
+- [x] Frontend: Create inventoryService
 
 ## Phase 3: Order Processing
 
@@ -89,14 +89,14 @@
 
 ### Guest Management
 
-- [ ] Backend: Create Guest, GuestPreference, GuestVisit models
-- [ ] Backend: Build guestController (CRUD)
-- [ ] Backend: Create guest routes (/api/guests)
-- [ ] Frontend: Create GuestDirectory page
+- [x] Backend: Create Guest model
+- [x] Backend: Build guestController (CRUD)
+- [x] Backend: Create guest routes (/api/guests)
+- [x] Frontend: Create GuestDirectory page
 - [ ] Frontend: Create GuestProfile page
 - [ ] Frontend: Create LoyaltyProgram page
 - [ ] Frontend: Build guestSlice (Redux)
-- [ ] Frontend: Create guestService
+- [x] Frontend: Create guestService
 
 ### Staff & Shift Management
 
@@ -223,7 +223,7 @@
 3. ✅ **Outlets management UI** – add CRUD with validation & toasts
 4. ✅ **Build table management system (Tables CRUD)**
 5. ✅ **Implement reservation system**
-6. 🔄 **Complete order management system**
+6. ✅ **Complete order management system**
 7. 🔄 **Build menu management system**
-8. 🔄 **Complete inventory management system**
-9. 🔄 **Build guest management system**
+8. ✅ **Complete inventory management system**
+9. ✅ **Build guest management system**

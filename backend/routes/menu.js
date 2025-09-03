@@ -8,6 +8,7 @@ import {
   createMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  getMenuStats,
 } from "../controllers/menuController.js";
 
 const router = express.Router();
@@ -38,6 +39,7 @@ const menuItemValidation = [
 ];
 
 router.get("/", authenticateToken, getAllMenuItems);
+router.get("/stats", authenticateToken, getMenuStats);
 router.get("/:id", authenticateToken, getMenuItemById);
 router.post(
   "/",

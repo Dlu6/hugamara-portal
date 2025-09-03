@@ -1,94 +1,99 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useToast } from "../components/ui/ToastProvider";
-import { guestsAPI } from "../services/apiClient";
+import {
+  fetchGuests,
+  fetchGuestStats,
+  fetchGuestHistory,
+  createGuest,
+  updateGuest,
+  deleteGuest,
+  setFormData,
+  setFormErrors,
+  setShowModal,
+  setEditingGuest,
+  setShowDetails,
+  setSelectedGuest,
+  setFilters,
+  setCurrentPage,
+  resetForm,
+  clearError,
+  clearFormError,
+  selectGuests,
+  selectGuestStats,
+  selectGuestHistory,
+  selectGuestsLoading,
+  selectGuestsStatsLoading,
+  selectGuestsError,
+  selectGuestsFormData,
+  selectGuestsFormErrors,
+  selectShowGuestsModal,
+  selectEditingGuest,
+  selectShowGuestDetails,
+  selectGuestsFilters,
+  selectGuestsCurrentPage,
+  selectGuestsTotalPages,
+  selectGuestsTotal,
+} from "../store/slices/guestsSlice";
 
 const Guests = () => {
+  const dispatch = useDispatch();
   const { success: showSuccess, error: showError } = useToast();
-  const [guests, setGuests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingGuest, setEditingGuest] = useState(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [selectedGuest, setSelectedGuest] = useState(null);
-  const [guestStats, setGuestStats] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [loyaltyFilter, setLoyaltyFilter] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    dateOfBirth: "",
-    gender: "",
-    address: "",
-    city: "",
-    country: "Uganda",
-    preferences: "",
-    allergies: "",
-    dietaryRestrictions: "",
-    loyaltyPoints: 0,
-    loyaltyTier: "bronze",
-    totalSpent: 0,
-    visitCount: 0,
-    isActive: true,
-    marketingConsent: false,
-    notes: "",
-  });
-  const [formErrors, setFormErrors] = useState({});
+
+  const guests = useSelector(selectGuests);
+  const guestStats = useSelector(selectGuestStats);
+  const guestHistory = useSelector(selectGuestHistory);
+  const loading = useSelector(selectGuestsLoading);
+  const statsLoading = useSelector(selectGuestsStatsLoading);
+  const error = useSelector(selectGuestsError);
+  const formData = useSelector(selectGuestsFormData);
+  const formErrors = useSelector(selectGuestsFormErrors);
+  const showModal = useSelector(selectShowGuestsModal);
+  const editingGuest = useSelector(selectEditingGuest);
+  const showDetails = useSelector(selectShowGuestDetails);
+  const filters = useSelector(selectGuestsFilters);
+  const currentPage = useSelector(selectGuestsCurrentPage);
+  const totalPages = useSelector(selectGuestsTotalPages);
+  const total = useSelector(selectGuestsTotal);
 
   useEffect(() => {
-    fetchGuests();
-    fetchGuestStats();
-  }, [currentPage, searchTerm, loyaltyFilter, activeFilter]);
+    const params = {
+      page: currentPage,
+      limit: filters.limit,
+      search: filters.search,
+      loyaltyTier: filters.loyaltyTier || undefined,
+      isActive:
+        filters.isActive === "all" ? undefined : filters.isActive === "active",
+    };
+    dispatch(fetchGuests(params));
+    dispatch(fetchGuestStats());
+  }, [
+    dispatch,
+    currentPage,
+    filters.search,
+    filters.loyaltyTier,
+    filters.isActive,
+    filters.limit,
+  ]);
 
-  const fetchGuests = async () => {
-    try {
-      setLoading(true);
-      const params = {
-        page: currentPage,
-        limit: 10,
-        search: searchTerm,
-        loyaltyTier: loyaltyFilter || undefined,
-        isActive:
-          activeFilter === "all" ? undefined : activeFilter === "active",
-      };
-
-      const response = await guestsAPI.getAll(params);
-      setGuests(response.data.guests);
-      setTotalPages(response.data.totalPages);
-    } catch (error) {
-      console.error("Failed to fetch guests:", error);
-      showError("Failed to fetch guests", error?.response?.data?.message || "");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error) {
+      showError("Operation failed", error);
+      dispatch(clearError());
     }
-  };
-
-  const fetchGuestStats = async () => {
-    try {
-      const response = await guestsAPI.getStats();
-      setGuestStats(response.data.stats);
-    } catch (error) {
-      console.error("Failed to fetch guest stats:", error);
-    }
-  };
+  }, [error, showError, dispatch]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+    dispatch(
+      setFormData({
+        [name]: type === "checkbox" ? checked : value,
+      })
+    );
 
     // Clear error for this field
     if (formErrors[name]) {
-      setFormErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
+      dispatch(clearFormError(name));
     }
   };
 
@@ -97,56 +102,39 @@ const Guests = () => {
 
     try {
       if (editingGuest) {
-        await guestsAPI.update(editingGuest.id, formData);
+        const result = await dispatch(
+          updateGuest({
+            id: editingGuest.id,
+            guestData: formData,
+          })
+        ).unwrap();
         showSuccess("Guest updated successfully");
       } else {
-        await guestsAPI.create(formData);
+        const result = await dispatch(createGuest(formData)).unwrap();
         showSuccess("Guest created successfully");
       }
 
-      setShowModal(false);
-      setEditingGuest(null);
-      resetForm();
-      fetchGuests();
-      fetchGuestStats();
+      // Refresh data
+      const params = {
+        page: currentPage,
+        limit: filters.limit,
+        search: filters.search,
+        loyaltyTier: filters.loyaltyTier || undefined,
+        isActive:
+          filters.isActive === "all"
+            ? undefined
+            : filters.isActive === "active",
+      };
+      dispatch(fetchGuests(params));
+      dispatch(fetchGuestStats());
     } catch (error) {
-      console.error("Failed to save guest:", error);
-      if (error.response?.data?.details) {
-        const errors = {};
-        error.response.data.details.forEach((detail) => {
-          errors[detail.field] = detail.message;
-        });
-        setFormErrors(errors);
-      } else {
-        showError("Failed to save guest", error?.response?.data?.message || "");
-      }
+      // Error handling is done in the slice
     }
   };
 
   const handleEdit = (guest) => {
-    setEditingGuest(guest);
-    setFormData({
-      firstName: guest.firstName || "",
-      lastName: guest.lastName || "",
-      email: guest.email || "",
-      phone: guest.phone || "",
-      dateOfBirth: guest.dateOfBirth || "",
-      gender: guest.gender || "",
-      address: guest.address || "",
-      city: guest.city || "",
-      country: guest.country || "Uganda",
-      preferences: guest.preferences || "",
-      allergies: guest.allergies || "",
-      dietaryRestrictions: guest.dietaryRestrictions || "",
-      loyaltyPoints: guest.loyaltyPoints || 0,
-      loyaltyTier: guest.loyaltyTier || "bronze",
-      totalSpent: guest.totalSpent || 0,
-      visitCount: guest.visitCount || 0,
-      isActive: guest.isActive !== undefined ? guest.isActive : true,
-      marketingConsent: guest.marketingConsent || false,
-      notes: guest.notes || "",
-    });
-    setShowModal(true);
+    dispatch(setEditingGuest(guest));
+    dispatch(setShowModal(true));
   };
 
   const handleDelete = async (guest) => {
@@ -156,57 +144,63 @@ const Guests = () => {
       )
     ) {
       try {
-        await guestsAPI.delete(guest.id);
+        await dispatch(deleteGuest(guest.id)).unwrap();
         showSuccess("Guest deactivated successfully");
-        fetchGuests();
-        fetchGuestStats();
+
+        // Refresh data
+        const params = {
+          page: currentPage,
+          limit: filters.limit,
+          search: filters.search,
+          loyaltyTier: filters.loyaltyTier || undefined,
+          isActive:
+            filters.isActive === "all"
+              ? undefined
+              : filters.isActive === "active",
+        };
+        dispatch(fetchGuests(params));
+        dispatch(fetchGuestStats());
       } catch (error) {
-        console.error("Failed to delete guest:", error);
-        showError(
-          "Failed to delete guest",
-          error?.response?.data?.message || ""
-        );
+        // Error handling is done in the slice
       }
     }
   };
 
   const handleViewDetails = async (guest) => {
     try {
-      const response = await guestsAPI.getHistory(guest.id);
-      setSelectedGuest(response.data);
-      setShowDetails(true);
+      const result = await dispatch(fetchGuestHistory(guest.id)).unwrap();
+      dispatch(setSelectedGuest({ guest, history: result }));
+      dispatch(setShowDetails(true));
     } catch (error) {
-      console.error("Failed to fetch guest details:", error);
-      showError(
-        "Failed to fetch guest details",
-        error?.response?.data?.message || ""
-      );
+      // Error handling is done in the slice
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      dateOfBirth: "",
-      gender: "",
-      address: "",
-      city: "",
-      country: "Uganda",
-      preferences: "",
-      allergies: "",
-      dietaryRestrictions: "",
-      loyaltyPoints: 0,
-      loyaltyTier: "bronze",
-      totalSpent: 0,
-      visitCount: 0,
-      isActive: true,
-      marketingConsent: false,
-      notes: "",
-    });
-    setFormErrors({});
+  const openCreateModal = () => {
+    dispatch(resetForm());
+    dispatch(setShowModal(true));
+  };
+
+  const closeModal = () => {
+    dispatch(setShowModal(false));
+    dispatch(setEditingGuest(null));
+    dispatch(resetForm());
+  };
+
+  const handleSearchChange = (e) => {
+    dispatch(setFilters({ search: e.target.value }));
+  };
+
+  const handleLoyaltyFilterChange = (e) => {
+    dispatch(setFilters({ loyaltyTier: e.target.value }));
+  };
+
+  const handleActiveFilterChange = (e) => {
+    dispatch(setFilters({ isActive: e.target.value }));
+  };
+
+  const handlePageChange = (newPage) => {
+    dispatch(setCurrentPage(newPage));
   };
 
   const getLoyaltyTierColor = (tier) => {
@@ -226,6 +220,7 @@ const Guests = () => {
       currency: "UGX",
     }).format(amount);
   };
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -235,6 +230,7 @@ const Guests = () => {
           Manage guest information, loyalty programs, and customer relationships
         </p>
       </div>
+
       {/* Stats Cards */}
       {guestStats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -264,6 +260,7 @@ const Guests = () => {
           </div>
         </div>
       )}
+
       {/* Filters and Actions */}
       <div className="bg-gray-800 p-4 rounded-lg mb-6">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -271,13 +268,13 @@ const Guests = () => {
             <input
               type="text"
               placeholder="Search guests..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={filters.search}
+              onChange={handleSearchChange}
               className="px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
             />
             <select
-              value={loyaltyFilter}
-              onChange={(e) => setLoyaltyFilter(e.target.value)}
+              value={filters.loyaltyTier}
+              onChange={handleLoyaltyFilterChange}
               className="px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
             >
               <option value="">All Loyalty Tiers</option>
@@ -288,8 +285,8 @@ const Guests = () => {
               <option value="vip">VIP</option>
             </select>
             <select
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
+              value={filters.isActive}
+              onChange={handleActiveFilterChange}
               className="px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
             >
               <option value="all">All Status</option>
@@ -298,17 +295,14 @@ const Guests = () => {
             </select>
           </div>
           <button
-            onClick={() => {
-              setEditingGuest(null);
-              resetForm();
-              setShowModal(true);
-            }}
+            onClick={openCreateModal}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none"
           >
             Add Guest
           </button>
         </div>
-      </div>{" "}
+      </div>
+
       {/* Guests Table */}
       <div className="bg-gray-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -434,7 +428,8 @@ const Guests = () => {
               )}
             </tbody>
           </table>
-        </div>{" "}
+        </div>
+
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="px-4 py-3 border-t border-gray-700 flex items-center justify-between">
@@ -443,7 +438,7 @@ const Guests = () => {
             </div>
             <div className="flex space-x-2">
               <button
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
                 className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -451,7 +446,7 @@ const Guests = () => {
               </button>
               <button
                 onClick={() =>
-                  setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                  handlePageChange(Math.min(totalPages, currentPage + 1))
                 }
                 disabled={currentPage === totalPages}
                 className="px-3 py-1 bg-gray-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
@@ -462,6 +457,7 @@ const Guests = () => {
           </div>
         )}
       </div>
+
       {/* Create/Edit Guest Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -517,6 +513,7 @@ const Guests = () => {
                     </p>
                   )}
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Email
@@ -622,6 +619,7 @@ const Guests = () => {
                     className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
                     Total Spent
@@ -744,6 +742,7 @@ const Guests = () => {
                   className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 />
               </div>
+
               <div className="flex items-center space-x-4">
                 <label className="flex items-center">
                   <input
@@ -773,11 +772,7 @@ const Guests = () => {
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingGuest(null);
-                    resetForm();
-                  }}
+                  onClick={closeModal}
                   className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 focus:outline-none"
                 >
                   Cancel
@@ -785,25 +780,31 @@ const Guests = () => {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none"
+                  disabled={loading}
                 >
-                  {editingGuest ? "Update Guest" : "Create Guest"}
+                  {loading
+                    ? "Saving..."
+                    : editingGuest
+                    ? "Update Guest"
+                    : "Create Guest"}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
       {/* Guest Details Modal */}
-      {showDetails && selectedGuest && (
+      {showDetails && guestHistory && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-white">
-                Guest Details - {selectedGuest.guest.firstName}{" "}
-                {selectedGuest.guest.lastName}
+                Guest Details - {guestHistory.guest.firstName}{" "}
+                {guestHistory.guest.lastName}
               </h2>
               <button
-                onClick={() => setShowDetails(false)}
+                onClick={() => dispatch(setShowDetails(false))}
                 className="text-gray-400 hover:text-white"
               >
                 ✕
@@ -820,57 +821,58 @@ const Guests = () => {
                   <div>
                     <span className="text-gray-300">Email:</span>{" "}
                     <span className="text-white">
-                      {selectedGuest.guest.email || "N/A"}
+                      {guestHistory.guest.email || "N/A"}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-300">Phone:</span>{" "}
                     <span className="text-white">
-                      {selectedGuest.guest.phone || "N/A"}
+                      {guestHistory.guest.phone || "N/A"}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-300">Loyalty Tier:</span>{" "}
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLoyaltyTierColor(
-                        selectedGuest.guest.loyaltyTier
+                        guestHistory.guest.loyaltyTier
                       )}`}
                     >
-                      {selectedGuest.guest.loyaltyTier}
+                      {guestHistory.guest.loyaltyTier}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-300">Loyalty Points:</span>{" "}
                     <span className="text-white">
-                      {selectedGuest.guest.loyaltyPoints}
+                      {guestHistory.guest.loyaltyPoints}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-300">Total Spent:</span>{" "}
                     <span className="text-white">
-                      {formatCurrency(selectedGuest.guest.totalSpent)}
+                      {formatCurrency(guestHistory.guest.totalSpent)}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-300">Visit Count:</span>{" "}
                     <span className="text-white">
-                      {selectedGuest.guest.visitCount}
+                      {guestHistory.guest.visitCount}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-300">Status:</span>{" "}
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        selectedGuest.guest.isActive
+                        guestHistory.guest.isActive
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
-                      {selectedGuest.guest.isActive ? "Active" : "Inactive"}
+                      {guestHistory.guest.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
                 </div>
               </div>
+
               {/* Recent Activity */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-white">
@@ -882,9 +884,9 @@ const Guests = () => {
                   <h4 className="text-md font-medium text-white mb-2">
                     Recent Reservations
                   </h4>
-                  {selectedGuest.history.reservations.length > 0 ? (
+                  {guestHistory.history?.reservations?.length > 0 ? (
                     <div className="space-y-2">
-                      {selectedGuest.history.reservations
+                      {guestHistory.history.reservations
                         .slice(0, 3)
                         .map((reservation) => (
                           <div key={reservation.id} className="text-sm">
@@ -914,9 +916,9 @@ const Guests = () => {
                   <h4 className="text-md font-medium text-white mb-2">
                     Recent Orders
                   </h4>
-                  {selectedGuest.history.orders.length > 0 ? (
+                  {guestHistory.history?.orders?.length > 0 ? (
                     <div className="space-y-2">
-                      {selectedGuest.history.orders.slice(0, 3).map((order) => (
+                      {guestHistory.history.orders.slice(0, 3).map((order) => (
                         <div key={order.id} className="text-sm">
                           <div className="text-white">{order.orderNumber}</div>
                           <div className="text-gray-300">

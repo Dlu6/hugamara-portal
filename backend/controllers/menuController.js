@@ -114,3 +114,74 @@ export const deleteMenuItem = async (req, res) => {
     res.status(500).json({ error: "Failed to delete menu item" });
   }
 };
+
+export const getMenuStats = async (req, res) => {
+  try {
+    const userOutletId = req.user.outletId;
+
+    const [
+      totalItems,
+      availableItems,
+      unavailableItems,
+      featuredItems,
+      byCategory,
+      avgPrice,
+      totalValue,
+    ] = await Promise.all([
+      MenuItem.count({ where: { outletId: userOutletId } }),
+      MenuItem.count({ where: { outletId: userOutletId, isAvailable: true } }),
+      MenuItem.count({ where: { outletId: userOutletId, isAvailable: false } }),
+      MenuItem.count({ where: { outletId: userOutletId, isFeatured: true } }),
+      MenuItem.findAll({
+        where: { outletId: userOutletId },
+        attributes: [
+          "category",
+          [
+            MenuItem.sequelize.fn("COUNT", MenuItem.sequelize.col("id")),
+            "count",
+          ],
+        ],
+        group: ["category"],
+        raw: true,
+      }),
+      MenuItem.findOne({
+        where: { outletId: userOutletId },
+        attributes: [
+          [
+            MenuItem.sequelize.fn("AVG", MenuItem.sequelize.col("price")),
+            "avgPrice",
+          ],
+        ],
+        raw: true,
+      }),
+      MenuItem.findOne({
+        where: { outletId: userOutletId },
+        attributes: [
+          [
+            MenuItem.sequelize.fn("SUM", MenuItem.sequelize.col("price")),
+            "totalValue",
+          ],
+        ],
+        raw: true,
+      }),
+    ]);
+
+    res.json({
+      stats: {
+        totalItems: totalItems || 0,
+        availableItems: availableItems || 0,
+        unavailableItems: unavailableItems || 0,
+        featuredItems: featuredItems || 0,
+        avgPrice: parseFloat(avgPrice?.avgPrice) || 0,
+        totalValue: parseFloat(totalValue?.totalValue) || 0,
+        byCategory: byCategory.reduce((acc, item) => {
+          acc[item.category] = parseInt(item.count);
+          return acc;
+        }, {}),
+      },
+    });
+  } catch (error) {
+    console.error("Get menu stats error:", error);
+    res.status(500).json({ error: "Failed to fetch menu stats" });
+  }
+};

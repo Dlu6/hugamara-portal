@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Building2,
   Plus,
@@ -8,167 +9,130 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { outletsAPI } from "../services/apiClient";
 import { useToast } from "../components/ui/ToastProvider";
+import {
+  fetchAllOutlets,
+  createOutlet,
+  updateOutlet,
+  deleteOutlet,
+  setFormData,
+  setFormErrors,
+  setShowCreateModal,
+  setShowEditModal,
+  setSelectedOutlet,
+  setSearchTerm,
+  resetForm,
+  clearError,
+  selectAllOutlets,
+  selectFilteredOutlets,
+  selectOutletsLoading,
+  selectOutletsError,
+  selectOutletsFormData,
+  selectOutletsFormErrors,
+  selectShowCreateModal,
+  selectShowEditModal,
+  selectSelectedOutlet,
+  selectOutletsSearchTerm,
+} from "../store/slices/outletSlice";
 
 const Outlets = () => {
+  const dispatch = useDispatch();
   const { success: showSuccess, error: showError } = useToast();
   const navigate = useNavigate();
 
-  const [outlets, setOutlets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedOutlet, setSelectedOutlet] = useState(null);
-
-  const [formData, setFormData] = useState({
-    name: "",
-    code: "",
-    type: "restaurant",
-    timezone: "",
-    currency: "UGX",
-    isActive: true,
-  });
-  const [formErrors, setFormErrors] = useState({});
+  const outlets = useSelector(selectAllOutlets);
+  const filteredOutlets = useSelector(selectFilteredOutlets);
+  const loading = useSelector(selectOutletsLoading);
+  const error = useSelector(selectOutletsError);
+  const formData = useSelector(selectOutletsFormData);
+  const formErrors = useSelector(selectOutletsFormErrors);
+  const showCreateModal = useSelector(selectShowCreateModal);
+  const showEditModal = useSelector(selectShowEditModal);
+  const selectedOutlet = useSelector(selectSelectedOutlet);
+  const searchTerm = useSelector(selectOutletsSearchTerm);
 
   useEffect(() => {
-    fetchOutlets();
-  }, []);
+    dispatch(fetchAllOutlets());
+  }, [dispatch]);
 
-  const fetchOutlets = async () => {
-    try {
-      setLoading(true);
-      const res = await outletsAPI.getAll();
-      const list = res?.data?.outlets || res?.data || [];
-      setOutlets(Array.isArray(list) ? list : []);
-    } catch (err) {
-      console.error("Failed to fetch outlets:", err);
-      showError(
-        "Failed to load outlets",
-        err?.response?.data?.message || "Please try again"
-      );
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (error) {
+      showError("Operation failed", error);
+      dispatch(clearError());
     }
-  };
+  }, [error, showError, dispatch]);
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      code: "",
-      type: "restaurant",
-      timezone: "",
-      currency: "UGX",
-      isActive: true,
-    });
-    setFormErrors({});
+  const handleSearch = (e) => {
+    dispatch(setSearchTerm(e.target.value));
   };
 
   const openCreateModal = () => {
-    resetForm();
-    setShowCreateModal(true);
+    dispatch(resetForm());
+    dispatch(setShowCreateModal(true));
   };
 
   const openEditModal = (outlet) => {
-    setSelectedOutlet(outlet);
-    setFormErrors({});
-    setFormData({
-      name: outlet.name || "",
-      code: outlet.code || "",
-      type: outlet.type || "restaurant",
-      timezone: outlet.timezone || "",
-      currency: outlet.currency || "UGX",
-      isActive: outlet.isActive,
-    });
-    setShowEditModal(true);
+    dispatch(setSelectedOutlet(outlet));
+    dispatch(setFormErrors({}));
+    dispatch(setShowEditModal(true));
+  };
+
+  const closeCreateModal = () => {
+    dispatch(setShowCreateModal(false));
+    dispatch(resetForm());
+  };
+
+  const closeEditModal = () => {
+    dispatch(setShowEditModal(false));
+    dispatch(setSelectedOutlet(null));
+    dispatch(resetForm());
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    dispatch(
+      setFormData({
+        [name]: type === "checkbox" ? checked : value,
+      })
+    );
   };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
-      const res = await outletsAPI.create({ ...formData });
-      const created = res?.data?.outlet || res?.data;
-      if (created?.id) {
-        setOutlets((prev) => [created, ...prev]);
-        showSuccess("Outlet created", created.name);
-      } else {
-        await fetchOutlets();
-      }
-      setShowCreateModal(false);
-      resetForm();
-    } catch (err) {
-      const data = err?.response?.data;
-      if (Array.isArray(data?.errors) || Array.isArray(data?.details)) {
-        const details = data?.errors || data?.details || [];
-        const mapped = {};
-        details.forEach((d) => {
-          if (d?.path?.[0]) mapped[d.path[0]] = d.msg || d.message;
-          if (d?.field) mapped[d.field] = d.message;
-        });
-        setFormErrors(mapped);
-      }
-      showError("Create outlet failed", data?.message || "Validation failed");
+      const result = await dispatch(createOutlet(formData)).unwrap();
+      showSuccess("Outlet created", result.name);
+      dispatch(fetchAllOutlets()); // Refresh the list
+    } catch (error) {
+      // Error handling is done in the slice
     }
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
-      setFormErrors({});
-      const res = await outletsAPI.update(selectedOutlet.id, { ...formData });
-      const updated = res?.data?.outlet || res?.data;
-      if (updated?.id) {
-        setOutlets((prev) =>
-          prev.map((o) => (o.id === updated.id ? updated : o))
-        );
-        showSuccess("Outlet updated", updated.name);
-      } else {
-        await fetchOutlets();
-      }
-      setShowEditModal(false);
-      setSelectedOutlet(null);
-      resetForm();
-    } catch (err) {
-      const data = err?.response?.data;
-      if (Array.isArray(data?.errors) || Array.isArray(data?.details)) {
-        const details = data?.errors || data?.details || [];
-        const mapped = {};
-        details.forEach((d) => {
-          if (d?.path?.[0]) mapped[d.path[0]] = d.msg || d.message;
-          if (d?.field) mapped[d.field] = d.message;
-        });
-        setFormErrors(mapped);
-      }
-      showError("Update outlet failed", data?.message || "Validation failed");
+      const result = await dispatch(
+        updateOutlet({
+          id: selectedOutlet.id,
+          outletData: formData,
+        })
+      ).unwrap();
+      showSuccess("Outlet updated", result.name);
+      dispatch(fetchAllOutlets()); // Refresh the list
+    } catch (error) {
+      // Error handling is done in the slice
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this outlet?")) return;
     try {
-      await outletsAPI.delete(id);
-      setOutlets((prev) => prev.filter((o) => o.id !== id));
+      await dispatch(deleteOutlet(id)).unwrap();
       showSuccess("Outlet deleted", "Outlet deactivated successfully");
-    } catch (err) {
-      showError(
-        "Delete outlet failed",
-        err?.response?.data?.message || "Please try again"
-      );
+    } catch (error) {
+      // Error handling is done in the slice
     }
   };
-
-  const filtered = outlets.filter((o) => {
-    const s = searchTerm.trim().toLowerCase();
-    if (!s) return true;
-    return (
-      o.name?.toLowerCase().includes(s) ||
-      o.code?.toLowerCase().includes(s) ||
-      o.type?.toLowerCase().includes(s)
-    );
-  });
 
   return (
     <div className="p-6">
@@ -197,7 +161,7 @@ const Outlets = () => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearch}
             className="pl-10 w-full form-input"
             placeholder="Search outlets by name, code or type..."
           />
@@ -233,7 +197,7 @@ const Outlets = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filtered.map((o) => (
+                {filteredOutlets.map((o) => (
                   <tr key={o.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
@@ -287,6 +251,16 @@ const Outlets = () => {
                     </td>
                   </tr>
                 ))}
+                {filteredOutlets.length === 0 && !loading && (
+                  <tr>
+                    <td
+                      colSpan="5"
+                      className="px-6 py-4 text-center text-gray-500"
+                    >
+                      No outlets found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -309,9 +283,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    name="name"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     required
                   />
@@ -328,9 +301,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value })
-                    }
+                    name="code"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     required
                   />
@@ -346,9 +318,8 @@ const Outlets = () => {
                   </label>
                   <select
                     value={formData.type}
-                    onChange={(e) =>
-                      setFormData({ ...formData, type: e.target.value })
-                    }
+                    name="type"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                   >
                     <option value="restaurant">Restaurant</option>
@@ -368,9 +339,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.timezone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, timezone: e.target.value })
-                    }
+                    name="timezone"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     placeholder="Africa/Kampala"
                   />
@@ -387,9 +357,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.currency}
-                    onChange={(e) =>
-                      setFormData({ ...formData, currency: e.target.value })
-                    }
+                    name="currency"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     placeholder="UGX"
                   />
@@ -403,9 +372,8 @@ const Outlets = () => {
                   <input
                     type="checkbox"
                     checked={formData.isActive}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isActive: e.target.checked })
-                    }
+                    name="isActive"
+                    onChange={handleInputChange}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
                   <label className="ml-2 block text-sm text-gray-900">
@@ -415,7 +383,7 @@ const Outlets = () => {
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={closeCreateModal}
                     className="btn-secondary"
                   >
                     Cancel
@@ -446,9 +414,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
+                    name="name"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     required
                   />
@@ -465,9 +432,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.code}
-                    onChange={(e) =>
-                      setFormData({ ...formData, code: e.target.value })
-                    }
+                    name="code"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     required
                   />
@@ -483,9 +449,8 @@ const Outlets = () => {
                   </label>
                   <select
                     value={formData.type}
-                    onChange={(e) =>
-                      setFormData({ ...formData, type: e.target.value })
-                    }
+                    name="type"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                   >
                     <option value="restaurant">Restaurant</option>
@@ -505,9 +470,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.timezone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, timezone: e.target.value })
-                    }
+                    name="timezone"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     placeholder="Africa/Kampala"
                   />
@@ -524,9 +488,8 @@ const Outlets = () => {
                   <input
                     type="text"
                     value={formData.currency}
-                    onChange={(e) =>
-                      setFormData({ ...formData, currency: e.target.value })
-                    }
+                    name="currency"
+                    onChange={handleInputChange}
                     className="mt-1 w-full form-input"
                     placeholder="UGX"
                   />
@@ -540,9 +503,8 @@ const Outlets = () => {
                   <input
                     type="checkbox"
                     checked={formData.isActive}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isActive: e.target.checked })
-                    }
+                    name="isActive"
+                    onChange={handleInputChange}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                   />
                   <label className="ml-2 block text-sm text-gray-900">
@@ -552,7 +514,7 @@ const Outlets = () => {
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
-                    onClick={() => setShowEditModal(false)}
+                    onClick={closeEditModal}
                     className="btn-secondary"
                   >
                     Cancel
