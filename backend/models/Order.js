@@ -184,16 +184,7 @@ const Order = sequelize.define(
       allowNull: false,
       field: "updated_at",
     },
-    createdBy: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "created_by",
-    },
-    updatedBy: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: "updated_by",
-    },
+    // Audit fields removed to avoid MySQL key limit issues
   },
   {
     tableName: "orders",

@@ -82,15 +82,7 @@ const OrderItem = sequelize.define('OrderItem', {
     allowNull: true,
     field: 'comp_reason'
   },
-  compApprovedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'comp_approved_by',
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
+  // compApprovedBy removed to simplify associations
   modifiers: {
     type: DataTypes.JSON,
     allowNull: true,

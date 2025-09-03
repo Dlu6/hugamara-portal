@@ -126,6 +126,15 @@ const Guest = sequelize.define('Guest', {
     allowNull: true,
     defaultValue: []
   },
+  outletId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    field: 'outlet_id',
+    references: {
+      model: 'outlets',
+      key: 'id'
+    }
+  },
   createdAt: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -136,16 +145,7 @@ const Guest = sequelize.define('Guest', {
     allowNull: false,
     field: 'updated_at'
   },
-  createdBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'created_by'
-  },
-  updatedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'updated_by'
-  }
+  // Audit fields removed to avoid MySQL key limit issues
 }, {
   tableName: 'guests',
   timestamps: true,

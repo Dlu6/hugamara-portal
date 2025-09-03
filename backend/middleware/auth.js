@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/index.js';
+import { hasPermission } from '../config/permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -105,34 +106,42 @@ export const requireOutletAccess = (outletIdParam = 'outletId') => {
   };
 };
 
-export const requireOwnership = (modelParam = 'id') => {
-  return async (req, res, next) => {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          error: 'Authentication required',
-          message: 'User must be authenticated'
-        });
-      }
-
-      const resourceId = req.params[modelParam];
-      
-      // Org admins can access all resources
-      if (req.user.role === 'org_admin') {
-        return next();
-      }
-
-      // For other roles, check if they own the resource or have outlet access
-      // This would need to be implemented based on the specific model
-      // For now, we'll just pass through and let the controller handle it
-      next();
-
-    } catch (error) {
-      console.error('Ownership check error:', error);
-      res.status(500).json({
-        error: 'Internal server error',
-        message: 'An error occurred while checking ownership'
+export const requirePermission = (permission) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'User must be authenticated'
       });
     }
+
+    if (!hasPermission(req.user.role, permission)) {
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        message: `User does not have permission: ${permission}`
+      });
+    }
+
+    next();
+  };
+};
+
+export const requireAnyPermission = (permissions) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'User must be authenticated'
+      });
+    }
+
+    if (!hasAnyPermission(req.user.role, permissions)) {
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        message: `User does not have any of the required permissions: ${permissions.join(', ')}`
+      });
+    }
+
+    next();
   };
 };

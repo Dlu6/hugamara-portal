@@ -54,42 +54,9 @@ const Ticket = sequelize.define('Ticket', {
     allowNull: false,
     defaultValue: 'open'
   },
-  assignedTo: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'assigned_to',
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
-  reportedBy: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    field: 'reported_by',
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
-  guestId: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'guest_id',
-    references: {
-      model: 'guests',
-      key: 'id'
-    }
-  },
-  reservationId: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'reservation_id',
-    references: {
-      model: 'reservations',
-      key: 'id'
-    }
-  },
+  // assignedTo and reportedBy removed to simplify associations
+  // guestId removed to simplify associations
+  // reservationId removed to simplify associations
   location: {
     type: DataTypes.STRING(100),
     allowNull: true
@@ -150,16 +117,7 @@ const Ticket = sequelize.define('Ticket', {
     allowNull: false,
     field: 'updated_at'
   },
-  createdBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'created_by'
-  },
-  updatedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'updated_by'
-  }
+  // Audit fields removed to avoid MySQL key limit issues
 }, {
   tableName: 'tickets',
   timestamps: true,

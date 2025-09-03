@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User, Outlet } from '../models/index.js';
+import { getUserPermissions } from '../config/permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
@@ -86,6 +87,7 @@ export const login = async (req, res) => {
 
     // Prepare user data (exclude password)
     const userData = user.toJSON();
+    userData.permissions = getUserPermissions(user.role);
 
     res.status(200).json({
       message: 'Login successful',
@@ -140,8 +142,11 @@ export const getCurrentUser = async (req, res) => {
       });
     }
 
+    const userData = user.toJSON();
+    userData.permissions = getUserPermissions(user.role);
+
     res.status(200).json({
-      user: user.toJSON()
+      user: userData
     });
 
   } catch (error) {

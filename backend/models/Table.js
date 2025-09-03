@@ -113,33 +113,8 @@ const Table = sequelize.define('Table', {
     allowNull: false,
     defaultValue: 'available'
   },
-  currentReservationId: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'current_reservation_id',
-    references: {
-      model: 'reservations',
-      key: 'id'
-    }
-  },
-  currentOrderId: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'current_order_id',
-    references: {
-      model: 'orders',
-      key: 'id'
-    }
-  },
-  assignedServerId: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'assigned_server_id',
-    references: {
-      model: 'users',
-      key: 'id'
-    }
-  },
+  // currentReservationId and currentOrderId removed to simplify associations
+  // assignedServerId removed to simplify associations
   lastCleanedAt: {
     type: DataTypes.DATE,
     allowNull: true,
@@ -164,16 +139,7 @@ const Table = sequelize.define('Table', {
     allowNull: false,
     field: 'updated_at'
   },
-  createdBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'created_by'
-  },
-  updatedBy: {
-    type: DataTypes.UUID,
-    allowNull: true,
-    field: 'updated_by'
-  }
+  // Audit fields removed to avoid MySQL key limit issues
 }, {
   tableName: 'tables',
   timestamps: true,
