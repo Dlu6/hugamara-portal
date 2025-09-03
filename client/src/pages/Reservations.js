@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Calendar, Plus, Search, Filter } from "lucide-react";
-import { reservationsAPI, tablesAPI, guestsAPI } from "../services/apiClient";
+import {
+  reservationsAPI,
+  tablesAPI,
+  guestsAPI,
+  ordersAPI,
+} from "../services/apiClient";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -100,6 +105,31 @@ const Reservations = () => {
         setGuestErrors(mapped);
       }
       showError("Create guest failed", data?.message || "Validation failed");
+    }
+  };
+
+  const handleCreateOrder = async (reservation) => {
+    try {
+      const orderData = {
+        orderType: "dine_in",
+        tableId: reservation.tableId,
+        reservationId: reservation.id,
+        guestId: reservation.guestId,
+        priority: "normal",
+        specialInstructions: `Order for reservation ${reservation.reservationNumber}`,
+      };
+
+      const response = await ordersAPI.create(orderData);
+      showSuccess(
+        "Order created",
+        `Order created for reservation ${reservation.reservationNumber}`
+      );
+
+      // Navigate to orders page to view the new order
+      navigate("/orders");
+    } catch (error) {
+      console.error("Failed to create order:", error);
+      showError("Order creation failed", error?.response?.data?.message || "");
     }
   };
 
@@ -452,6 +482,14 @@ const Reservations = () => {
                           }
                         >
                           Seat
+                        </button>
+                      )}
+                      {reservation.status === "seated" && (
+                        <button
+                          className="text-sm px-2 py-1 border border-green-700 bg-green-800 text-green-100 rounded ml-2"
+                          onClick={() => handleCreateOrder(reservation)}
+                        >
+                          Create Order
                         </button>
                       )}
                     </div>

@@ -22,6 +22,7 @@ import ticketRoutes from "./routes/tickets.js";
 import eventRoutes from "./routes/events.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import tableRoutes from "./routes/tables.js";
+import menuRoutes from "./routes/menu.js";
 
 // Import middleware
 import { authenticateToken } from "./middleware/auth.js";
@@ -98,6 +99,7 @@ app.use("/api/tickets", authenticateToken, ticketRoutes);
 app.use("/api/events", authenticateToken, eventRoutes);
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/tables", authenticateToken, tableRoutes);
+app.use("/api/menu", authenticateToken, menuRoutes);
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {

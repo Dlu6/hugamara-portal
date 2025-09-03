@@ -42,8 +42,17 @@ Outlet.hasMany(MenuItem, { foreignKey: "outletId", as: "menuItems" });
 // Order relationships
 Order.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
 Order.belongsTo(Table, { foreignKey: "tableId", as: "table" });
+Order.belongsTo(Reservation, {
+  foreignKey: "reservationId",
+  as: "reservation",
+});
+Order.belongsTo(Guest, { foreignKey: "guestId", as: "guest" });
+Order.belongsTo(User, { foreignKey: "serverId", as: "server" });
 Outlet.hasMany(Order, { foreignKey: "outletId", as: "orders" });
 Table.hasMany(Order, { foreignKey: "tableId", as: "orders" });
+Reservation.hasMany(Order, { foreignKey: "reservationId", as: "orders" });
+Guest.hasMany(Order, { foreignKey: "guestId", as: "orders" });
+User.hasMany(Order, { foreignKey: "serverId", as: "orders" });
 
 // Order Item relationships
 OrderItem.belongsTo(Order, { foreignKey: "orderId", as: "order" });

@@ -120,6 +120,7 @@ export const guestsAPI = createResourceAPI("guests");
 export const ticketsAPI = createResourceAPI("tickets");
 export const eventsAPI = createResourceAPI("events");
 export const menuItemsAPI = createResourceAPI("menu-items");
+export const menuAPI = createResourceAPI("menu");
 export const tablesAPI = createResourceAPI("tables");
 export const staffAPI = createResourceAPI("staff");
 export const shiftsAPI = createResourceAPI("shifts");
