@@ -9,7 +9,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 5000,
-        DB_HOST: "localhost",
+        DB_HOST: "127.0.0.1",
         DB_PORT: 3306,
         DB_NAME: "hugamara_db",
         DB_USER: "hugamara_user",
