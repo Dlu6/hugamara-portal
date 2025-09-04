@@ -14,6 +14,7 @@ module.exports = {
         DB_NAME: "hugamara_db",
         DB_USER: "hugamara_user",
         DB_PASSWORD: "Pasword@256",
+        DB_SSL: "false",
       },
       error_file: "/home/admin/logs/hugamara-backend-error.log",
       out_file: "/home/admin/logs/hugamara-backend-out.log",
