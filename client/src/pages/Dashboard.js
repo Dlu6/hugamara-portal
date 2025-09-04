@@ -106,8 +106,8 @@ const Dashboard = () => {
     return (
       <div className="p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-accent-primary mx-auto mb-4" />
-          <p className="text-text-secondary">Loading dashboard data...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-[#046577] mx-auto mb-4" />
+          <p className="text-gray-600">Loading dashboard data...</p>
         </div>
       </div>
     );
@@ -117,12 +117,12 @@ const Dashboard = () => {
   if (error && !dashboardData) {
     return (
       <div className="p-6">
-        <div className="bg-error/10 border border-error/20 rounded-lg p-4 text-center">
-          <AlertCircle className="w-8 h-8 text-error mx-auto mb-2" />
-          <p className="text-error font-medium">{error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+          <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+          <p className="text-red-600 font-medium">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-2 px-4 py-2 bg-error text-white rounded hover:bg-error/80"
+            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
             Retry
           </button>
@@ -146,39 +146,39 @@ const Dashboard = () => {
   const renderInventoryWidget = () => (
     <div className="dashboard-card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-text-primary">
+        <h3 className="text-lg font-semibold text-[#046577]">
           Inventory Status
         </h3>
-        <Package className="w-6 h-6 text-accent-primary" />
+        <Package className="w-6 h-6 text-[#046577]" />
       </div>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Total Items</span>
-          <span className="font-semibold text-text-primary">
+          <span className="text-gray-600">Total Items</span>
+          <span className="font-semibold text-gray-900">
             {dashboardData.inventory.totalItems}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Low Stock</span>
-          <span className="font-semibold text-warning">
+          <span className="text-gray-600">Low Stock</span>
+          <span className="font-semibold text-yellow-600">
             {dashboardData.inventory.lowStock}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Out of Stock</span>
-          <span className="font-semibold text-error">
+          <span className="text-gray-600">Out of Stock</span>
+          <span className="font-semibold text-red-600">
             {dashboardData.inventory.outOfStock}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Expiring Soon</span>
-          <span className="font-semibold text-warning">
+          <span className="text-gray-600">Expiring Soon</span>
+          <span className="font-semibold text-yellow-600">
             {dashboardData.inventory.expiringSoon}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Total Value</span>
-          <span className="font-semibold text-success">
+          <span className="text-gray-600">Total Value</span>
+          <span className="font-semibold text-gray-300">
             {formatUGX(dashboardData.inventory.totalValue)}
           </span>
         </div>
@@ -189,37 +189,37 @@ const Dashboard = () => {
   const renderMenuWidget = () => (
     <div className="dashboard-card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-text-primary">
+        <h3 className="text-lg font-semibold text-[#046577]">
           Menu Performance
         </h3>
-        <Utensils className="w-6 h-6 text-success" />
+        <Utensils className="w-6 h-6 text-green-600" />
       </div>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Total Items</span>
-          <span className="font-semibold text-text-primary">
+          <span className="text-gray-600">Total Items</span>
+          <span className="font-semibold text-gray-900">
             {dashboardData.menu.totalItems}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Available</span>
-          <span className="font-semibold text-success">
+          <span className="text-gray-600">Available</span>
+          <span className="font-semibold text-green-600">
             {dashboardData.menu.available}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Unavailable</span>
-          <span className="font-semibold text-error">
+          <span className="text-gray-600">Unavailable</span>
+          <span className="font-semibold text-red-600">
             {dashboardData.menu.unavailable}
           </span>
         </div>
         <div className="mt-3">
-          <span className="text-sm text-text-secondary">Top Sellers:</span>
+          <span className="text-sm text-gray-600">Top Sellers:</span>
           <div className="mt-1 space-y-1">
             {dashboardData.menu.topSellers.map((item, index) => (
               <div
                 key={index}
-                className="text-xs text-text-primary bg-primary-bg-accent px-2 py-1 rounded"
+                className="text-xs text-gray-900 bg-gray-100 px-2 py-1 rounded"
               >
                 {item}
               </div>
@@ -233,39 +233,37 @@ const Dashboard = () => {
   const renderTableStatusWidget = () => (
     <div className="dashboard-card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-text-primary">
-          Table Status
-        </h3>
-        <Table className="w-6 h-6 text-accent-primary" />
+        <h3 className="text-lg font-semibold text-[#046577]">Table Status</h3>
+        <Table className="w-6 h-6 text-[#046577]" />
       </div>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Total Tables</span>
-          <span className="font-semibold text-text-primary">
+          <span className="text-gray-600">Total Tables</span>
+          <span className="font-semibold text-gray-900">
             {dashboardData.tables.total}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Occupied</span>
-          <span className="font-semibold text-success">
+          <span className="text-gray-600">Occupied</span>
+          <span className="font-semibold text-green-600">
             {dashboardData.tables.occupied}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Available</span>
-          <span className="font-semibold text-accent-primary">
+          <span className="text-gray-600">Available</span>
+          <span className="font-semibold text-[#046577]">
             {dashboardData.tables.available}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Cleaning</span>
-          <span className="font-semibold text-warning">
+          <span className="text-gray-600">Cleaning</span>
+          <span className="font-semibold text-yellow-600">
             {dashboardData.tables.cleaning}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Reserved</span>
-          <span className="font-semibold text-info">
+          <span className="text-gray-600">Reserved</span>
+          <span className="font-semibold text-blue-600">
             {dashboardData.tables.reserved}
           </span>
         </div>
@@ -276,33 +274,31 @@ const Dashboard = () => {
   const renderStaffStatusWidget = () => (
     <div className="dashboard-card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-text-primary">
-          Staff Status
-        </h3>
-        <Users className="w-6 h-6 text-accent-primary" />
+        <h3 className="text-lg font-semibold text-[#046577]">Staff Status</h3>
+        <Users className="w-6 h-6 text-[#046577]" />
       </div>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Total Staff</span>
-          <span className="font-semibold text-text-primary">
+          <span className="text-gray-600">Total Staff</span>
+          <span className="font-semibold text-gray-900">
             {dashboardData.staff.total}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">On Shift</span>
-          <span className="font-semibold text-success">
+          <span className="text-gray-600">On Shift</span>
+          <span className="font-semibold text-green-600">
             {dashboardData.staff.onShift}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Off Duty</span>
-          <span className="font-semibold text-text-secondary">
+          <span className="text-gray-600">Off Duty</span>
+          <span className="font-semibold text-gray-500">
             {dashboardData.staff.offDuty}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-text-secondary">Overtime</span>
-          <span className="font-semibold text-warning">
+          <span className="text-gray-600">Overtime</span>
+          <span className="font-semibold text-yellow-600">
             {dashboardData.staff.overtime}
           </span>
         </div>
@@ -316,72 +312,70 @@ const Dashboard = () => {
       <div className="dashboard-grid">
         <div className="dashboard-card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-text-primary">
+            <h3 className="text-lg font-semibold text-[#046577]">
               Revenue Today
             </h3>
-            <TrendingUp className="w-6 h-6 text-success" />
+            <TrendingUp className="w-6 h-6 text-green-600" />
           </div>
-          <div className="text-3xl font-bold text-text-primary mb-2">
+          <div className="text-3xl font-bold text-gray-400 mb-2">
             {formatUGX(dashboardData.revenue.today)}
           </div>
-          <div className="text-sm text-success">
+          <div className="text-sm text-green-600">
             {dashboardData.revenue.change} vs yesterday
           </div>
         </div>
 
         <div className="dashboard-card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-text-primary">
+            <h3 className="text-lg font-semibold text-[#046577]">
               Week-to-Date
             </h3>
-            <span className="w-6 h-6 text-accent-primary text-2xl font-bold">
+            {/* <span className="w-6 h-6 text-accent-primary text-2xl font-bold">
               USh
-            </span>
+            </span> */}
           </div>
-          <div className="text-3xl font-bold text-text-primary mb-2">
+          <div className="text-3xl font-bold text-gray-400 mb-2">
             {formatUGX(dashboardData.revenue.week)}
           </div>
-          <div className="text-sm text-text-secondary">
-            Current week performance
-          </div>
+          <div className="text-sm text-gray-600">Current week performance</div>
         </div>
 
         <div className="dashboard-card">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-text-primary">
+            <h3 className="text-lg font-semibold text-[#046577]">
               Month-to-Date
             </h3>
-            <TrendingUp className="w-6 h-6 text-warning" />
+            <TrendingUp className="w-6 h-6 text-yellow-600" />
           </div>
-          <div className="text-3xl font-bold text-text-primary mb-2">
+          <div className="text-3xl font-bold text-gray-400 mb-2">
             {formatUGX(dashboardData.revenue.month)}
           </div>
-          <div className="text-sm text-text-secondary">MTD vs Last Year</div>
+          <div className="text-sm text-gray-600">MTD vs Last Year</div>
         </div>
       </div>
 
       {/* Operations Overview */}
       <div className="dashboard-grid">
         <div className="dashboard-card">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
+          <h3 className="text-lg font-semibold text-[#046577] mb-4">
             Reservations
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Booked Today</span>
-              <span className="font-semibold text-text-primary">
+              <span className="text-gray-600">Booked Today</span>
+              <span className="font-semibold text-gray-900">
                 {dashboardData.reservations.booked}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Seated</span>
-              <span className="font-semibold text-success">
+              <span className="text-gray-600">Seated</span>
+              <span className="font-semibold text-green-600">
                 {dashboardData.reservations.seated}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">No-Show Rate</span>
-              <span className="font-semibold text-error">
+              <span className="text-gray-600">No-Show Rate</span>
+              <span className="font-semibold text-red-600">
                 {dashboardData.reservations.rate}
               </span>
             </div>
@@ -389,25 +383,25 @@ const Dashboard = () => {
         </div>
 
         <div className="dashboard-card">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
+          <h3 className="text-lg font-semibold text-[#046577] mb-4">
             Guest Activity
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Total Guests</span>
-              <span className="font-semibold text-text-primary">
+              <span className="text-gray-600">Total Guests</span>
+              <span className="font-semibold text-gray-900">
                 {dashboardData.guests.total}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">New Guests</span>
-              <span className="font-semibold text-success">
+              <span className="text-gray-600">New Guests</span>
+              <span className="font-semibold text-green-600">
                 {dashboardData.guests.new}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Returning</span>
-              <span className="font-semibold text-accent-primary">
+              <span className="text-gray-600">Returning</span>
+              <span className="font-semibold text-[#046577]">
                 {dashboardData.guests.returning}
               </span>
             </div>
@@ -415,25 +409,25 @@ const Dashboard = () => {
         </div>
 
         <div className="dashboard-card">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
+          <h3 className="text-lg font-semibold text-[#046577] mb-4">
             Support Tickets
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Open</span>
-              <span className="font-semibold text-warning">
+              <span className="text-gray-600">Open</span>
+              <span className="font-semibold text-yellow-600">
                 {dashboardData.tickets.open}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Resolved</span>
-              <span className="font-semibold text-success">
+              <span className="text-gray-600">Resolved</span>
+              <span className="font-semibold text-green-600">
                 {dashboardData.tickets.resolved}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-text-secondary">Critical</span>
-              <span className="font-semibold text-error">
+              <span className="text-gray-600">Critical</span>
+              <span className="font-semibold text-red-600">
                 {dashboardData.tickets.critical}
               </span>
             </div>
@@ -453,50 +447,50 @@ const Dashboard = () => {
 
   const renderOutletDashboard = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-text-primary">
+      <h2 className="text-2xl font-bold text-[#046577]">
         Outlet Operations Dashboard
       </h2>
-      <p className="text-text-secondary">
+      <p className="text-gray-600">
         Real-time operations and performance metrics
       </p>
 
       {/* Key Metrics */}
       <div className="dashboard-grid">
         <div className="dashboard-card">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
+          <h3 className="text-lg font-semibold text-[#046577] mb-4">
             Today's Operations
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-success">85%</div>
-              <div className="text-sm text-text-secondary">Table Occupancy</div>
+              <div className="text-2xl font-bold text-green-600">85%</div>
+              <div className="text-sm text-gray-600">Table Occupancy</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-accent-primary">12</div>
-              <div className="text-sm text-text-secondary">Active Staff</div>
+              <div className="text-2xl font-bold text-[#046577]">12</div>
+              <div className="text-sm text-gray-600">Active Staff</div>
             </div>
           </div>
         </div>
 
         <div className="dashboard-card">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">
+          <h3 className="text-lg font-semibold text-[#046577] mb-4">
             Inventory Alerts
           </h3>
           <div className="space-y-2">
             {dashboardData.inventory.lowStock > 0 && (
-              <div className="flex items-center text-warning text-sm">
+              <div className="flex items-center text-yellow-600 text-sm">
                 <AlertTriangle className="w-4 h-4 mr-2" />
                 {dashboardData.inventory.lowStock} items low on stock
               </div>
             )}
             {dashboardData.inventory.outOfStock > 0 && (
-              <div className="flex items-center text-error text-sm">
+              <div className="flex items-center text-red-600 text-sm">
                 <XCircle className="w-4 h-4 mr-2" />
                 {dashboardData.inventory.outOfStock} items out of stock
               </div>
             )}
             {dashboardData.inventory.expiringSoon > 0 && (
-              <div className="flex items-center text-warning text-sm">
+              <div className="flex items-center text-yellow-600 text-sm">
                 <Clock className="w-4 h-4 mr-2" />
                 {dashboardData.inventory.expiringSoon} items expiring soon
               </div>
@@ -661,12 +655,12 @@ const Dashboard = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-text-primary mb-2">
+        <h1 className="text-3xl font-bold text-[#046577] mb-2">
           {getDashboardType() === "executive"
             ? "Executive Dashboard"
             : "Dashboard"}
         </h1>
-        <p className="text-text-secondary">
+        <p className="text-gray-600">
           Welcome back, {user?.name || "User"}. Here's what's happening today.
         </p>
       </div>

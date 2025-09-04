@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  Eye,
-  EyeOff,
-  Building2,
-  Sparkles,
-  Shield,
-  Users,
-  Clock,
-} from "lucide-react";
+import { Eye, EyeOff, Building2, Shield, Users, Clock } from "lucide-react";
 import { login } from "../store/slices/authSlice";
 import outletService from "../services/outletService";
 
@@ -85,90 +77,68 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-bg via-primary-bg/95 to-accent-primary/10 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-accent-primary/5 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-accent-secondary/5 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-accent-primary/3 rounded-full blur-3xl"></div>
-      </div>
-
-      {/* Floating sparkles */}
-      <div className="absolute inset-0 pointer-events-none">
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${i * 0.5}s`,
-              animationDuration: `${2 + Math.random() * 2}s`,
-            }}
-          >
-            <Sparkles className="w-4 h-4 text-accent-primary/30" />
-          </div>
-        ))}
-      </div>
-
+    <div className="min-h-screen bg-white flex items-center justify-center p-4 relative overflow-hidden">
       <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
         {/* Left side - Branding and Info */}
         <div className="hidden lg:block space-y-8">
           <div className="space-y-6">
             {/* Logo and Title */}
             <div className="space-y-4">
-              <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-accent-primary to-accent-secondary rounded-2xl shadow-2xl shadow-accent-primary/25 mb-6 transform hover:scale-105 transition-transform duration-300">
-                <Building2 className="w-12 h-12 text-white" />
+              <div className="inline-flex items-center justify-center w-32 h-32 bg-white rounded-2xl shadow-2xl shadow-black/35 mb-6">
+                <img
+                  src="/hugamara-logo.png"
+                  alt="Hugamara"
+                  // White background
+                  className="max-h-32 w-auto object-contain bg-white rounded-2xl"
+                />
               </div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-text-primary via-accent-primary to-accent-secondary bg-clip-text text-transparent">
-                Hugamara
-              </h1>
-              <p className="text-xl text-text-secondary font-medium">
+              <h1 className="text-5xl font-bold text-[#046577]">HUGAMARA</h1>
+              <p className="text-xl text-gray-600 font-medium">
                 Hospitality Management System
               </p>
             </div>
 
             {/* Features */}
             <div className="space-y-4 pt-8">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">
+              <h3 className="text-lg font-semibold text-[#046577] mb-4">
                 Enterprise Features
               </h3>
               <div className="grid grid-cols-1 gap-4">
-                <div className="flex items-center space-x-3 p-3 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
-                  <div className="w-10 h-10 bg-accent-primary/20 rounded-lg flex items-center justify-center">
-                    <Users className="w-5 h-5 text-accent-primary" />
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="w-10 h-10 bg-[#046577]/10 rounded-lg flex items-center justify-center">
+                    <Users className="w-5 h-5 text-[#046577]" />
                   </div>
                   <div>
-                    <p className="font-medium text-text-primary">
+                    <p className="font-medium text-gray-900">
                       Multi-Outlet Management
                     </p>
-                    <p className="text-sm text-text-secondary">
+                    <p className="text-sm text-gray-600">
                       Centralized control for 6+ locations
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3 p-3 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
-                  <div className="w-10 h-10 bg-accent-secondary/20 rounded-lg flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-accent-secondary" />
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="w-10 h-10 bg-[#046577]/10 rounded-lg flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-[#046577]" />
                   </div>
                   <div>
-                    <p className="font-medium text-text-primary">
+                    <p className="font-medium text-gray-900">
                       Real-time Operations
                     </p>
-                    <p className="text-sm text-text-secondary">
+                    <p className="text-sm text-gray-600">
                       Live updates and instant notifications
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3 p-3 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
-                  <div className="w-10 h-10 bg-accent-primary/20 rounded-lg flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-accent-primary" />
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="w-10 h-10 bg-[#046577]/10 rounded-lg flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-[#046577]" />
                   </div>
                   <div>
-                    <p className="font-medium text-text-primary">
+                    <p className="font-medium text-gray-900">
                       Enterprise Security
                     </p>
-                    <p className="text-sm text-text-secondary">
+                    <p className="text-sm text-gray-600">
                       Role-based access and audit trails
                     </p>
                   </div>
@@ -180,18 +150,18 @@ const Login = () => {
 
         {/* Right side - Login Form */}
         <div className="w-full max-w-md mx-auto">
-          <div className="card backdrop-blur-sm bg-white/5 border border-white/10 shadow-2xl">
+          <div className="bg-white border border-gray-200 shadow-2xl shadow-black/20 rounded-2xl p-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-text-primary mb-2">
+              <h2 className="text-2xl font-bold text-[#046577] mb-2">
                 Welcome Back
               </h2>
-              <p className="text-text-secondary">
+              <p className="text-gray-600">
                 Sign in to access your outlet dashboard
               </p>
             </div>
 
             {error && (
-              <div className="mb-6 p-4 bg-error/10 border border-error/20 text-error rounded-xl text-sm backdrop-blur-sm">
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
                 {typeof error === "string"
                   ? error
                   : error?.message || "An error occurred"}
@@ -201,14 +171,14 @@ const Login = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Outlet Selection */}
               <div>
-                <label className="form-label flex items-center space-x-2">
-                  <Building2 className="w-4 h-4 text-accent-primary" />
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center space-x-2">
+                  <Building2 className="w-4 h-4 text-[#046577]" />
                   <span>Select Outlet</span>
                 </label>
                 <select
                   value={selectedOutlet}
                   onChange={(e) => setSelectedOutlet(e.target.value)}
-                  className="form-input bg-white/5 border-white/20 focus:border-accent-primary focus:ring-accent-primary/20"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#046577] focus:border-[#046577] bg-white text-gray-900"
                   required
                   disabled={loadingOutlets}
                 >
@@ -227,13 +197,15 @@ const Login = () => {
 
               {/* Email */}
               <div>
-                <label className="form-label">Email Address</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="form-input bg-white/5 border-white/20 focus:border-accent-primary focus:ring-accent-primary/20"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#046577] focus:border-[#046577] bg-white text-gray-900 placeholder-gray-500"
                   placeholder="Enter your email"
                   required
                 />
@@ -241,21 +213,23 @@ const Login = () => {
 
               {/* Password */}
               <div>
-                <label className="form-label">Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="form-input bg-white/5 border-white/20 focus:border-accent-primary focus:ring-accent-primary/20 pr-12"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#046577] focus:border-[#046577] bg-white pr-12 text-gray-900 placeholder-gray-500"
                     placeholder="Enter your password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-text-secondary hover:text-accent-primary transition-colors duration-200"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#046577] transition-colors duration-200"
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -270,7 +244,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full btn-primary bg-gradient-to-r from-accent-primary to-accent-secondary hover:from-accent-primary/90 hover:to-accent-secondary/90 transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-accent-primary/25"
+                className="w-full bg-[#046577] hover:bg-[#046577]/90 text-white font-medium py-3 px-4 rounded-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-black/25"
               >
                 {loading ? (
                   <div className="flex items-center justify-center space-x-2">
@@ -284,12 +258,12 @@ const Login = () => {
             </form>
 
             {/* Footer */}
-            <div className="mt-8 pt-6 border-t border-white/10">
+            <div className="mt-8 pt-6 border-t border-gray-200">
               <div className="text-center space-y-3">
-                <p className="text-sm text-text-secondary">
+                <p className="text-sm text-gray-600">
                   Having trouble? Contact your system administrator
                 </p>
-                <div className="flex items-center justify-center space-x-1 text-xs text-text-secondary/60">
+                <div className="flex items-center justify-center space-x-1 text-xs text-gray-500">
                   <Shield className="w-3 h-3" />
                   <span>Enterprise-grade security</span>
                 </div>
