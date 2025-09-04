@@ -141,13 +141,12 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log("✅ Database connection established successfully.");
 
-    // Sync database (in development) - use force: false to avoid deadlocks
-    // Temporarily disabled to avoid MySQL key limit issues
-    // if (NODE_ENV === "development") {
-    //   await sequelize.sync({ force: false, alter: true });
-    //   console.log("✅ Database synchronized.");
-    // }
-    // DISABLED: MySQL key limit error
+    // Optional one-time sync for bootstrapping in new environments
+    // Enable by setting DB_SYNC=true in env, then disable after first run
+    if (process.env.DB_SYNC === "true") {
+      await sequelize.sync({ alter: true });
+      console.log("✅ Database synchronized via sequelize.sync(alter: true).");
+    }
 
     // Start server
     server.listen(PORT, () => {
