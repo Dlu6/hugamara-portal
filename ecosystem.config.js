@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "hugamara-backend",
       script: "./backend/server.js",
-      cwd: "/home/admin/hugamara-hospitality-app",
+      cwd: "/home/admin/hugamara-portal",
       instances: 1,
       exec_mode: "fork",
       env: {
