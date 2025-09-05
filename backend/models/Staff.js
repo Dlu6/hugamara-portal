@@ -42,6 +42,15 @@ const Staff = sequelize.define(
       ),
       allowNull: false,
     },
+    // departmentId: {
+    //   type: DataTypes.UUID,
+    //   allowNull: true,
+    //   field: "department_id",
+    //   references: {
+    //     model: "departments",
+    //     key: "id",
+    //   },
+    // },
     hireDate: {
       type: DataTypes.DATEONLY,
       allowNull: false,

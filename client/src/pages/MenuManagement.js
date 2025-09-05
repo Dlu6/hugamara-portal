@@ -47,7 +47,7 @@ import {
 
 const MenuManagement = () => {
   const dispatch = useDispatch();
-  const { showSuccess, showError } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   // Redux state
   const menuItems = useSelector(selectMenuItems);

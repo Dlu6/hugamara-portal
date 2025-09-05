@@ -75,7 +75,7 @@ const SupportTickets = () => {
   const commentData = useSelector(selectTicketsCommentData);
   const filters = useSelector(selectTicketsFilters);
 
-  const { showSuccess, showError } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   useEffect(() => {
     dispatch(fetchTickets(filters));

@@ -24,8 +24,11 @@ import dashboardRoutes from "./routes/dashboard.js";
 import tableRoutes from "./routes/tables.js";
 import menuRoutes from "./routes/menu.js";
 import staffRoutes from "./routes/staff.js";
+import shiftRoutes from "./routes/shifts.js";
+import settingsRoutes from "./routes/settings.js";
 import paymentRoutes from "./routes/payments.js";
 import reportRoutes from "./routes/reports.js";
+import departmentRoutes from "./routes/departments.js";
 
 // Import middleware
 import { authenticateToken } from "./middleware/auth.js";
@@ -104,8 +107,11 @@ app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/tables", authenticateToken, tableRoutes);
 app.use("/api/menu", authenticateToken, menuRoutes);
 app.use("/api/staff", authenticateToken, staffRoutes);
+app.use("/api/shifts", authenticateToken, shiftRoutes);
+app.use("/api/settings", authenticateToken, settingsRoutes);
 app.use("/api/payments", authenticateToken, paymentRoutes);
 app.use("/api/reports", authenticateToken, reportRoutes);
+app.use("/api/departments", authenticateToken, departmentRoutes);
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {

@@ -62,7 +62,7 @@ import {
 
 const EventManagement = () => {
   const dispatch = useDispatch();
-  const { showSuccess, showError } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   const events = useSelector(selectEvents);
   const filteredEvents = useSelector(selectFilteredEvents);

@@ -1,6 +1,20 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Plus, Search, Filter, Eye, Edit, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Filter,
+  Eye,
+  Edit,
+  Trash2,
+  ShoppingCart,
+  Clock,
+  CheckCircle,
+  DollarSign,
+  TrendingUp,
+  Users,
+  Package,
+} from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import {
   fetchOrders,
@@ -12,6 +26,7 @@ import {
   fetchReservations,
   fetchGuests,
   fetchMenuItems,
+  fetchOrderStats,
   setFormData,
   setFormErrors,
   setShowForm,
@@ -26,7 +41,9 @@ import {
   selectReservations,
   selectGuests,
   selectMenuItems,
+  selectOrderStats,
   selectOrdersLoading,
+  selectOrdersStatsLoading,
   selectOrdersError,
   selectOrdersFormData,
   selectOrdersFormErrors,
@@ -36,6 +53,26 @@ import {
   selectOrdersFilters,
 } from "../store/slices/ordersSlice";
 
+// StatCard component
+const StatCard = ({ title, value, icon: Icon, color = "blue", subtitle }) => (
+  <div className="bg-neutral-800 rounded-lg shadow-lg p-6 border border-neutral-700">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <div className={`p-3 rounded-full bg-${color}-100 bg-opacity-20`}>
+          <Icon className={`h-6 w-6 text-${color}-400`} />
+        </div>
+        <div className="ml-4">
+          <p className="text-sm font-medium text-neutral-400">{title}</p>
+          <p className="text-2xl font-bold text-white">{value}</p>
+          {subtitle && (
+            <p className="text-xs text-neutral-500 mt-1">{subtitle}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 const Orders = () => {
   const dispatch = useDispatch();
   const orders = useSelector(selectOrders);
@@ -44,7 +81,9 @@ const Orders = () => {
   const reservations = useSelector(selectReservations);
   const guests = useSelector(selectGuests);
   const menuItems = useSelector(selectMenuItems);
+  const stats = useSelector(selectOrderStats);
   const loading = useSelector(selectOrdersLoading);
+  const statsLoading = useSelector(selectOrdersStatsLoading);
   const error = useSelector(selectOrdersError);
   const formData = useSelector(selectOrdersFormData);
   const formErrors = useSelector(selectOrdersFormErrors);
@@ -57,6 +96,7 @@ const Orders = () => {
 
   useEffect(() => {
     dispatch(fetchOrders(filters));
+    dispatch(fetchOrderStats(filters));
     dispatch(fetchTables());
     dispatch(fetchReservations());
     dispatch(fetchGuests());
@@ -150,7 +190,13 @@ const Orders = () => {
     }).format(amount || 0);
   };
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  if (loading && orders.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -163,6 +209,61 @@ const Orders = () => {
           <Plus className="h-4 w-4" />
           New Order
         </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        {statsLoading ? (
+          <div className="col-span-4 flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-neutral-400">Loading stats...</span>
+          </div>
+        ) : (
+          <>
+            <StatCard
+              title="Total Orders"
+              value={stats.totalOrders || orders.length || 0}
+              icon={ShoppingCart}
+              color="blue"
+              subtitle="All orders"
+            />
+            <StatCard
+              title="Pending Orders"
+              value={
+                stats.pendingOrders ||
+                orders.filter((o) => o.status === "pending").length ||
+                0
+              }
+              icon={Clock}
+              color="yellow"
+              subtitle="Awaiting confirmation"
+            />
+            <StatCard
+              title="Completed Orders"
+              value={
+                stats.completedOrders ||
+                orders.filter((o) => o.status === "completed").length ||
+                0
+              }
+              icon={CheckCircle}
+              color="green"
+              subtitle="Successfully served"
+            />
+            <StatCard
+              title="Total Revenue"
+              value={formatCurrency(
+                stats.totalRevenue ||
+                  orders.reduce(
+                    (sum, order) => sum + (order.totalAmount || 0),
+                    0
+                  )
+              )}
+              icon={DollarSign}
+              color="purple"
+              subtitle="Total earnings"
+            />
+          </>
+        )}
       </div>
 
       {/* Create Order Modal */}

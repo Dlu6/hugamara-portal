@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Download,
   Upload,
+  X,
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import {
@@ -30,6 +31,7 @@ import {
   updateStaffPerformance,
   setFilters,
   setFormData,
+  setFormErrors,
   setShowForm,
   setEditingStaff,
   setViewingStaff,
@@ -52,10 +54,15 @@ import {
   selectPerformanceModal,
   selectPerformanceData,
 } from "../store/slices/staffSlice";
+import { selectCurrentUser, selectUserRole } from "../store/slices/authSlice";
+import { useUserPermissions } from "../hooks/useUserPermissions";
+import { useDepartments } from "../hooks/useDepartments";
+import { generateEmployeeId } from "../utils/employeeIdGenerator";
+import DepartmentManager from "../components/DepartmentManager";
 
 const Staff = () => {
   const dispatch = useDispatch();
-  const { showSuccess, showError } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   // Redux state
   const staff = useSelector(selectStaff);
@@ -71,6 +78,11 @@ const Staff = () => {
   const viewingStaff = useSelector(selectViewingStaff);
   const performanceModal = useSelector(selectPerformanceModal);
   const performanceData = useSelector(selectPerformanceData);
+
+  // Custom hooks
+  const { user, userRole, canManageDepartments, canManageStaff, canViewStaff } =
+    useUserPermissions();
+  const { departments, addDepartment, formatDepartmentName } = useDepartments();
 
   // Local state
   const [searchTerm, setSearchTerm] = useState("");
@@ -211,11 +223,14 @@ const Staff = () => {
   const resetForm = () => {
     dispatch(
       setFormData({
-        employeeId: "",
+        employeeId: generateEmployeeId(), // Auto-generate employee ID
+        firstName: "", // Add missing name fields
+        lastName: "",
         position: "",
         department: "front_of_house",
+        departmentId: "", // New field for department selection
         hireDate: "",
-        terminationDate: "",
+        terminationDate: null, // Use null instead of empty string for optional dates
         isActive: true,
         hourlyRate: 0,
         salary: 0,
@@ -249,21 +264,8 @@ const Staff = () => {
     }).format(amount);
   };
 
-  const formatDepartment = (department) => {
-    const departmentMap = {
-      front_of_house: "Front of House",
-      back_of_house: "Back of House",
-      management: "Management",
-      bar: "Bar",
-      kitchen: "Kitchen",
-      service: "Service",
-      cleaning: "Cleaning",
-      security: "Security",
-      maintenance: "Maintenance",
-      other: "Other",
-    };
-    return departmentMap[department] || department;
-  };
+  // Use the formatDepartmentName from the hook
+  const formatDepartment = formatDepartmentName;
 
   const getDepartmentColor = (department) => {
     const colorMap = {
@@ -445,18 +447,15 @@ const Staff = () => {
             </div>
           </div>
 
-          <select
-            value={selectedDepartment}
-            onChange={(e) => handleDepartmentFilter(e.target.value)}
-            className="px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Departments</option>
-            {getCategoryOptions().map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <DepartmentManager
+            departments={departments}
+            selectedDepartment={selectedDepartment}
+            onDepartmentChange={handleDepartmentFilter}
+            onDepartmentAdd={addDepartment}
+            canAddDepartments={canManageDepartments()}
+            placeholder="All Departments"
+            className="flex-1"
+          />
 
           <select
             value={statusFilter}
@@ -643,21 +642,25 @@ const Staff = () => {
 
       {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-neutral-700">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-50 overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-5xl w-full my-4 sm:my-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 p-6 rounded-t-lg z-10">
+              <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-white">
                   {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
                 </h2>
                 <button
                   onClick={() => dispatch(setShowForm(false))}
-                  className="text-neutral-400 hover:text-white"
+                  className="text-neutral-400 hover:text-white text-2xl font-bold"
                 >
                   ×
                 </button>
               </div>
+            </div>
 
+            {/* Modal Content */}
+            <div className="p-6 sm:p-8">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -669,13 +672,49 @@ const Staff = () => {
                       type="text"
                       name="employeeId"
                       value={formData.employeeId}
+                      readOnly
+                      className="w-full px-3 py-2 bg-neutral-600 border border-neutral-500 rounded-lg text-neutral-300 cursor-not-allowed"
+                      title="Employee ID is auto-generated by the system"
+                    />
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Auto-generated by the system
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName || ""}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
-                    {formErrors.employeeId && (
+                    {formErrors.firstName && (
                       <p className="text-red-400 text-xs mt-1">
-                        {formErrors.employeeId}
+                        {formErrors.firstName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    {formErrors.lastName && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.lastName}
                       </p>
                     )}
                   </div>
@@ -703,19 +742,18 @@ const Staff = () => {
                     <label className="block text-sm font-medium text-neutral-300 mb-1">
                       Department *
                     </label>
-                    <select
-                      name="department"
-                      value={formData.department}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      {getCategoryOptions().map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                    <DepartmentManager
+                      departments={departments}
+                      selectedDepartment={formData.departmentId}
+                      onDepartmentChange={(value) =>
+                        handleInputChange({
+                          target: { name: "departmentId", value },
+                        })
+                      }
+                      onDepartmentAdd={addDepartment}
+                      canAddDepartments={canManageDepartments()}
+                      placeholder="Select Department"
+                    />
                   </div>
 
                   <div>
@@ -733,6 +771,27 @@ const Staff = () => {
                     {formErrors.hireDate && (
                       <p className="text-red-400 text-xs mt-1">
                         {formErrors.hireDate}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1">
+                      Termination Date
+                    </label>
+                    <input
+                      type="date"
+                      name="terminationDate"
+                      value={formData.terminationDate || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Leave empty if employee is still active
+                    </p>
+                    {formErrors.terminationDate && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.terminationDate}
                       </p>
                     )}
                   </div>
@@ -1105,6 +1164,12 @@ const Staff = () => {
                       <span className="text-neutral-400">Employee ID:</span>
                       <span className="text-white">
                         {viewingStaff.employeeId || "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">Name:</span>
+                      <span className="text-white">
+                        {viewingStaff.firstName} {viewingStaff.lastName}
                       </span>
                     </div>
                     <div className="flex justify-between">

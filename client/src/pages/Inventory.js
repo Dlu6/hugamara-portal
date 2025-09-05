@@ -53,7 +53,7 @@ import {
 
 const Inventory = () => {
   const dispatch = useDispatch();
-  const { showSuccess, showError } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   // Redux state
   const inventory = useSelector(selectInventory);

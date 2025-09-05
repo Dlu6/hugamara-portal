@@ -30,6 +30,10 @@ import AccessControl from "./components/auth/AccessControl";
 import Outlets from "./pages/Outlets";
 import OutletDetail from "./pages/OutletDetail";
 import Tables from "./pages/Tables";
+import Staff from "./pages/Staff";
+import ShiftManagement from "./pages/ShiftManagement";
+import SupportTickets from "./pages/SupportTickets";
+import EventManagement from "./pages/EventManagement";
 
 // Layout Components
 import UnifiedLayout from "./components/layout/UnifiedLayout";
@@ -50,7 +54,8 @@ const AppContent = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token && !isAuthenticated) {
+    if (token) {
+      // Always hydrate user from backend when a token exists
       dispatch(getCurrentUser());
     }
   }, [dispatch]);
@@ -254,6 +259,57 @@ const AppContent = () => {
         />
 
         <Route
+          path={ROUTES.STAFF.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.STAFF}>
+              <UnifiedLayout
+                title={ROUTES.STAFF.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Staff Management" },
+                ]}
+              >
+                <Staff />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path={ROUTES.SHIFTS.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.SHIFTS}>
+              <UnifiedLayout
+                title={ROUTES.SHIFTS.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Shift Management" },
+                ]}
+              >
+                <ShiftManagement />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path={ROUTES.TICKETS.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.TICKETS}>
+              <UnifiedLayout
+                title={ROUTES.TICKETS.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Support Tickets" },
+                ]}
+              >
+                <SupportTickets />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path={ROUTES.EVENTS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.EVENTS}>
@@ -264,7 +320,7 @@ const AppContent = () => {
                   { label: "Events & Promotions" },
                 ]}
               >
-                <Events />
+                <EventManagement />
               </UnifiedLayout>
             </ProtectedRoute>
           }

@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Plus, Search, Filter } from "lucide-react";
+import { Calendar, Plus, Search, Filter, X, ChevronDown } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import {
   fetchReservations,
@@ -53,6 +53,14 @@ const Reservations = () => {
   const navigate = useNavigate();
   const { success: showSuccess, error: showError } = useToast();
 
+  // State for improved date picker
+  const [showDatePicker, setShowDatePicker] = React.useState(false);
+  const [dateRange, setDateRange] = React.useState({
+    start: "",
+    end: "",
+  });
+  const datePickerRef = React.useRef(null);
+
   // Redux selectors
   const reservations = useSelector(selectReservations);
   const filteredReservations = useSelector(selectFilteredReservations);
@@ -81,6 +89,23 @@ const Reservations = () => {
     dispatch(fetchGuests());
   }, [dispatch]);
 
+  // Close date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        datePickerRef.current &&
+        !datePickerRef.current.contains(event.target)
+      ) {
+        setShowDatePicker(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Show error messages
   useEffect(() => {
     if (error) {
@@ -100,6 +125,112 @@ const Reservations = () => {
 
   const handleDateFilter = (date) => {
     dispatch(setFilters({ date }));
+  };
+
+  // Helper functions for improved date picker
+  const getQuickDateOptions = () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    return [
+      {
+        label: "Today",
+        value: "today",
+        start: today.toISOString().split("T")[0],
+        end: today.toISOString().split("T")[0],
+      },
+      {
+        label: "Tomorrow",
+        value: "tomorrow",
+        start: tomorrow.toISOString().split("T")[0],
+        end: tomorrow.toISOString().split("T")[0],
+      },
+      {
+        label: "This Week",
+        value: "thisWeek",
+        start: startOfWeek.toISOString().split("T")[0],
+        end: endOfWeek.toISOString().split("T")[0],
+      },
+      {
+        label: "This Month",
+        value: "thisMonth",
+        start: startOfMonth.toISOString().split("T")[0],
+        end: endOfMonth.toISOString().split("T")[0],
+      },
+      {
+        label: "Next 7 Days",
+        value: "next7Days",
+        start: today.toISOString().split("T")[0],
+        end: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+      },
+    ];
+  };
+
+  const handleQuickDateSelect = (option) => {
+    if (option.value === "custom") {
+      setShowDatePicker(true);
+      return;
+    }
+
+    setDateRange({
+      start: option.start,
+      end: option.end,
+    });
+
+    // Apply the date filter
+    dispatch(
+      setFilters({
+        date: option.start,
+        dateRange:
+          option.start !== option.end
+            ? { start: option.start, end: option.end }
+            : null,
+      })
+    );
+
+    setShowDatePicker(false);
+  };
+
+  const handleCustomDateRange = () => {
+    if (dateRange.start && dateRange.end) {
+      dispatch(
+        setFilters({
+          date: dateRange.start,
+          dateRange: { start: dateRange.start, end: dateRange.end },
+        })
+      );
+    }
+    setShowDatePicker(false);
+  };
+
+  const clearDateFilter = () => {
+    setDateRange({ start: "", end: "" });
+    dispatch(setFilters({ date: "", dateRange: null }));
+    setShowDatePicker(false);
+  };
+
+  const formatDateDisplay = () => {
+    if (filters.date) {
+      const date = new Date(filters.date);
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+    }
+    return "Select date";
   };
 
   const handleInputChange = (e) => {
@@ -309,13 +440,108 @@ const Reservations = () => {
               ))}
             </select>
           </div>
-          <div>
-            <input
-              type="date"
-              value={filters.date}
-              onChange={(e) => handleDateFilter(e.target.value)}
-              className="w-full form-input"
-            />
+          <div className="relative" ref={datePickerRef}>
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className="w-full form-input flex items-center justify-between text-left"
+            >
+              <div className="flex items-center">
+                <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                <span
+                  className={filters.date ? "text-gray-300" : "text-gray-300"}
+                >
+                  {formatDateDisplay()}
+                </span>
+              </div>
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            </button>
+
+            {showDatePicker && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-900 border border-neutral-700 rounded-lg shadow-lg z-50">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-white">
+                      Select Date
+                    </h3>
+                    {filters.date && (
+                      <button
+                        onClick={clearDateFilter}
+                        className="text-xs text-red-400 hover:text-red-300 flex items-center"
+                      >
+                        <X className="w-3 h-3 mr-1" />
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Quick Date Options */}
+                  <div className="space-y-2 mb-4">
+                    <p className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                      Quick Select
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {getQuickDateOptions().map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => handleQuickDateSelect(option)}
+                          className="text-left px-3 py-2 text-sm rounded-md border border-neutral-600 hover:bg-neutral-800 hover:border-neutral-500 transition-colors text-gray-200 hover:text-white"
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Date Range */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                      Custom Range
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-300 mb-1">
+                          From
+                        </label>
+                        <input
+                          type="date"
+                          value={dateRange.start}
+                          onChange={(e) =>
+                            setDateRange((prev) => ({
+                              ...prev,
+                              start: e.target.value,
+                            }))
+                          }
+                          className="w-full text-xs bg-neutral-800 border border-neutral-600 text-white rounded px-2 py-1 focus:outline-none focus:border-accent-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-300 mb-1">
+                          To
+                        </label>
+                        <input
+                          type="date"
+                          value={dateRange.end}
+                          onChange={(e) =>
+                            setDateRange((prev) => ({
+                              ...prev,
+                              end: e.target.value,
+                            }))
+                          }
+                          className="w-full text-xs bg-neutral-800 border border-neutral-600 text-white rounded px-2 py-1 focus:outline-none focus:border-accent-primary"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCustomDateRange}
+                      disabled={!dateRange.start || !dateRange.end}
+                      className="w-full px-3 py-2 text-sm bg-accent-primary text-white rounded-md hover:bg-accent-primary/90 disabled:bg-neutral-600 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Apply Range
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex items-center">
             <button

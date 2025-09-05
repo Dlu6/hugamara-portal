@@ -71,6 +71,19 @@ const dashboardService = {
       revenueSeries,
     };
   },
+
+  // Chart data methods
+  getRevenueChart: async (outletId, period = "week") => {
+    const params = outletId ? { outletId, period } : { period };
+    const response = await dashboardAPI.getRevenue(period, params);
+    return response.data;
+  },
+
+  getTopMenuItems: async (outletId) => {
+    const params = outletId ? { outletId } : {};
+    const response = await dashboardAPI.getTopItems(params);
+    return response.data;
+  },
 };
 
 export default dashboardService;

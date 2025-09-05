@@ -69,7 +69,7 @@ const Payments = () => {
   const refundData = useSelector(selectPaymentsRefundData);
   const filters = useSelector(selectPaymentsFilters);
 
-  const { showSuccess, showError } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   useEffect(() => {
     dispatch(fetchPayments(filters));

@@ -79,10 +79,26 @@ export const createStaff = async (req, res) => {
       outletId: req.user.outletId,
     };
 
+    // Validate and clean date fields
+    if (
+      staffData.terminationDate === "" ||
+      staffData.terminationDate === "Invalid date"
+    ) {
+      staffData.terminationDate = null;
+    }
+
+    if (staffData.hireDate === "" || staffData.hireDate === "Invalid date") {
+      return res
+        .status(400)
+        .json({ error: "Hire date is required and must be valid" });
+    }
+
     // Generate employee ID if not provided
     if (!staffData.employeeId) {
       const outletCode = req.user.outlet?.code || "OUT";
-      const count = await Staff.count({ where: { outletId: userOutletId } });
+      const count = await Staff.count({
+        where: { outletId: req.user.outletId },
+      });
       staffData.employeeId = `${outletCode}${String(count + 1).padStart(
         4,
         "0"
@@ -121,7 +137,22 @@ export const updateStaff = async (req, res) => {
       return res.status(404).json({ error: "Staff member not found" });
     }
 
-    await staffMember.update(req.body);
+    // Validate and clean date fields
+    const updateData = { ...req.body };
+    if (
+      updateData.terminationDate === "" ||
+      updateData.terminationDate === "Invalid date"
+    ) {
+      updateData.terminationDate = null;
+    }
+
+    if (updateData.hireDate === "" || updateData.hireDate === "Invalid date") {
+      return res
+        .status(400)
+        .json({ error: "Hire date is required and must be valid" });
+    }
+
+    await staffMember.update(updateData);
 
     const updatedStaffMember = await Staff.findByPk(id, {
       include: [
@@ -198,7 +229,7 @@ export const getStaffStats = async (req, res) => {
             [
               Staff.sequelize.fn(
                 "AVG",
-                Staff.sequelize.col("performanceRating")
+                Staff.sequelize.col("performance_rating")
               ),
               "avgRating",
             ],

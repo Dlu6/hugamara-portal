@@ -12,6 +12,8 @@ import dashboardReducer from "./slices/dashboardSlice";
 import menuReducer from "./slices/menuSlice";
 import inventoryReducer from "./slices/inventorySlice";
 import staffReducer from "./slices/staffSlice";
+import shiftReducer from "./slices/shiftSlice";
+import settingsReducer from "./slices/settingsSlice";
 import ordersReducer from "./slices/ordersSlice";
 import paymentsReducer from "./slices/paymentsSlice";
 import tablesReducer from "./slices/tablesSlice";
@@ -32,6 +34,8 @@ export const store = configureStore({
     menu: menuReducer,
     inventory: inventoryReducer,
     staff: staffReducer,
+    shifts: shiftReducer,
+    settings: settingsReducer,
     orders: ordersReducer,
     payments: paymentsReducer,
     tables: tablesReducer,
@@ -41,6 +45,12 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: ["persist/PERSIST"],
+        ignoredPaths: [
+          "payload.headers",
+          "payload.config",
+          "payload.request",
+          "payload.response",
+        ],
       },
     }),
 });

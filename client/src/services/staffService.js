@@ -9,7 +9,7 @@ class StaffService {
   async getAllStaff(filters = {}) {
     try {
       const response = await this.baseAPI.getAll(filters);
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error fetching staff:", error);
       throw error;
@@ -19,7 +19,7 @@ class StaffService {
   async getStaffById(id) {
     try {
       const response = await this.baseAPI.getById(id);
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error fetching staff member:", error);
       throw error;
@@ -29,7 +29,7 @@ class StaffService {
   async createStaff(staffData) {
     try {
       const response = await this.baseAPI.create(staffData);
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error creating staff member:", error);
       throw error;
@@ -39,7 +39,7 @@ class StaffService {
   async updateStaff(id, staffData) {
     try {
       const response = await this.baseAPI.update(id, staffData);
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error updating staff member:", error);
       throw error;
@@ -49,7 +49,7 @@ class StaffService {
   async deleteStaff(id) {
     try {
       const response = await this.baseAPI.delete(id);
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error deleting staff member:", error);
       throw error;
@@ -60,7 +60,7 @@ class StaffService {
   async getStaffStats() {
     try {
       const response = await api.get("/staff/stats");
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error fetching staff stats:", error);
       throw error;
@@ -72,7 +72,7 @@ class StaffService {
       const response = await api.get("/staff/search", {
         params: { query, ...filters },
       });
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error searching staff:", error);
       throw error;
@@ -84,7 +84,7 @@ class StaffService {
       const response = await api.get("/staff/department", {
         params: { department, ...filters },
       });
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error fetching staff by department:", error);
       throw error;
@@ -94,7 +94,7 @@ class StaffService {
   async updateStaffStatus(id, status) {
     try {
       const response = await api.patch(`/staff/${id}/status`, { status });
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error updating staff status:", error);
       throw error;
@@ -107,7 +107,7 @@ class StaffService {
         `/staff/${id}/performance`,
         performanceData
       );
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error updating staff performance:", error);
       throw error;
@@ -119,7 +119,7 @@ class StaffService {
       const response = await api.get(`/staff/${id}/schedule`, {
         params: dateRange,
       });
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error fetching staff schedule:", error);
       throw error;
@@ -129,7 +129,7 @@ class StaffService {
   async updateStaffSchedule(id, scheduleData) {
     try {
       const response = await api.patch(`/staff/${id}/schedule`, scheduleData);
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error updating staff schedule:", error);
       throw error;
@@ -141,7 +141,7 @@ class StaffService {
       const response = await api.get(`/staff/${id}/attendance`, {
         params: dateRange,
       });
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error fetching staff attendance:", error);
       throw error;
@@ -154,7 +154,7 @@ class StaffService {
         `/staff/${id}/attendance`,
         attendanceData
       );
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error recording attendance:", error);
       throw error;
@@ -166,7 +166,7 @@ class StaffService {
       const response = await api.get(`/staff/${id}/payroll`, {
         params: period,
       });
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error fetching staff payroll:", error);
       throw error;
@@ -179,7 +179,7 @@ class StaffService {
         period,
         staffIds,
       });
-      return response;
+      return response.data || response;
     } catch (error) {
       console.error("Error generating payroll:", error);
       throw error;

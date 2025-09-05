@@ -1,4 +1,8 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  createAsyncThunk,
+  createSelector,
+} from "@reduxjs/toolkit";
 import outletService from "../../services/outletService";
 import outletsService from "../../services/outletsService";
 
@@ -352,35 +356,39 @@ export const selectShowEditModal = (state) => state.outlets.showEditModal;
 export const selectOutletsSearchTerm = (state) => state.outlets.searchTerm;
 export const selectOutletsFilters = (state) => state.outlets.filters;
 
-export const selectFilteredOutlets = (state) => {
-  const outlets = state.outlets.allOutlets;
-  const searchTerm = state.outlets.searchTerm;
-  const filters = state.outlets.filters;
+// Memoized selector to prevent unnecessary re-renders
+export const selectFilteredOutlets = createSelector(
+  [
+    (state) => state.outlets.allOutlets,
+    (state) => state.outlets.searchTerm,
+    (state) => state.outlets.filters,
+  ],
+  (outlets, searchTerm, filters) => {
+    return outlets.filter((outlet) => {
+      // Search filter
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const matchesSearch =
+          outlet.name?.toLowerCase().includes(search) ||
+          outlet.code?.toLowerCase().includes(search) ||
+          outlet.type?.toLowerCase().includes(search);
+        if (!matchesSearch) return false;
+      }
 
-  return outlets.filter((outlet) => {
-    // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      const matchesSearch =
-        outlet.name?.toLowerCase().includes(search) ||
-        outlet.code?.toLowerCase().includes(search) ||
-        outlet.type?.toLowerCase().includes(search);
-      if (!matchesSearch) return false;
-    }
+      // Type filter
+      if (filters.type && outlet.type !== filters.type) {
+        return false;
+      }
 
-    // Type filter
-    if (filters.type && outlet.type !== filters.type) {
-      return false;
-    }
+      // Status filter
+      if (filters.status !== "" && filters.status !== undefined) {
+        const isActive = filters.status === "active";
+        if (outlet.isActive !== isActive) return false;
+      }
 
-    // Status filter
-    if (filters.status !== "" && filters.status !== undefined) {
-      const isActive = filters.status === "active";
-      if (outlet.isActive !== isActive) return false;
-    }
-
-    return true;
-  });
-};
+      return true;
+    });
+  }
+);
 
 export default outletSlice.reducer;

@@ -14,6 +14,7 @@ import Inventory from "./Inventory.js";
 import Staff from "./Staff.js";
 import Shift from "./Shift.js";
 import Payment from "./Payment.js";
+import Department from "./Department.js";
 
 // Define associations - Simplified to avoid MySQL key limit issues
 
@@ -74,7 +75,20 @@ Outlet.hasMany(Inventory, { foreignKey: "outletId", as: "inventory" });
 
 // Staff relationships
 Staff.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
+Staff.belongsTo(Department, {
+  foreignKey: "departmentId",
+  as: "departmentInfo",
+});
 Outlet.hasMany(Staff, { foreignKey: "outletId", as: "staff" });
+Department.hasMany(Staff, { foreignKey: "departmentId", as: "staff" });
+
+// Department relationships
+Department.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
+Department.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
+Department.belongsTo(User, { foreignKey: "updatedBy", as: "updater" });
+Outlet.hasMany(Department, { foreignKey: "outletId", as: "departments" });
+User.hasMany(Department, { foreignKey: "createdBy", as: "createdDepartments" });
+User.hasMany(Department, { foreignKey: "updatedBy", as: "updatedDepartments" });
 
 // Shift relationships
 Shift.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
@@ -103,4 +117,5 @@ export {
   Staff,
   Shift,
   Payment,
+  Department,
 };
