@@ -29,6 +29,7 @@ import settingsRoutes from "./routes/settings.js";
 import paymentRoutes from "./routes/payments.js";
 import reportRoutes from "./routes/reports.js";
 import departmentRoutes from "./routes/departments.js";
+import searchRoutes from "./routes/search.js";
 
 // Import middleware
 import { authenticateToken } from "./middleware/auth.js";
@@ -112,6 +113,7 @@ app.use("/api/settings", authenticateToken, settingsRoutes);
 app.use("/api/payments", authenticateToken, paymentRoutes);
 app.use("/api/reports", authenticateToken, reportRoutes);
 app.use("/api/departments", authenticateToken, departmentRoutes);
+app.use("/api/search", authenticateToken, searchRoutes);
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
