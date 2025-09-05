@@ -310,7 +310,7 @@ export const getTicketStats = async (req, res) => {
           [
             Ticket.sequelize.fn(
               "AVG",
-              Ticket.sequelize.col("actualResolutionTime")
+              Ticket.sequelize.col("actual_resolution_time")
             ),
             "avgTime",
           ],

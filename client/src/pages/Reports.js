@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -13,9 +13,107 @@ import {
   PieChart,
   LineChart,
   Activity,
+  Clock,
+  ShoppingCart,
+  UserCheck,
+  AlertTriangle,
+  Target,
+  Zap,
+  ArrowUpRight,
+  ArrowDownRight,
+  MoreHorizontal,
+  Settings,
+  FileText,
+  Database,
+  BarChart,
+  PieChart as PieChartIcon,
+  LineChart as LineChartIcon,
+  BarChart as BarChartIcon,
 } from "lucide-react";
 import { useToast } from "../components/ui/ToastProvider";
 import { reportsAPI } from "../services/apiClient";
+
+// Chart components (you can replace these with your preferred charting library)
+const ChartContainer = ({ children, title, className = "" }) => (
+  <div className={`bg-neutral-800 p-6 rounded-lg shadow-lg ${className}`}>
+    <h3 className="text-lg font-bold text-white mb-4">{title}</h3>
+    <div className="h-64 flex items-center justify-center">{children}</div>
+  </div>
+);
+
+const StatCard = ({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  trendValue,
+  color = "blue",
+  subtitle,
+}) => (
+  <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <p className="text-neutral-400 text-sm font-medium">{title}</p>
+        <p className={`text-2xl font-bold text-${color}-500 mt-1`}>{value}</p>
+        {subtitle && (
+          <p className="text-neutral-500 text-xs mt-1">{subtitle}</p>
+        )}
+        {trend && trendValue && (
+          <div className="flex items-center mt-2">
+            {trend === "up" ? (
+              <ArrowUpRight className="h-4 w-4 text-green-500 mr-1" />
+            ) : (
+              <ArrowDownRight className="h-4 w-4 text-red-500 mr-1" />
+            )}
+            <span
+              className={`text-sm ${
+                trend === "up" ? "text-green-500" : "text-red-500"
+              }`}
+            >
+              {trendValue}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className={`p-3 rounded-lg bg-${color}-500/10`}>
+        <Icon className={`h-6 w-6 text-${color}-500`} />
+      </div>
+    </div>
+  </div>
+);
+
+const DataTable = ({ data, columns, title, className = "" }) => (
+  <div className={`bg-neutral-800 p-6 rounded-lg shadow-lg ${className}`}>
+    <h3 className="text-lg font-bold text-white mb-4">{title}</h3>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-neutral-700">
+          <tr>
+            {columns.map((col, index) => (
+              <th
+                key={index}
+                className="px-4 py-3 text-left text-white font-medium"
+              >
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, rowIndex) => (
+            <tr key={rowIndex} className="border-t border-neutral-700">
+              {columns.map((col, colIndex) => (
+                <td key={colIndex} className="px-4 py-3 text-neutral-300">
+                  {col.render ? col.render(row[col.key], row) : row[col.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
 
 const Reports = () => {
   const [dashboardStats, setDashboardStats] = useState({});
@@ -27,6 +125,7 @@ const Reports = () => {
   const [customerData, setCustomerData] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeReport, setActiveReport] = useState("dashboard");
+  const [chartType, setChartType] = useState("bar");
   const [filters, setFilters] = useState({
     period: "week",
     startDate: "",
@@ -36,8 +135,62 @@ const Reports = () => {
     department: "",
     eventType: "",
     status: "",
+    outletId: "",
   });
   const { success: showSuccess, error: showError } = useToast();
+
+  // Report types with enhanced metadata
+  const reportTypes = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: Activity,
+      description: "Overview of key metrics and KPIs",
+      color: "blue",
+    },
+    {
+      id: "revenue",
+      label: "Revenue",
+      icon: DollarSign,
+      description: "Financial performance and revenue trends",
+      color: "green",
+    },
+    {
+      id: "sales",
+      label: "Sales",
+      icon: TrendingUp,
+      description: "Sales performance and product analytics",
+      color: "purple",
+    },
+    {
+      id: "inventory",
+      label: "Inventory",
+      icon: Package,
+      description: "Stock levels and inventory management",
+      color: "orange",
+    },
+    {
+      id: "staff",
+      label: "Staff",
+      icon: Users,
+      description: "Employee performance and management",
+      color: "indigo",
+    },
+    {
+      id: "events",
+      label: "Events",
+      icon: Calendar,
+      description: "Event management and performance",
+      color: "pink",
+    },
+    {
+      id: "customers",
+      label: "Customers",
+      icon: UserCheck,
+      description: "Customer analytics and loyalty",
+      color: "teal",
+    },
+  ];
 
   useEffect(() => {
     fetchDashboardStats();
@@ -256,28 +409,77 @@ const Reports = () => {
     return new Intl.NumberFormat("en-US").format(number);
   };
 
-  const getReportIcon = (reportType) => {
-    const icons = {
-      dashboard: Activity,
-      revenue: DollarSign,
-      sales: TrendingUp,
-      inventory: Package,
-      staff: Users,
-      events: Calendar,
-      customers: Users,
-    };
-    const Icon = icons[reportType] || BarChart3;
-    return <Icon className="h-4 w-4" />;
+  const formatPercentage = (value) => {
+    return `${(value * 100).toFixed(1)}%`;
   };
 
-  if (loading)
+  // Memoized calculations for better performance
+  const dashboardMetrics = useMemo(() => {
+    const stats = dashboardStats;
+    return [
+      {
+        title: "Total Orders",
+        value: formatNumber(stats.totalOrders || 0),
+        icon: ShoppingCart,
+        color: "blue",
+        trend: stats.ordersTrend,
+        trendValue: stats.ordersTrendValue,
+        subtitle: "This period",
+      },
+      {
+        title: "Total Revenue",
+        value: formatCurrency(stats.totalRevenue || 0),
+        icon: DollarSign,
+        color: "green",
+        trend: stats.revenueTrend,
+        trendValue: stats.revenueTrendValue,
+        subtitle: "This period",
+      },
+      {
+        title: "Total Reservations",
+        value: formatNumber(stats.totalReservations || 0),
+        icon: Calendar,
+        color: "purple",
+        trend: stats.reservationsTrend,
+        trendValue: stats.reservationsTrendValue,
+        subtitle: "This period",
+      },
+      {
+        title: "Avg Order Value",
+        value: formatCurrency(stats.avgOrderValue || 0),
+        icon: TrendingUp,
+        color: "orange",
+        subtitle: "Per order",
+      },
+      {
+        title: "Active Staff",
+        value: formatNumber(stats.totalStaff || 0),
+        icon: Users,
+        color: "indigo",
+        subtitle: "Currently active",
+      },
+      {
+        title: "Low Stock Items",
+        value: formatNumber(stats.lowStockItems || 0),
+        icon: AlertTriangle,
+        color: "red",
+        subtitle: "Need reorder",
+      },
+    ];
+  }, [dashboardStats]);
+
+  if (loading) {
     return (
       <div className="p-6 bg-neutral-900 text-white min-h-screen">
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading reports...</div>
+          <div className="text-center">
+            <RefreshCw className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
+            <div className="text-lg">Loading reports...</div>
+          </div>
         </div>
       </div>
     );
+  }
 
   return (
     <div className="p-6 bg-neutral-900 text-white min-h-screen">
@@ -286,7 +488,7 @@ const Reports = () => {
         <div>
           <h1 className="text-3xl font-bold text-white">Reports & Analytics</h1>
           <p className="text-neutral-400 mt-1">
-            Comprehensive business insights and analytics
+            Comprehensive business insights and analytics dashboard
           </p>
         </div>
         <div className="flex gap-2">
@@ -310,25 +512,19 @@ const Reports = () => {
       {/* Report Navigation */}
       <div className="bg-neutral-800 p-4 rounded-lg shadow-lg mb-6">
         <div className="flex flex-wrap gap-2">
-          {[
-            { id: "dashboard", label: "Dashboard", icon: Activity },
-            { id: "revenue", label: "Revenue", icon: DollarSign },
-            { id: "sales", label: "Sales", icon: TrendingUp },
-            { id: "inventory", label: "Inventory", icon: Package },
-            { id: "staff", label: "Staff", icon: Users },
-            { id: "events", label: "Events", icon: Calendar },
-            { id: "customers", label: "Customers", icon: Users },
-          ].map((report) => {
+          {reportTypes.map((report) => {
             const Icon = report.icon;
+            const isActive = activeReport === report.id;
             return (
               <button
                 key={report.id}
                 onClick={() => handleReportChange(report.id)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                  activeReport === report.id
-                    ? "bg-blue-600 text-white"
+                className={`px-4 py-3 rounded-lg flex items-center gap-2 transition-colors ${
+                  isActive
+                    ? `bg-${report.color}-600 text-white`
                     : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"
                 }`}
+                title={report.description}
               >
                 <Icon className="h-4 w-4" />
                 {report.label}
@@ -418,125 +614,90 @@ const Reports = () => {
       {/* Dashboard Stats */}
       {activeReport === "dashboard" && (
         <div className="space-y-6">
-          {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-neutral-400 text-sm">Total Orders</p>
-                  <p className="text-2xl font-bold text-white">
-                    {formatNumber(dashboardStats.totalOrders || 0)}
-                  </p>
-                </div>
-                <BarChart3 className="h-8 w-8 text-blue-500" />
-              </div>
-            </div>
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {dashboardMetrics.map((metric, index) => (
+              <StatCard
+                key={index}
+                title={metric.title}
+                value={metric.value}
+                icon={metric.icon}
+                color={metric.color}
+                trend={metric.trend}
+                trendValue={metric.trendValue}
+                subtitle={metric.subtitle}
+              />
+            ))}
+          </div>
 
-            <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-neutral-400 text-sm">Total Revenue</p>
-                  <p className="text-2xl font-bold text-green-500">
-                    {formatCurrency(dashboardStats.totalRevenue || 0)}
-                  </p>
-                </div>
-                <DollarSign className="h-8 w-8 text-green-500" />
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartContainer title="Revenue Trend">
+              <div className="text-center text-neutral-400">
+                <LineChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Revenue trend chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            </div>
+            </ChartContainer>
 
-            <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-neutral-400 text-sm">Total Reservations</p>
-                  <p className="text-2xl font-bold text-purple-500">
-                    {formatNumber(dashboardStats.totalReservations || 0)}
-                  </p>
-                </div>
-                <Calendar className="h-8 w-8 text-purple-500" />
+            <ChartContainer title="Order Distribution">
+              <div className="text-center text-neutral-400">
+                <PieChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Order distribution chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            </div>
-
-            <div className="bg-neutral-800 p-4 rounded-lg shadow-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-neutral-400 text-sm">Avg Order Value</p>
-                  <p className="text-2xl font-bold text-orange-500">
-                    {formatCurrency(dashboardStats.avgOrderValue || 0)}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-orange-500" />
-              </div>
-            </div>
+            </ChartContainer>
           </div>
 
           {/* Top Menu Items */}
           {dashboardStats.topMenuItems &&
             dashboardStats.topMenuItems.length > 0 && (
-              <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4">
-                  Top Menu Items
-                </h3>
-                <div className="space-y-3">
-                  {dashboardStats.topMenuItems.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl font-bold text-blue-500">
-                          #{index + 1}
-                        </span>
-                        <div>
-                          <p className="text-white font-medium">{item.name}</p>
-                          <p className="text-neutral-400 text-sm">
-                            Quantity: {formatNumber(item.quantity)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-green-500 font-bold">
-                          {formatCurrency(item.revenue)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DataTable
+                title="Top Menu Items"
+                data={dashboardStats.topMenuItems}
+                columns={[
+                  { key: "name", header: "Item Name" },
+                  {
+                    key: "quantity",
+                    header: "Quantity Sold",
+                    render: (value) => formatNumber(value),
+                  },
+                  {
+                    key: "revenue",
+                    header: "Revenue",
+                    render: (value) => formatCurrency(value),
+                  },
+                  { key: "category", header: "Category" },
+                ]}
+              />
             )}
 
           {/* Low Stock Items */}
           {dashboardStats.lowStockItems &&
             dashboardStats.lowStockItems.length > 0 && (
-              <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4">
-                  Low Stock Alert
-                </h3>
-                <div className="space-y-3">
-                  {dashboardStats.lowStockItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 bg-red-900/20 border border-red-500/30 rounded-lg"
-                    >
-                      <div>
-                        <p className="text-white font-medium">
-                          {item.itemName}
-                        </p>
-                        <p className="text-neutral-400 text-sm">
-                          {item.category}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-red-500 font-bold">
-                          {item.currentStock} {item.unit}
-                        </p>
-                        <p className="text-neutral-400 text-sm">
-                          Reorder: {item.reorderPoint}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DataTable
+                title="Low Stock Alert"
+                data={dashboardStats.lowStockItems}
+                columns={[
+                  { key: "itemName", header: "Item Name" },
+                  { key: "category", header: "Category" },
+                  {
+                    key: "currentStock",
+                    header: "Current Stock",
+                    render: (value, row) => `${value} ${row.unit}`,
+                  },
+                  {
+                    key: "reorderPoint",
+                    header: "Reorder Point",
+                    render: (value, row) => `${value} ${row.unit}`,
+                  },
+                  {
+                    key: "unitCost",
+                    header: "Unit Cost",
+                    render: (value) => formatCurrency(value),
+                  },
+                ]}
+              />
             )}
         </div>
       )}
@@ -544,70 +705,72 @@ const Reports = () => {
       {/* Revenue Report */}
       {activeReport === "revenue" && (
         <div className="space-y-6">
-          <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold text-white mb-4">
-              Revenue Trends
-            </h3>
-            {revenueData.revenueData && revenueData.revenueData.length > 0 ? (
-              <div className="space-y-3">
-                {revenueData.revenueData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                  >
-                    <div>
-                      <p className="text-white font-medium">{item.period}</p>
-                      <p className="text-neutral-400 text-sm">
-                        {formatNumber(item.count)} payments
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-green-500 font-bold">
-                        {formatCurrency(item.total)}
-                      </p>
-                      <p className="text-neutral-400 text-sm">
-                        Avg: {formatCurrency(item.average)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartContainer title="Revenue Trends">
+              <div className="text-center text-neutral-400">
+                <LineChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Revenue trends chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            ) : (
-              <p className="text-neutral-400">
-                No revenue data available for the selected period.
-              </p>
-            )}
+            </ChartContainer>
+
+            <ChartContainer title="Payment Methods">
+              <div className="text-center text-neutral-400">
+                <PieChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Payment methods distribution</p>
+                <p className="text-xs mt-1">Data from backend API</p>
+              </div>
+            </ChartContainer>
           </div>
+
+          {revenueData.revenueData && revenueData.revenueData.length > 0 && (
+            <DataTable
+              title="Revenue Data"
+              data={revenueData.revenueData}
+              columns={[
+                { key: "period", header: "Period" },
+                {
+                  key: "count",
+                  header: "Transactions",
+                  render: (value) => formatNumber(value),
+                },
+                {
+                  key: "total",
+                  header: "Total Revenue",
+                  render: (value) => formatCurrency(value),
+                },
+                {
+                  key: "average",
+                  header: "Average",
+                  render: (value) => formatCurrency(value),
+                },
+              ]}
+            />
+          )}
 
           {revenueData.paymentMethodData &&
             revenueData.paymentMethodData.length > 0 && (
-              <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4">
-                  Payment Methods
-                </h3>
-                <div className="space-y-3">
-                  {revenueData.paymentMethodData.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                    >
-                      <div>
-                        <p className="text-white font-medium capitalize">
-                          {item.method.replace("_", " ")}
-                        </p>
-                        <p className="text-neutral-400 text-sm">
-                          {formatNumber(item.count)} transactions
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-green-500 font-bold">
-                          {formatCurrency(item.total)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DataTable
+                title="Payment Methods Breakdown"
+                data={revenueData.paymentMethodData}
+                columns={[
+                  {
+                    key: "method",
+                    header: "Payment Method",
+                    render: (value) => value.replace("_", " ").toUpperCase(),
+                  },
+                  {
+                    key: "count",
+                    header: "Transactions",
+                    render: (value) => formatNumber(value),
+                  },
+                  {
+                    key: "total",
+                    header: "Total Amount",
+                    render: (value) => formatCurrency(value),
+                  },
+                ]}
+              />
             )}
         </div>
       )}
@@ -615,74 +778,72 @@ const Reports = () => {
       {/* Sales Report */}
       {activeReport === "sales" && (
         <div className="space-y-6">
-          <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold text-white mb-4">
-              Top Selling Items
-            </h3>
-            {salesData.salesData && salesData.salesData.length > 0 ? (
-              <div className="space-y-3">
-                {salesData.salesData.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl font-bold text-blue-500">
-                        #{index + 1}
-                      </span>
-                      <div>
-                        <p className="text-white font-medium">{item.name}</p>
-                        <p className="text-neutral-400 text-sm">
-                          {item.category} • {formatCurrency(item.price)} each
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-green-500 font-bold">
-                        {formatCurrency(item.totalRevenue)}
-                      </p>
-                      <p className="text-neutral-400 text-sm">
-                        Qty: {formatNumber(item.totalQuantity)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartContainer title="Top Selling Items">
+              <div className="text-center text-neutral-400">
+                <BarChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Top selling items chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            ) : (
-              <p className="text-neutral-400">
-                No sales data available for the selected period.
-              </p>
-            )}
+            </ChartContainer>
+
+            <ChartContainer title="Sales by Category">
+              <div className="text-center text-neutral-400">
+                <PieChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Sales by category chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
+              </div>
+            </ChartContainer>
           </div>
 
+          {salesData.salesData && salesData.salesData.length > 0 && (
+            <DataTable
+              title="Top Selling Items"
+              data={salesData.salesData}
+              columns={[
+                { key: "name", header: "Item Name" },
+                { key: "category", header: "Category" },
+                {
+                  key: "price",
+                  header: "Unit Price",
+                  render: (value) => formatCurrency(value),
+                },
+                {
+                  key: "totalQuantity",
+                  header: "Quantity Sold",
+                  render: (value) => formatNumber(value),
+                },
+                {
+                  key: "totalRevenue",
+                  header: "Total Revenue",
+                  render: (value) => formatCurrency(value),
+                },
+              ]}
+            />
+          )}
+
           {salesData.categoryData && salesData.categoryData.length > 0 && (
-            <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-              <h3 className="text-lg font-bold text-white mb-4">
-                Sales by Category
-              </h3>
-              <div className="space-y-3">
-                {salesData.categoryData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                  >
-                    <div>
-                      <p className="text-white font-medium capitalize">
-                        {item.category}
-                      </p>
-                      <p className="text-neutral-400 text-sm">
-                        {formatNumber(item.totalQuantity)} items sold
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-green-500 font-bold">
-                        {formatCurrency(item.totalRevenue)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DataTable
+              title="Sales by Category"
+              data={salesData.categoryData}
+              columns={[
+                {
+                  key: "category",
+                  header: "Category",
+                  render: (value) => value.toUpperCase(),
+                },
+                {
+                  key: "totalQuantity",
+                  header: "Items Sold",
+                  render: (value) => formatNumber(value),
+                },
+                {
+                  key: "totalRevenue",
+                  header: "Total Revenue",
+                  render: (value) => formatCurrency(value),
+                },
+              ]}
+            />
           )}
         </div>
       )}
@@ -690,96 +851,79 @@ const Reports = () => {
       {/* Inventory Report */}
       {activeReport === "inventory" && (
         <div className="space-y-6">
-          <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold text-white mb-4">
-              Inventory Overview
-            </h3>
-            {inventoryData.inventoryData &&
-            inventoryData.inventoryData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-neutral-700">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Item
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Category
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Stock
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Reorder Point
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Unit Cost
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Location
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inventoryData.inventoryData.map((item) => (
-                      <tr key={item.id} className="border-t border-neutral-700">
-                        <td className="px-4 py-3 text-white">
-                          {item.itemName}
-                        </td>
-                        <td className="px-4 py-3 text-neutral-300 capitalize">
-                          {item.category}
-                        </td>
-                        <td className="px-4 py-3 text-white">
-                          {item.currentStock} {item.unit}
-                        </td>
-                        <td className="px-4 py-3 text-white">
-                          {item.reorderPoint} {item.unit}
-                        </td>
-                        <td className="px-4 py-3 text-white">
-                          {formatCurrency(item.unitCost || 0)}
-                        </td>
-                        <td className="px-4 py-3 text-neutral-300">
-                          {item.location || "N/A"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartContainer title="Inventory Overview">
+              <div className="text-center text-neutral-400">
+                <BarChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Inventory overview chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            ) : (
-              <p className="text-neutral-400">No inventory data available.</p>
-            )}
+            </ChartContainer>
+
+            <ChartContainer title="Stock Levels by Category">
+              <div className="text-center text-neutral-400">
+                <PieChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Stock levels by category</p>
+                <p className="text-xs mt-1">Data from backend API</p>
+              </div>
+            </ChartContainer>
           </div>
+
+          {inventoryData.inventoryData &&
+            inventoryData.inventoryData.length > 0 && (
+              <DataTable
+                title="Inventory Items"
+                data={inventoryData.inventoryData}
+                columns={[
+                  { key: "itemName", header: "Item Name" },
+                  {
+                    key: "category",
+                    header: "Category",
+                    render: (value) => value.toUpperCase(),
+                  },
+                  {
+                    key: "currentStock",
+                    header: "Current Stock",
+                    render: (value, row) => `${value} ${row.unit}`,
+                  },
+                  {
+                    key: "reorderPoint",
+                    header: "Reorder Point",
+                    render: (value, row) => `${value} ${row.unit}`,
+                  },
+                  {
+                    key: "unitCost",
+                    header: "Unit Cost",
+                    render: (value) => formatCurrency(value),
+                  },
+                  { key: "location", header: "Location" },
+                ]}
+              />
+            )}
 
           {inventoryData.categorySummary &&
             inventoryData.categorySummary.length > 0 && (
-              <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4">
-                  Inventory by Category
-                </h3>
-                <div className="space-y-3">
-                  {inventoryData.categorySummary.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                    >
-                      <div>
-                        <p className="text-white font-medium capitalize">
-                          {item.category}
-                        </p>
-                        <p className="text-neutral-400 text-sm">
-                          {formatNumber(item.count)} items
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-green-500 font-bold">
-                          {formatCurrency(item.totalValue)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DataTable
+                title="Inventory by Category"
+                data={inventoryData.categorySummary}
+                columns={[
+                  {
+                    key: "category",
+                    header: "Category",
+                    render: (value) => value.toUpperCase(),
+                  },
+                  {
+                    key: "count",
+                    header: "Items",
+                    render: (value) => formatNumber(value),
+                  },
+                  {
+                    key: "totalValue",
+                    header: "Total Value",
+                    render: (value) => formatCurrency(value),
+                  },
+                ]}
+              />
             )}
         </div>
       )}
@@ -787,106 +931,88 @@ const Reports = () => {
       {/* Staff Report */}
       {activeReport === "staff" && (
         <div className="space-y-6">
-          <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold text-white mb-4">
-              Staff Overview
-            </h3>
-            {staffData.staffData && staffData.staffData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-neutral-700">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Employee
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Position
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Department
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Hire Date
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Performance
-                      </th>
-                      <th className="px-4 py-3 text-left text-white font-medium">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {staffData.staffData.map((staff) => (
-                      <tr
-                        key={staff.id}
-                        className="border-t border-neutral-700"
-                      >
-                        <td className="px-4 py-3 text-white">
-                          {staff.employeeId}
-                        </td>
-                        <td className="px-4 py-3 text-white">
-                          {staff.position}
-                        </td>
-                        <td className="px-4 py-3 text-neutral-300 capitalize">
-                          {staff.department.replace("_", " ")}
-                        </td>
-                        <td className="px-4 py-3 text-white">
-                          {new Date(staff.hireDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3 text-white">
-                          {staff.performanceRating || "N/A"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              staff.isActive
-                                ? "text-green-500 bg-green-900/20"
-                                : "text-red-500 bg-red-900/20"
-                            }`}
-                          >
-                            {staff.isActive ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartContainer title="Staff by Department">
+              <div className="text-center text-neutral-400">
+                <PieChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Staff by department chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            ) : (
-              <p className="text-neutral-400">No staff data available.</p>
-            )}
+            </ChartContainer>
+
+            <ChartContainer title="Performance Distribution">
+              <div className="text-center text-neutral-400">
+                <BarChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Performance distribution chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
+              </div>
+            </ChartContainer>
           </div>
+
+          {staffData.staffData && staffData.staffData.length > 0 && (
+            <DataTable
+              title="Staff Overview"
+              data={staffData.staffData}
+              columns={[
+                { key: "employeeId", header: "Employee ID" },
+                { key: "position", header: "Position" },
+                {
+                  key: "department",
+                  header: "Department",
+                  render: (value) => value.replace("_", " ").toUpperCase(),
+                },
+                {
+                  key: "hireDate",
+                  header: "Hire Date",
+                  render: (value) => new Date(value).toLocaleDateString(),
+                },
+                {
+                  key: "performanceRating",
+                  header: "Performance",
+                  render: (value) => value || "N/A",
+                },
+                {
+                  key: "isActive",
+                  header: "Status",
+                  render: (value) => (
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        value
+                          ? "text-green-500 bg-green-900/20"
+                          : "text-red-500 bg-red-900/20"
+                      }`}
+                    >
+                      {value ? "Active" : "Inactive"}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          )}
 
           {staffData.departmentSummary &&
             staffData.departmentSummary.length > 0 && (
-              <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4">
-                  Staff by Department
-                </h3>
-                <div className="space-y-3">
-                  {staffData.departmentSummary.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                    >
-                      <div>
-                        <p className="text-white font-medium capitalize">
-                          {item.department.replace("_", " ")}
-                        </p>
-                        <p className="text-neutral-400 text-sm">
-                          {formatNumber(item.count)} staff members
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-blue-500 font-bold">
-                          Avg: {item.avgPerformance.toFixed(1)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DataTable
+                title="Staff by Department"
+                data={staffData.departmentSummary}
+                columns={[
+                  {
+                    key: "department",
+                    header: "Department",
+                    render: (value) => value.replace("_", " ").toUpperCase(),
+                  },
+                  {
+                    key: "count",
+                    header: "Staff Members",
+                    render: (value) => formatNumber(value),
+                  },
+                  {
+                    key: "avgPerformance",
+                    header: "Avg Performance",
+                    render: (value) => value.toFixed(1),
+                  },
+                ]}
+              />
             )}
         </div>
       )}
@@ -894,98 +1020,101 @@ const Reports = () => {
       {/* Event Report */}
       {activeReport === "events" && (
         <div className="space-y-6">
-          <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold text-white mb-4">
-              Events Overview
-            </h3>
-            {eventData.eventData && eventData.eventData.length > 0 ? (
-              <div className="space-y-3">
-                {eventData.eventData.map((event) => (
-                  <div key={event.id} className="p-4 bg-neutral-700 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-white font-medium">{event.title}</h4>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          event.status === "completed"
-                            ? "text-green-500 bg-green-900/20"
-                            : event.status === "active"
-                            ? "text-blue-500 bg-blue-900/20"
-                            : event.status === "cancelled"
-                            ? "text-red-500 bg-red-900/20"
-                            : "text-gray-500 bg-gray-900/20"
-                        }`}
-                      >
-                        {event.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-neutral-400">Date</p>
-                        <p className="text-white">
-                          {new Date(event.startDate).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-neutral-400">Attendance</p>
-                        <p className="text-white">
-                          {event.actualAttendance || 0} /{" "}
-                          {event.capacity || "N/A"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-neutral-400">Revenue</p>
-                        <p className="text-white">
-                          {formatCurrency(event.revenue || 0)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-neutral-400">Type</p>
-                        <p className="text-white capitalize">
-                          {event.eventType.replace("_", " ")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartContainer title="Events by Type">
+              <div className="text-center text-neutral-400">
+                <PieChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Events by type chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            ) : (
-              <p className="text-neutral-400">
-                No event data available for the selected period.
-              </p>
-            )}
+            </ChartContainer>
+
+            <ChartContainer title="Event Revenue Trends">
+              <div className="text-center text-neutral-400">
+                <LineChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Event revenue trends</p>
+                <p className="text-xs mt-1">Data from backend API</p>
+              </div>
+            </ChartContainer>
           </div>
 
+          {eventData.eventData && eventData.eventData.length > 0 && (
+            <DataTable
+              title="Events Overview"
+              data={eventData.eventData}
+              columns={[
+                { key: "title", header: "Event Title" },
+                {
+                  key: "eventType",
+                  header: "Type",
+                  render: (value) => value.replace("_", " ").toUpperCase(),
+                },
+                {
+                  key: "startDate",
+                  header: "Date",
+                  render: (value) => new Date(value).toLocaleDateString(),
+                },
+                {
+                  key: "actualAttendance",
+                  header: "Attendance",
+                  render: (value, row) =>
+                    `${value || 0} / ${row.capacity || "N/A"}`,
+                },
+                {
+                  key: "revenue",
+                  header: "Revenue",
+                  render: (value) => formatCurrency(value || 0),
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  render: (value) => (
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        value === "completed"
+                          ? "text-green-500 bg-green-900/20"
+                          : value === "active"
+                          ? "text-blue-500 bg-blue-900/20"
+                          : value === "cancelled"
+                          ? "text-red-500 bg-red-900/20"
+                          : "text-gray-500 bg-gray-900/20"
+                      }`}
+                    >
+                      {value.toUpperCase()}
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          )}
+
           {eventData.typeSummary && eventData.typeSummary.length > 0 && (
-            <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-              <h3 className="text-lg font-bold text-white mb-4">
-                Events by Type
-              </h3>
-              <div className="space-y-3">
-                {eventData.typeSummary.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                  >
-                    <div>
-                      <p className="text-white font-medium capitalize">
-                        {item.eventType.replace("_", " ")}
-                      </p>
-                      <p className="text-neutral-400 text-sm">
-                        {formatNumber(item.count)} events
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-green-500 font-bold">
-                        {formatCurrency(item.totalRevenue)}
-                      </p>
-                      <p className="text-neutral-400 text-sm">
-                        Avg: {formatNumber(item.avgAttendance)} attendees
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DataTable
+              title="Events by Type"
+              data={eventData.typeSummary}
+              columns={[
+                {
+                  key: "eventType",
+                  header: "Event Type",
+                  render: (value) => value.replace("_", " ").toUpperCase(),
+                },
+                {
+                  key: "count",
+                  header: "Events",
+                  render: (value) => formatNumber(value),
+                },
+                {
+                  key: "totalRevenue",
+                  header: "Total Revenue",
+                  render: (value) => formatCurrency(value),
+                },
+                {
+                  key: "avgAttendance",
+                  header: "Avg Attendance",
+                  render: (value) => formatNumber(value),
+                },
+              ]}
+            />
           )}
         </div>
       )}
@@ -993,77 +1122,77 @@ const Reports = () => {
       {/* Customer Report */}
       {activeReport === "customers" && (
         <div className="space-y-6">
-          <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-            <h3 className="text-lg font-bold text-white mb-4">
-              Customer Statistics
-            </h3>
-            {customerData.customerStats && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-neutral-700 p-4 rounded-lg">
-                  <p className="text-neutral-400 text-sm">Total Customers</p>
-                  <p className="text-2xl font-bold text-white">
-                    {formatNumber(customerData.customerStats.totalCustomers)}
-                  </p>
-                </div>
-                <div className="bg-neutral-700 p-4 rounded-lg">
-                  <p className="text-neutral-400 text-sm">Avg Visits</p>
-                  <p className="text-2xl font-bold text-blue-500">
-                    {customerData.customerStats.avgVisits.toFixed(1)}
-                  </p>
-                </div>
-                <div className="bg-neutral-700 p-4 rounded-lg">
-                  <p className="text-neutral-400 text-sm">Avg Spent</p>
-                  <p className="text-2xl font-bold text-green-500">
-                    {formatCurrency(customerData.customerStats.avgSpent)}
-                  </p>
-                </div>
-                <div className="bg-neutral-700 p-4 rounded-lg">
-                  <p className="text-neutral-400 text-sm">Total Revenue</p>
-                  <p className="text-2xl font-bold text-purple-500">
-                    {formatCurrency(customerData.customerStats.totalRevenue)}
-                  </p>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartContainer title="Customer Loyalty Tiers">
+              <div className="text-center text-neutral-400">
+                <PieChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Customer loyalty tiers chart</p>
+                <p className="text-xs mt-1">Data from backend API</p>
               </div>
-            )}
+            </ChartContainer>
+
+            <ChartContainer title="Customer Spending Trends">
+              <div className="text-center text-neutral-400">
+                <LineChart className="h-16 w-16 mx-auto mb-2" />
+                <p>Customer spending trends</p>
+                <p className="text-xs mt-1">Data from backend API</p>
+              </div>
+            </ChartContainer>
           </div>
+
+          {customerData.customerStats && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                title="Total Customers"
+                value={formatNumber(customerData.customerStats.totalCustomers)}
+                icon={Users}
+                color="blue"
+              />
+              <StatCard
+                title="Avg Visits"
+                value={customerData.customerStats.avgVisits.toFixed(1)}
+                icon={Target}
+                color="green"
+              />
+              <StatCard
+                title="Avg Spent"
+                value={formatCurrency(customerData.customerStats.avgSpent)}
+                icon={DollarSign}
+                color="purple"
+              />
+              <StatCard
+                title="Total Revenue"
+                value={formatCurrency(customerData.customerStats.totalRevenue)}
+                icon={TrendingUp}
+                color="orange"
+              />
+            </div>
+          )}
 
           {customerData.topCustomers &&
             customerData.topCustomers.length > 0 && (
-              <div className="bg-neutral-800 p-6 rounded-lg shadow-lg">
-                <h3 className="text-lg font-bold text-white mb-4">
-                  Top Customers
-                </h3>
-                <div className="space-y-3">
-                  {customerData.topCustomers.map((customer, index) => (
-                    <div
-                      key={customer.id}
-                      className="flex items-center justify-between p-3 bg-neutral-700 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl font-bold text-blue-500">
-                          #{index + 1}
-                        </span>
-                        <div>
-                          <p className="text-white font-medium">
-                            {customer.firstName} {customer.lastName}
-                          </p>
-                          <p className="text-neutral-400 text-sm">
-                            {customer.email}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-green-500 font-bold">
-                          {formatCurrency(customer.totalSpent)}
-                        </p>
-                        <p className="text-neutral-400 text-sm">
-                          {formatNumber(customer.totalVisits)} visits
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DataTable
+                title="Top Customers"
+                data={customerData.topCustomers}
+                columns={[
+                  {
+                    key: "firstName",
+                    header: "Name",
+                    render: (value, row) => `${value} ${row.lastName}`,
+                  },
+                  { key: "email", header: "Email" },
+                  {
+                    key: "totalSpent",
+                    header: "Total Spent",
+                    render: (value) => formatCurrency(value),
+                  },
+                  {
+                    key: "totalVisits",
+                    header: "Visits",
+                    render: (value) => formatNumber(value),
+                  },
+                ]}
+              />
             )}
         </div>
       )}

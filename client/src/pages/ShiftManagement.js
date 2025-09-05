@@ -267,8 +267,8 @@ const ShiftManagement = () => {
           <Icon className={`w-6 h-6 text-${color}-600`} />
         </div>
         <div className="ml-4">
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-2xl font-semibold">{value}</p>
           {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
         </div>
       </div>
@@ -490,185 +490,252 @@ const ShiftManagement = () => {
 
       {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                {editingShift ? "Edit Shift" : "Create New Shift"}
-              </h2>
-              <button
-                onClick={closeForm}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-50 overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full mt-8 sm:mt-12 mb-4 sm:mb-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 px-6 pt-8 pb-6 rounded-t-lg z-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">
+                  {editingShift ? "Edit Shift" : "Create New Shift"}
+                </h2>
+                <button
+                  onClick={closeForm}
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Form"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Shift Date
-                  </label>
-                  <input
-                    type="date"
-                    name="shiftDate"
-                    value={formData.shiftDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                  {formErrors.shiftDate && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {formErrors.shiftDate}
-                    </p>
-                  )}
+            {/* Modal Content */}
+            <div className="p-6 sm:p-8 pb-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Shift Date *
+                    </label>
+                    <input
+                      type="date"
+                      name="shiftDate"
+                      value={formData.shiftDate}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    {formErrors.shiftDate && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.shiftDate}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Position *
+                    </label>
+                    <input
+                      type="text"
+                      name="position"
+                      value={formData.position}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    {formErrors.position && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.position}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Start Time *
+                    </label>
+                    <input
+                      type="time"
+                      name="startTime"
+                      value={formData.startTime}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    {formErrors.startTime && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.startTime}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      End Time *
+                    </label>
+                    <input
+                      type="time"
+                      name="endTime"
+                      value={formData.endTime}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                    {formErrors.endTime && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.endTime}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Shift Type *
+                    </label>
+                    <select
+                      name="shiftType"
+                      value={formData.shiftType}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option
+                        value="regular"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Regular
+                      </option>
+                      <option
+                        value="overtime"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Overtime
+                      </option>
+                      <option
+                        value="holiday"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Holiday
+                      </option>
+                      <option
+                        value="weekend"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Weekend
+                      </option>
+                      <option
+                        value="night"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Night
+                      </option>
+                      <option
+                        value="split"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Split
+                      </option>
+                    </select>
+                    {formErrors.shiftType && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.shiftType}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Status
+                    </label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option
+                        value="scheduled"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Scheduled
+                      </option>
+                      <option
+                        value="confirmed"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Confirmed
+                      </option>
+                      <option
+                        value="in_progress"
+                        className="bg-neutral-700 text-white"
+                      >
+                        In Progress
+                      </option>
+                      <option
+                        value="completed"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Completed
+                      </option>
+                      <option
+                        value="cancelled"
+                        className="bg-neutral-700 text-white"
+                      >
+                        Cancelled
+                      </option>
+                      <option
+                        value="no_show"
+                        className="bg-neutral-700 text-white"
+                      >
+                        No Show
+                      </option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Section
+                    </label>
+                    <input
+                      type="text"
+                      name="section"
+                      value={formData.section}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Notes
+                    </label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      rows={3}
+                      className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Position
-                  </label>
-                  <input
-                    type="text"
-                    name="position"
-                    value={formData.position}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                  {formErrors.position && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {formErrors.position}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Time
-                  </label>
-                  <input
-                    type="time"
-                    name="startTime"
-                    value={formData.startTime}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                  {formErrors.startTime && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {formErrors.startTime}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    End Time
-                  </label>
-                  <input
-                    type="time"
-                    name="endTime"
-                    value={formData.endTime}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  />
-                  {formErrors.endTime && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {formErrors.endTime}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Shift Type
-                  </label>
-                  <select
-                    name="shiftType"
-                    value={formData.shiftType}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
+                <div className="flex justify-end gap-4 pt-6 border-t border-neutral-600">
+                  <button
+                    type="button"
+                    onClick={closeForm}
+                    className="px-6 py-3 text-neutral-300 hover:text-white transition-colors border border-neutral-600 rounded-lg hover:bg-neutral-700"
                   >
-                    <option value="regular">Regular</option>
-                    <option value="overtime">Overtime</option>
-                    <option value="holiday">Holiday</option>
-                    <option value="weekend">Weekend</option>
-                    <option value="night">Night</option>
-                    <option value="split">Split</option>
-                  </select>
-                  {formErrors.shiftType && (
-                    <p className="text-red-500 text-xs mt-1">
-                      {formErrors.shiftType}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg"
                   >
-                    <option value="scheduled">Scheduled</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="no_show">No Show</option>
-                  </select>
+                    {editingShift ? "Update Shift" : "Create Shift"}
+                  </button>
                 </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Section
-                  </label>
-                  <input
-                    type="text"
-                    name="section"
-                    value={formData.section}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  {editingShift ? "Update Shift" : "Create Shift"}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -676,11 +743,13 @@ const ShiftManagement = () => {
       {/* Status Update Modal */}
       {statusModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-bold mb-4">Update Shift Status</h3>
+          <div className="bg-neutral-800 rounded-lg shadow-xl p-6 w-full max-w-md border border-neutral-700">
+            <h3 className="text-lg font-bold text-white mb-4">
+              Update Shift Status
+            </h3>
             <form onSubmit={handleStatusUpdate}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-neutral-300 mb-2">
                   Status
                 </label>
                 <select
@@ -690,27 +759,54 @@ const ShiftManagement = () => {
                       setStatusData({ ...statusData, status: e.target.value })
                     )
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="scheduled">Scheduled</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="no_show">No Show</option>
+                  <option
+                    value="scheduled"
+                    className="bg-neutral-700 text-white"
+                  >
+                    Scheduled
+                  </option>
+                  <option
+                    value="confirmed"
+                    className="bg-neutral-700 text-white"
+                  >
+                    Confirmed
+                  </option>
+                  <option
+                    value="in_progress"
+                    className="bg-neutral-700 text-white"
+                  >
+                    In Progress
+                  </option>
+                  <option
+                    value="completed"
+                    className="bg-neutral-700 text-white"
+                  >
+                    Completed
+                  </option>
+                  <option
+                    value="cancelled"
+                    className="bg-neutral-700 text-white"
+                  >
+                    Cancelled
+                  </option>
+                  <option value="no_show" className="bg-neutral-700 text-white">
+                    No Show
+                  </option>
                 </select>
               </div>
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end gap-4">
                 <button
                   type="button"
                   onClick={closeStatusModal}
-                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                  className="px-6 py-3 text-neutral-300 hover:text-white transition-colors border border-neutral-600 rounded-lg hover:bg-neutral-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   Update Status
                 </button>

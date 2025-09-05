@@ -149,7 +149,6 @@ export const approveShift = createAsyncThunk(
 // Initial state
 const initialState = {
   shifts: [],
-  filteredShifts: [],
   selectedShift: null,
   stats: null,
   todaysShifts: [],
@@ -246,7 +245,6 @@ const shiftSlice = createSlice({
       .addCase(fetchShifts.fulfilled, (state, action) => {
         state.loading = false;
         state.shifts = action.payload.shifts || [];
-        state.filteredShifts = action.payload.shifts || [];
         state.pagination = {
           currentPage: action.payload.page || 1,
           totalPages: action.payload.totalPages || 1,
@@ -279,7 +277,6 @@ const shiftSlice = createSlice({
       .addCase(createShift.fulfilled, (state, action) => {
         state.loading = false;
         state.shifts.unshift(action.payload.shift);
-        state.filteredShifts.unshift(action.payload.shift);
         state.showForm = false;
         state.formData = shiftService.getDefaultFormData();
         state.formErrors = {};
@@ -301,12 +298,6 @@ const shiftSlice = createSlice({
         if (index !== -1) {
           state.shifts[index] = action.payload.shift;
         }
-        const filteredIndex = state.filteredShifts.findIndex(
-          (shift) => shift.id === action.payload.shift.id
-        );
-        if (filteredIndex !== -1) {
-          state.filteredShifts[filteredIndex] = action.payload.shift;
-        }
         state.showForm = false;
         state.editingShift = null;
         state.formData = shiftService.getDefaultFormData();
@@ -324,9 +315,6 @@ const shiftSlice = createSlice({
       .addCase(deleteShift.fulfilled, (state, action) => {
         state.loading = false;
         state.shifts = state.shifts.filter(
-          (shift) => shift.id !== action.meta.arg
-        );
-        state.filteredShifts = state.filteredShifts.filter(
           (shift) => shift.id !== action.meta.arg
         );
       })
@@ -360,12 +348,6 @@ const shiftSlice = createSlice({
         if (index !== -1) {
           state.shifts[index].status = action.meta.arg.status;
         }
-        const filteredIndex = state.filteredShifts.findIndex(
-          (shift) => shift.id === action.meta.arg.id
-        );
-        if (filteredIndex !== -1) {
-          state.filteredShifts[filteredIndex].status = action.meta.arg.status;
-        }
         state.statusModal = false;
         state.statusData = {};
       })
@@ -387,14 +369,6 @@ const shiftSlice = createSlice({
           state.shifts[index].status = "in_progress";
           state.shifts[index].clockInTime = new Date().toISOString();
         }
-        const filteredIndex = state.filteredShifts.findIndex(
-          (shift) => shift.id === action.meta.arg
-        );
-        if (filteredIndex !== -1) {
-          state.filteredShifts[filteredIndex].status = "in_progress";
-          state.filteredShifts[filteredIndex].clockInTime =
-            new Date().toISOString();
-        }
         state.clockModal = false;
         state.clockData = {};
       })
@@ -415,14 +389,6 @@ const shiftSlice = createSlice({
         if (index !== -1) {
           state.shifts[index].status = "completed";
           state.shifts[index].clockOutTime = new Date().toISOString();
-        }
-        const filteredIndex = state.filteredShifts.findIndex(
-          (shift) => shift.id === action.meta.arg
-        );
-        if (filteredIndex !== -1) {
-          state.filteredShifts[filteredIndex].status = "completed";
-          state.filteredShifts[filteredIndex].clockOutTime =
-            new Date().toISOString();
         }
         state.clockModal = false;
         state.clockData = {};
@@ -471,14 +437,6 @@ const shiftSlice = createSlice({
           state.shifts[index].isApproved = true;
           state.shifts[index].approvedAt = new Date().toISOString();
         }
-        const filteredIndex = state.filteredShifts.findIndex(
-          (shift) => shift.id === action.meta.arg
-        );
-        if (filteredIndex !== -1) {
-          state.filteredShifts[filteredIndex].isApproved = true;
-          state.filteredShifts[filteredIndex].approvedAt =
-            new Date().toISOString();
-        }
       })
       .addCase(approveShift.rejected, (state, action) => {
         state.loading = false;
@@ -505,7 +463,6 @@ export const {
 
 // Selectors
 export const selectShifts = (state) => state.shifts.shifts;
-export const selectFilteredShifts = (state) => state.shifts.filteredShifts;
 export const selectSelectedShift = (state) => state.shifts.selectedShift;
 export const selectShiftStats = (state) => state.shifts.stats;
 export const selectTodaysShifts = (state) => state.shifts.todaysShifts;
@@ -525,7 +482,54 @@ export const selectClockData = (state) => state.shifts.clockData;
 export const selectShiftsFilters = (state) => state.shifts.filters;
 export const selectShiftsPagination = (state) => state.shifts.pagination;
 
-export const selectFilteredShiftsByStatus = (status) => (state) =>
-  state.shifts.filteredShifts.filter((shift) => shift.status === status);
+// Memoized selector for filtered shifts
+export const selectFilteredShifts = (state) => {
+  const { shifts, filters } = state.shifts;
+
+  return shifts.filter((shift) => {
+    // Search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      const searchableFields = [
+        shift.position,
+        shift.section,
+        shift.shiftType,
+        shift.status,
+        shift.notes,
+      ];
+
+      const matchesSearch = searchableFields.some(
+        (field) => field && field.toLowerCase().includes(searchTerm)
+      );
+
+      if (!matchesSearch) return false;
+    }
+
+    // Status filter
+    if (filters.status && shift.status !== filters.status) {
+      return false;
+    }
+
+    // Shift type filter
+    if (filters.shiftType && shift.shiftType !== filters.shiftType) {
+      return false;
+    }
+
+    // Date range filters
+    if (filters.dateFrom) {
+      const shiftDate = new Date(shift.shiftDate);
+      const fromDate = new Date(filters.dateFrom);
+      if (shiftDate < fromDate) return false;
+    }
+
+    if (filters.dateTo) {
+      const shiftDate = new Date(shift.shiftDate);
+      const toDate = new Date(filters.dateTo);
+      if (shiftDate > toDate) return false;
+    }
+
+    return true;
+  });
+};
 
 export default shiftSlice.reducer;

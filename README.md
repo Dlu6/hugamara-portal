@@ -75,6 +75,131 @@ npm run client:install
 npm run db:setup
 ```
 
+#### Manual Database Migrations
+
+If you encounter database schema issues or need to run migrations manually:
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Run migrations using Node.js directly (if npx is not available)
+node -e "
+const { sequelize } = require('./config/database-cli.cjs');
+const fs = require('fs');
+const path = require('path');
+
+async function runMigrations() {
+  try {
+    console.log('🔄 Running database migrations...');
+    
+    // List of migration files to run
+    const migrations = [
+      '20250115000000-add-department-id-to-staff.cjs',
+      '20250115000001-create-departments-table.cjs', 
+      '20250115000002-add-name-fields-to-staff.cjs',
+      '20250115000003-add-missing-ticket-columns.cjs'
+    ];
+    
+    for (const migrationFile of migrations) {
+      try {
+        const migrationPath = path.join(__dirname, 'database/migrations', migrationFile);
+        if (fs.existsSync(migrationPath)) {
+          const migration = require(migrationPath);
+          await migration.up(sequelize.getQueryInterface(), sequelize.constructor);
+          console.log(\`✅ Migration \${migrationFile} completed\`);
+        }
+      } catch (error) {
+        if (error.message.includes('already exists') || error.message.includes('Duplicate')) {
+          console.log(\`⚠️  Migration \${migrationFile} already applied\`);
+        } else {
+          throw error;
+        }
+      }
+    }
+    
+    console.log('✅ All migrations completed successfully!');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    process.exit(1);
+  }
+}
+
+runMigrations();
+"
+
+# Alternative: Run individual migration scripts
+node run-ticket-migration.cjs  # For ticket columns
+```
+
+#### Common Migration Issues
+
+**Issue**: `npx: command not found`
+- **Solution**: Use Node.js directly as shown above, or install npm globally
+
+**Issue**: `Unknown column 'column_name' in 'field list'`
+- **Solution**: Run the appropriate migration script to add missing columns
+
+**Issue**: `Cannot read properties of undefined (reading 'query')`
+- **Solution**: Ensure sequelize instance is properly initialized in migration scripts
+
+#### Creating New Migrations
+
+When you need to create a new migration:
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Create a new migration file manually
+touch database/migrations/YYYYMMDDHHMMSS-description.cjs
+
+# Example migration template:
+cat > database/migrations/YYYYMMDDHHMMSS-description.cjs << 'EOF'
+'use strict';
+
+/** @type {import('sequelize-cli').Migration} */
+module.exports = {
+  async up(queryInterface, Sequelize) {
+    try {
+      // Add your migration logic here
+      await queryInterface.addColumn('table_name', 'column_name', {
+        type: Sequelize.STRING,
+        allowNull: true,
+        comment: 'Column description'
+      });
+      console.log('✅ Added column_name to table_name');
+    } catch (error) {
+      if (error.message.includes('Duplicate column name')) {
+        console.log('⚠️  column_name already exists');
+      } else {
+        throw error;
+      }
+    }
+  },
+
+  async down(queryInterface, Sequelize) {
+    try {
+      await queryInterface.removeColumn('table_name', 'column_name');
+      console.log('✅ Removed column_name from table_name');
+    } catch (error) {
+      console.log(`⚠️  Column may not exist: ${error.message}`);
+    }
+  }
+};
+EOF
+```
+
+#### Migration Best Practices
+
+1. **Always test migrations** on a development database first
+2. **Use try-catch blocks** to handle duplicate column/table errors gracefully
+3. **Include rollback logic** in the `down` method
+4. **Use descriptive names** for migration files
+5. **Add comments** to explain what each migration does
+6. **Test both up and down** migrations
+
 ### 5. Start Development Servers
 
 ```bash
@@ -98,6 +223,19 @@ npm run server_client
 - `npm run db:setup` - Reset and seed database
 - `npm run db:migrate` - Run database migrations
 - `npm run db:seed` - Seed database with test data
+
+#### Manual Migration Commands
+
+```bash
+# Run all migrations
+cd backend && node -e "const { sequelize } = require('./config/database-cli.cjs'); /* migration code */"
+
+# Run specific migration
+node run-ticket-migration.cjs
+
+# Check database schema
+mysql -u root -p hugamara_dev -e "DESCRIBE table_name;"
+```
 
 ### Frontend
 

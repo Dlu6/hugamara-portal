@@ -9,7 +9,7 @@ class ShiftService {
   async getAllShifts(filters = {}) {
     try {
       const response = await this.baseAPI.getAll(filters);
-      return response;
+      return response.data;
     } catch (error) {
       console.error("Error fetching shifts:", error);
       throw error;
@@ -19,7 +19,7 @@ class ShiftService {
   async getShiftById(id) {
     try {
       const response = await this.baseAPI.getById(id);
-      return response;
+      return response.data;
     } catch (error) {
       console.error("Error fetching shift:", error);
       throw error;
@@ -29,7 +29,7 @@ class ShiftService {
   async createShift(shiftData) {
     try {
       const response = await this.baseAPI.create(shiftData);
-      return response;
+      return response.data;
     } catch (error) {
       console.error("Error creating shift:", error);
       throw error;
@@ -39,7 +39,7 @@ class ShiftService {
   async updateShift(id, shiftData) {
     try {
       const response = await this.baseAPI.update(id, shiftData);
-      return response;
+      return response.data;
     } catch (error) {
       console.error("Error updating shift:", error);
       throw error;
@@ -49,7 +49,7 @@ class ShiftService {
   async deleteShift(id) {
     try {
       const response = await this.baseAPI.delete(id);
-      return response;
+      return response.data;
     } catch (error) {
       console.error("Error deleting shift:", error);
       throw error;

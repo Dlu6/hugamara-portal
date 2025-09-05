@@ -21,7 +21,6 @@ import Reservations from "./pages/Reservations";
 import Orders from "./pages/Orders";
 import Inventory from "./pages/Inventory";
 import Guests from "./pages/Guests";
-import Events from "./pages/Events";
 import MenuManagement from "./pages/MenuManagement";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";

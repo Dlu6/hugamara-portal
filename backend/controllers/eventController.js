@@ -238,7 +238,7 @@ export const getEventStats = async (req, res) => {
         where: { outletId: userOutletId, startDate: dateFilter },
         attributes: [
           [
-            Event.sequelize.fn("SUM", Event.sequelize.col("actualAttendance")),
+            Event.sequelize.fn("SUM", Event.sequelize.col("actual_attendance")),
             "total",
           ],
         ],
@@ -265,12 +265,12 @@ export const getEventStats = async (req, res) => {
       Event.findOne({
         where: {
           outletId: userOutletId,
-          actualAttendance: { [Op.ne]: null },
+          actual_attendance: { [Op.ne]: null },
           startDate: dateFilter,
         },
         attributes: [
           [
-            Event.sequelize.fn("AVG", Event.sequelize.col("actualAttendance")),
+            Event.sequelize.fn("AVG", Event.sequelize.col("actual_attendance")),
             "avg",
           ],
         ],
@@ -400,7 +400,7 @@ export const updateEventAttendance = async (req, res) => {
       return res.status(404).json({ error: "Event not found" });
     }
 
-    await event.update({ actualAttendance });
+    await event.update({ actual_attendance: actualAttendance });
 
     res.json({ message: "Event attendance updated successfully" });
   } catch (error) {

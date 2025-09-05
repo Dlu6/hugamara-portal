@@ -100,18 +100,21 @@
 
 ### Staff & Shift Management
 
-- [ ] Backend: Create Staff, Shift, Attendance, Performance models
-- [ ] Backend: Build staffController (CRUD)
-- [ ] Backend: Build shiftController (CRUD)
-- [ ] Backend: Create staff routes (/api/staff)
-- [ ] Backend: Create shift routes (/api/shifts)
-- [ ] Frontend: Create StaffDirectory page
-- [ ] Frontend: Create ShiftScheduler page
-- [ ] Frontend: Create AttendanceTracker page
-- [ ] Frontend: Build staffSlice (Redux)
-- [ ] Frontend: Build shiftSlice (Redux)
-- [ ] Frontend: Create staffService
-- [ ] Frontend: Create shiftService
+- [x] Backend: Create Staff, Shift, Attendance, Performance models
+- [x] Backend: Build staffController (CRUD)
+- [x] Backend: Build shiftController (CRUD)
+- [x] Backend: Create staff routes (/api/staff)
+- [x] Backend: Create shift routes (/api/shifts)
+- [x] Frontend: Create StaffDirectory page
+- [x] Frontend: Create ShiftScheduler page
+- [x] Frontend: Create AttendanceTracker page
+- [x] Frontend: Build staffSlice (Redux)
+- [x] Frontend: Build shiftSlice (Redux)
+- [x] Frontend: Create staffService
+- [x] Frontend: Create shiftService
+- [x] Frontend: Improve Staff form layout and padding
+- [x] Frontend: Add section headers and better spacing
+- [x] Frontend: Enhance form field styling and responsiveness
 
 ## Phase 5: Analytics & Support
 
