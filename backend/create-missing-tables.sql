@@ -2,7 +2,7 @@
 -- Run this in your MariaDB console: source create-missing-tables.sql
 
 -- Tables table
-CREATE TABLE IF NOT EXISTS tables (
+CREATE TABLE IF NOT EXISTS `tables` (
   id VARCHAR(36) PRIMARY KEY,
   outlet_id VARCHAR(36) NOT NULL,
   table_number VARCHAR(20) NOT NULL,
