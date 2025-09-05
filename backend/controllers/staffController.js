@@ -281,10 +281,57 @@ export const updatePerformance = async (req, res) => {
         : staffMember.notes,
     });
 
-    res.json({ message: "Performance updated successfully" });
+    // Fetch the updated staff member with associations
+    const updatedStaffMember = await Staff.findByPk(id, {
+      include: [
+        {
+          model: Outlet,
+          as: "outlet",
+          attributes: ["id", "name", "code", "type"],
+        },
+      ],
+    });
+
+    res.json({ staff: updatedStaffMember });
   } catch (error) {
     console.error("Update performance error:", error);
     res.status(500).json({ error: "Failed to update performance" });
+  }
+};
+
+export const updateStaffStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userOutletId = req.user.outletId;
+
+    const staffMember = await Staff.findOne({
+      where: { id, outletId: userOutletId },
+    });
+
+    if (!staffMember) {
+      return res.status(404).json({ error: "Staff member not found" });
+    }
+
+    await staffMember.update({
+      isActive: status,
+    });
+
+    // Fetch the updated staff member with associations
+    const updatedStaffMember = await Staff.findByPk(id, {
+      include: [
+        {
+          model: Outlet,
+          as: "outlet",
+          attributes: ["id", "name", "code", "type"],
+        },
+      ],
+    });
+
+    res.json({ staff: updatedStaffMember });
+  } catch (error) {
+    console.error("Update staff status error:", error);
+    res.status(500).json({ error: "Failed to update staff status" });
   }
 };
 

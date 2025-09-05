@@ -200,7 +200,10 @@ const Staff = () => {
       await dispatch(
         updateStaffPerformance({
           id: performanceModal.id,
-          performanceData,
+          performanceData: {
+            performanceRating: performanceData.rating,
+            reviewNotes: performanceData.comments,
+          },
         })
       ).unwrap();
 
@@ -566,23 +569,44 @@ const Staff = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleView(staffMember)}
-                          className="text-blue-400 hover:text-blue-300"
+                          className="text-blue-400 hover:text-blue-300 relative group"
+                          title="View Details"
                         >
                           <Eye className="w-4 h-4" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                            View Details
+                          </div>
                         </button>
                         <button
                           onClick={() => handleEdit(staffMember)}
-                          className="text-yellow-400 hover:text-yellow-300"
+                          className="text-yellow-400 hover:text-yellow-300 relative group"
+                          title="Edit Staff"
                         >
                           <Edit className="w-4 h-4" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                            Edit Staff
+                          </div>
                         </button>
                         <button
-                          onClick={() =>
-                            dispatch(setPerformanceModal(staffMember))
-                          }
-                          className="text-green-400 hover:text-green-300"
+                          onClick={() => {
+                            dispatch(setPerformanceModal(staffMember));
+                            // Initialize performance data with current values
+                            dispatch(
+                              setPerformanceData({
+                                rating: staffMember.performanceRating || 0,
+                                comments: "",
+                                goals: [],
+                                achievements: [],
+                              })
+                            );
+                          }}
+                          className="text-green-400 hover:text-green-300 relative group"
+                          title="Update Performance"
                         >
                           <Award className="w-4 h-4" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                            Update Performance
+                          </div>
                         </button>
                         <button
                           onClick={() =>
@@ -595,19 +619,33 @@ const Staff = () => {
                             staffMember.isActive
                               ? "text-red-400 hover:text-red-300"
                               : "text-green-400 hover:text-green-300"
-                          }`}
+                          } relative group`}
+                          title={
+                            staffMember.isActive
+                              ? "Deactivate Staff"
+                              : "Activate Staff"
+                          }
                         >
                           {staffMember.isActive ? (
                             <UserX className="w-4 h-4" />
                           ) : (
                             <UserCheck className="w-4 h-4" />
                           )}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                            {staffMember.isActive
+                              ? "Deactivate Staff"
+                              : "Activate Staff"}
+                          </div>
                         </button>
                         <button
                           onClick={() => handleDelete(staffMember.id)}
-                          className="text-red-400 hover:text-red-300"
+                          className="text-red-400 hover:text-red-300 relative group"
+                          title="Delete Staff"
                         >
                           <Trash2 className="w-4 h-4" />
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                            Delete Staff
+                          </div>
                         </button>
                       </div>
                     </td>
@@ -643,16 +681,17 @@ const Staff = () => {
       {/* Create/Edit Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-50 overflow-y-auto">
-          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-5xl w-full my-4 sm:my-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-5xl w-full mt-8 sm:mt-12 mb-4 sm:mb-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
             {/* Sticky Header */}
-            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 p-6 rounded-t-lg z-10">
+            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 px-6 pt-8 pb-6 rounded-t-lg z-10">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-white">
                   {editingStaff ? "Edit Staff Member" : "Add New Staff Member"}
                 </h2>
                 <button
                   onClick={() => dispatch(setShowForm(false))}
-                  className="text-neutral-400 hover:text-white text-2xl font-bold"
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Form"
                 >
                   ×
                 </button>
@@ -660,217 +699,227 @@ const Staff = () => {
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 sm:p-8">
-              <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="p-6 sm:p-8 pb-8">
+              <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Employee ID *
-                    </label>
-                    <input
-                      type="text"
-                      name="employeeId"
-                      value={formData.employeeId}
-                      readOnly
-                      className="w-full px-3 py-2 bg-neutral-600 border border-neutral-500 rounded-lg text-neutral-300 cursor-not-allowed"
-                      title="Employee ID is auto-generated by the system"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">
-                      Auto-generated by the system
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName || ""}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    {formErrors.firstName && (
-                      <p className="text-red-400 text-xs mt-1">
-                        {formErrors.firstName}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-white border-b border-neutral-600 pb-2">
+                    Basic Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        Employee ID *
+                      </label>
+                      <input
+                        type="text"
+                        name="employeeId"
+                        value={formData.employeeId}
+                        readOnly
+                        className="w-full px-4 py-3 bg-neutral-600 border border-neutral-500 rounded-lg text-neutral-300 cursor-not-allowed"
+                        title="Employee ID is auto-generated by the system"
+                      />
+                      <p className="text-xs text-neutral-400 mt-2">
+                        Auto-generated by the system
                       </p>
-                    )}
-                  </div>
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Last Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName || ""}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    {formErrors.lastName && (
-                      <p className="text-red-400 text-xs mt-1">
-                        {formErrors.lastName}
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        First Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={formData.firstName || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.firstName && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.firstName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        Last Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={formData.lastName || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.lastName && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.lastName}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Position *
+                      </label>
+                      <input
+                        type="text"
+                        name="position"
+                        value={formData.position}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.position && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.position}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Department *
+                      </label>
+                      <DepartmentManager
+                        departments={departments}
+                        selectedDepartment={formData.departmentId}
+                        onDepartmentChange={(value) =>
+                          handleInputChange({
+                            target: { name: "departmentId", value },
+                          })
+                        }
+                        onDepartmentAdd={addDepartment}
+                        canAddDepartments={canManageDepartments()}
+                        placeholder="Select Department"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Hire Date *
+                      </label>
+                      <input
+                        type="date"
+                        name="hireDate"
+                        value={formData.hireDate}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
+                      {formErrors.hireDate && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.hireDate}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Termination Date
+                      </label>
+                      <input
+                        type="date"
+                        name="terminationDate"
+                        value={formData.terminationDate || ""}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-neutral-400 mt-1">
+                        Leave empty if employee is still active
                       </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Position *
-                    </label>
-                    <input
-                      type="text"
-                      name="position"
-                      value={formData.position}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    {formErrors.position && (
-                      <p className="text-red-400 text-xs mt-1">
-                        {formErrors.position}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Department *
-                    </label>
-                    <DepartmentManager
-                      departments={departments}
-                      selectedDepartment={formData.departmentId}
-                      onDepartmentChange={(value) =>
-                        handleInputChange({
-                          target: { name: "departmentId", value },
-                        })
-                      }
-                      onDepartmentAdd={addDepartment}
-                      canAddDepartments={canManageDepartments()}
-                      placeholder="Select Department"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Hire Date *
-                    </label>
-                    <input
-                      type="date"
-                      name="hireDate"
-                      value={formData.hireDate}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                    {formErrors.hireDate && (
-                      <p className="text-red-400 text-xs mt-1">
-                        {formErrors.hireDate}
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Termination Date
-                    </label>
-                    <input
-                      type="date"
-                      name="terminationDate"
-                      value={formData.terminationDate || ""}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <p className="text-xs text-neutral-400 mt-1">
-                      Leave empty if employee is still active
-                    </p>
-                    {formErrors.terminationDate && (
-                      <p className="text-red-400 text-xs mt-1">
-                        {formErrors.terminationDate}
-                      </p>
-                    )}
+                      {formErrors.terminationDate && (
+                        <p className="text-red-400 text-xs mt-1">
+                          {formErrors.terminationDate}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Pay Information */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">
-                      Pay Frequency *
-                    </label>
-                    <select
-                      name="payFrequency"
-                      value={formData.payFrequency}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      {getPayFrequencyOptions().map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-white border-b border-neutral-600 pb-2">
+                    Pay Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-1">
+                        Pay Frequency *
+                      </label>
+                      <select
+                        name="payFrequency"
+                        value={formData.payFrequency}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      >
+                        {getPayFrequencyOptions().map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {formData.payFrequency === "hourly" && (
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-1">
+                          Hourly Rate *
+                        </label>
+                        <input
+                          type="number"
+                          name="hourlyRate"
+                          value={formData.hourlyRate}
+                          onChange={handleInputChange}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                        {formErrors.hourlyRate && (
+                          <p className="text-red-400 text-xs mt-1">
+                            {formErrors.hourlyRate}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {formData.payFrequency === "salary" && (
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-300 mb-1">
+                          Annual Salary *
+                        </label>
+                        <input
+                          type="number"
+                          name="salary"
+                          value={formData.salary}
+                          onChange={handleInputChange}
+                          min="0"
+                          step="0.01"
+                          className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          required
+                        />
+                        {formErrors.salary && (
+                          <p className="text-red-400 text-xs mt-1">
+                            {formErrors.salary}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
-
-                  {formData.payFrequency === "hourly" && (
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-300 mb-1">
-                        Hourly Rate *
-                      </label>
-                      <input
-                        type="number"
-                        name="hourlyRate"
-                        value={formData.hourlyRate}
-                        onChange={handleInputChange}
-                        min="0"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                      {formErrors.hourlyRate && (
-                        <p className="text-red-400 text-xs mt-1">
-                          {formErrors.hourlyRate}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {formData.payFrequency === "salary" && (
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-300 mb-1">
-                        Annual Salary *
-                      </label>
-                      <input
-                        type="number"
-                        name="salary"
-                        value={formData.salary}
-                        onChange={handleInputChange}
-                        min="0"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                      {formErrors.salary && (
-                        <p className="text-red-400 text-xs mt-1">
-                          {formErrors.salary}
-                        </p>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Emergency Contact */}
-                <div>
-                  <h3 className="text-lg font-medium text-white mb-3">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-white border-b border-neutral-600 pb-2">
                     Emergency Contact
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-neutral-300 mb-1">
                         Contact Name *
@@ -946,111 +995,132 @@ const Staff = () => {
                 </div>
 
                 {/* Skills and Certifications */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Skills
-                    </label>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {getSkillOptions().map((skill) => (
-                        <label key={skill.value} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={
-                              formData.skills?.includes(skill.value) || false
-                            }
-                            onChange={(e) => {
-                              const currentSkills = formData.skills || [];
-                              const newSkills = e.target.checked
-                                ? [...currentSkills, skill.value]
-                                : currentSkills.filter(
-                                    (s) => s !== skill.value
-                                  );
-                              handleArrayChange("skills", newSkills);
-                            }}
-                            className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="ml-2 text-sm text-neutral-300">
-                            {skill.label}
-                          </span>
-                        </label>
-                      ))}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-white border-b border-neutral-600 pb-2">
+                    Skills & Certifications
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        Skills
+                      </label>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {getSkillOptions().map((skill) => (
+                          <label
+                            key={skill.value}
+                            className="flex items-center"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={
+                                formData.skills?.includes(skill.value) || false
+                              }
+                              onChange={(e) => {
+                                const currentSkills = formData.skills || [];
+                                const newSkills = e.target.checked
+                                  ? [...currentSkills, skill.value]
+                                  : currentSkills.filter(
+                                      (s) => s !== skill.value
+                                    );
+                                handleArrayChange("skills", newSkills);
+                              }}
+                              className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-neutral-300">
+                              {skill.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-2">
-                      Certifications
-                    </label>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
-                      {getCertificationOptions().map((cert) => (
-                        <label key={cert.value} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={
-                              formData.certifications?.includes(cert.value) ||
-                              false
-                            }
-                            onChange={(e) => {
-                              const currentCerts =
-                                formData.certifications || [];
-                              const newCerts = e.target.checked
-                                ? [...currentCerts, cert.value]
-                                : currentCerts.filter((c) => c !== cert.value);
-                              handleArrayChange("certifications", newCerts);
-                            }}
-                            className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="ml-2 text-sm text-neutral-300">
-                            {cert.label}
-                          </span>
-                        </label>
-                      ))}
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-300 mb-2">
+                        Certifications
+                      </label>
+                      <div className="space-y-2 max-h-32 overflow-y-auto">
+                        {getCertificationOptions().map((cert) => (
+                          <label key={cert.value} className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={
+                                formData.certifications?.includes(cert.value) ||
+                                false
+                              }
+                              onChange={(e) => {
+                                const currentCerts =
+                                  formData.certifications || [];
+                                const newCerts = e.target.checked
+                                  ? [...currentCerts, cert.value]
+                                  : currentCerts.filter(
+                                      (c) => c !== cert.value
+                                    );
+                                handleArrayChange("certifications", newCerts);
+                              }}
+                              className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="ml-2 text-sm text-neutral-300">
+                              {cert.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Notes */}
-                <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">
-                    Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-white border-b border-neutral-600 pb-2">
+                    Additional Information
+                  </h3>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-2">
+                      Notes
+                    </label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      rows="3"
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
 
                 {/* Status */}
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="isActive"
-                      checked={formData.isActive}
-                      onChange={handleInputChange}
-                      className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="ml-2 text-sm text-neutral-300">
-                      Active Employee
-                    </span>
-                  </label>
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-white border-b border-neutral-600 pb-2">
+                    Employment Status
+                  </h3>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="isActive"
+                        checked={formData.isActive}
+                        onChange={handleInputChange}
+                        className="rounded border-neutral-600 bg-neutral-700 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-neutral-300">
+                        Active Employee
+                      </span>
+                    </label>
+                  </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
+                {/* Form Actions */}
+                <div className="flex justify-end gap-4 pt-6 border-t border-neutral-600">
                   <button
                     type="button"
                     onClick={() => dispatch(setShowForm(false))}
-                    className="px-4 py-2 text-neutral-300 hover:text-white transition-colors"
+                    className="px-6 py-3 text-neutral-300 hover:text-white transition-colors border border-neutral-600 rounded-lg hover:bg-neutral-700"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg"
                   >
                     {editingStaff ? "Update Staff" : "Create Staff"}
                   </button>
@@ -1139,191 +1209,271 @@ const Staff = () => {
 
       {/* View Staff Modal */}
       {viewingStaff && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full border border-neutral-700">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-white">
-                  {viewingStaff.firstName} {viewingStaff.lastName}
-                </h3>
-                <button
-                  onClick={() => dispatch(setViewingStaff(null))}
-                  className="text-neutral-400 hover:text-white"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
-                    Basic Information
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Employee ID:</span>
-                      <span className="text-white">
-                        {viewingStaff.employeeId || "N/A"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Name:</span>
-                      <span className="text-white">
-                        {viewingStaff.firstName} {viewingStaff.lastName}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Position:</span>
-                      <span className="text-white">
-                        {viewingStaff.position}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Department:</span>
-                      <span className="text-white">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 pt-20 sm:pt-16 z-50 overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-4xl w-full my-4 sm:my-8 max-h-[90vh] sm:max-h-[85vh] overflow-y-auto border border-neutral-700">
+            {/* Header */}
+            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 p-6 rounded-t-lg z-10 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center shadow-lg flex-shrink-0">
+                    <span className="text-2xl font-bold text-white">
+                      {viewingStaff.firstName?.[0]}
+                      {viewingStaff.lastName?.[0]}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xl sm:text-2xl font-bold text-white truncate">
+                      {viewingStaff.firstName} {viewingStaff.lastName}
+                    </h3>
+                    <p className="text-neutral-400 text-base sm:text-lg">
+                      {viewingStaff.position}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getDepartmentColor(
+                          viewingStaff.department
+                        )}`}
+                      >
                         {formatDepartment(viewingStaff.department)}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Hire Date:</span>
-                      <span className="text-white">
-                        {viewingStaff.hireDate
-                          ? new Date(viewingStaff.hireDate).toLocaleDateString()
-                          : "N/A"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
-                    Pay Information
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Pay Frequency:</span>
-                      <span className="text-white capitalize">
-                        {viewingStaff.payFrequency}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Rate:</span>
-                      <span className="text-white">
-                        {viewingStaff.payFrequency === "hourly"
-                          ? `${formatCurrency(viewingStaff.hourlyRate)}/hour`
-                          : `${formatCurrency(viewingStaff.salary)}/year`}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Performance:</span>
-                      <span className="text-white">
-                        {viewingStaff.performanceRating || 0}/5
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-neutral-400">Status:</span>
                       <span
-                        className={`${getStatusColor(viewingStaff.isActive)}`}
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          viewingStaff.isActive
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}
                       >
                         {viewingStaff.isActive ? "Active" : "Inactive"}
                       </span>
                     </div>
                   </div>
                 </div>
+                <button
+                  onClick={() => dispatch(setViewingStaff(null))}
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Details"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 pb-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-6">
+                  <div className="bg-neutral-700 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Users className="w-5 h-5 text-blue-400" />
+                      Basic Information
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                        <span className="text-neutral-400">Employee ID:</span>
+                        <span className="text-white font-mono text-sm">
+                          {viewingStaff.employeeId || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                        <span className="text-neutral-400">Position:</span>
+                        <span className="text-white">
+                          {viewingStaff.position}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                        <span className="text-neutral-400">Hire Date:</span>
+                        <span className="text-white">
+                          {viewingStaff.hireDate
+                            ? new Date(
+                                viewingStaff.hireDate
+                              ).toLocaleDateString()
+                            : "N/A"}
+                        </span>
+                      </div>
+                      {viewingStaff.terminationDate && (
+                        <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                          <span className="text-neutral-400">
+                            Termination Date:
+                          </span>
+                          <span className="text-white">
+                            {new Date(
+                              viewingStaff.terminationDate
+                            ).toLocaleDateString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Performance */}
+                  <div className="bg-neutral-700 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Award className="w-5 h-5 text-yellow-400" />
+                      Performance
+                    </h4>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center">
+                        {[...Array(5)].map((_, i) => (
+                          <Award
+                            key={i}
+                            className={`w-6 h-6 ${
+                              i < (viewingStaff.performanceRating || 0)
+                                ? "text-yellow-400"
+                                : "text-neutral-400"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-2xl font-bold text-white">
+                        {viewingStaff.performanceRating || 0}/5
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pay Information */}
+                <div className="space-y-6">
+                  <div className="bg-neutral-700 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <DollarSign className="w-5 h-5 text-green-400" />
+                      Pay Information
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                        <span className="text-neutral-400">Pay Frequency:</span>
+                        <span className="text-white capitalize">
+                          {viewingStaff.payFrequency}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                        <span className="text-neutral-400">Rate:</span>
+                        <span className="text-white font-semibold">
+                          {viewingStaff.payFrequency === "hourly"
+                            ? `${formatCurrency(viewingStaff.hourlyRate)}/hour`
+                            : `${formatCurrency(viewingStaff.salary)}/year`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Emergency Contact */}
+                  {viewingStaff.emergencyContact && (
+                    <div className="bg-neutral-700 rounded-lg p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <UserCheck className="w-5 h-5 text-orange-400" />
+                        Emergency Contact
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                          <span className="text-neutral-400">Name:</span>
+                          <span className="text-white">
+                            {viewingStaff.emergencyContact.name}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-neutral-600">
+                          <span className="text-neutral-400">Phone:</span>
+                          <span className="text-white font-mono">
+                            {viewingStaff.emergencyContact.phone}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-neutral-400">
+                            Relationship:
+                          </span>
+                          <span className="text-white capitalize">
+                            {viewingStaff.emergencyContact.relationship}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Skills & Certifications */}
+                  <div className="space-y-6">
+                    {viewingStaff.skills && viewingStaff.skills.length > 0 && (
+                      <div className="bg-neutral-700 rounded-lg p-6">
+                        <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                          <Award className="w-5 h-5 text-blue-400" />
+                          Skills
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {viewingStaff.skills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="px-3 py-1 bg-blue-100 bg-opacity-20 text-blue-300 rounded-full text-sm font-medium"
+                            >
+                              {getSkillOptions().find((s) => s.value === skill)
+                                ?.label || skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {viewingStaff.certifications &&
+                      viewingStaff.certifications.length > 0 && (
+                        <div className="bg-neutral-700 rounded-lg p-6">
+                          <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                            <Award className="w-5 h-5 text-green-400" />
+                            Certifications
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {viewingStaff.certifications.map((cert) => (
+                              <span
+                                key={cert}
+                                className="px-3 py-1 bg-green-100 bg-opacity-20 text-green-300 rounded-full text-sm font-medium"
+                              >
+                                {getCertificationOptions().find(
+                                  (c) => c.value === cert
+                                )?.label || cert}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </div>
               </div>
 
-              {viewingStaff.emergencyContact && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
-                    Emergency Contact
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-neutral-400">Name:</span>
-                      <span className="text-white ml-2">
-                        {viewingStaff.emergencyContact.name}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400">Phone:</span>
-                      <span className="text-white ml-2">
-                        {viewingStaff.emergencyContact.phone}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-neutral-400">Relationship:</span>
-                      <span className="text-white ml-2 capitalize">
-                        {viewingStaff.emergencyContact.relationship}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {viewingStaff.skills && viewingStaff.skills.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
-                    Skills
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {viewingStaff.skills.map((skill) => (
-                      <span
-                        key={skill}
-                        className="px-2 py-1 bg-blue-100 bg-opacity-20 text-blue-300 rounded-full text-xs"
-                      >
-                        {getSkillOptions().find((s) => s.value === skill)
-                          ?.label || skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {viewingStaff.certifications &&
-                viewingStaff.certifications.length > 0 && (
-                  <div className="mt-6">
-                    <h4 className="text-sm font-medium text-neutral-300 mb-2">
-                      Certifications
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {viewingStaff.certifications.map((cert) => (
-                        <span
-                          key={cert}
-                          className="px-2 py-1 bg-green-100 bg-opacity-20 text-green-300 rounded-full text-xs"
-                        >
-                          {getCertificationOptions().find(
-                            (c) => c.value === cert
-                          )?.label || cert}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
+              {/* Notes Section */}
               {viewingStaff.notes && (
-                <div className="mt-6">
-                  <h4 className="text-sm font-medium text-neutral-300 mb-2">
-                    Notes
-                  </h4>
-                  <p className="text-sm text-white">{viewingStaff.notes}</p>
+                <div className="mt-8">
+                  <div className="bg-neutral-700 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-purple-400" />
+                      Notes
+                    </h4>
+                    <p className="text-neutral-300 leading-relaxed">
+                      {viewingStaff.notes}
+                    </p>
+                  </div>
                 </div>
               )}
 
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={() => dispatch(setViewingStaff(null))}
-                  className="px-4 py-2 text-neutral-300 hover:text-white transition-colors"
+                  className="px-4 py-2 text-neutral-300 hover:text-white transition-colors relative group"
+                  title="Close Details"
                 >
                   Close
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                    Close Details
+                  </div>
                 </button>
                 <button
                   onClick={() => {
                     dispatch(setViewingStaff(null));
                     handleEdit(viewingStaff);
                   }}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors relative group"
+                  title="Edit Staff Member"
                 >
                   Edit Staff
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-neutral-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                    Edit Staff Member
+                  </div>
                 </button>
               </div>
             </div>

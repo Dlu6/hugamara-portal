@@ -91,7 +91,7 @@ export const updateStaffStatus = createAsyncThunk(
   async ({ id, status }, { rejectWithValue }) => {
     try {
       const response = await staffService.updateStaffStatus(id, status);
-      return response;
+      return { id, response };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -492,13 +492,18 @@ const staffSlice = createSlice({
       })
       .addCase(updateStaffPerformance.fulfilled, (state, action) => {
         state.loading = false;
-        const { id, response } = action.payload;
-        const responseData = response.data || response;
+        const { id, performanceData } = action.meta.arg;
+        const responseData = action.payload.data || action.payload;
         const updatedStaff = responseData.staff || responseData;
+
+        // Update the staff member in the list
         const index = state.staff.findIndex((staff) => staff.id === id);
         if (index !== -1) {
-          state.staff[index] = updatedStaff;
-          state.filteredStaff[index] = updatedStaff;
+          state.staff[index] = { ...state.staff[index], ...updatedStaff };
+          state.filteredStaff[index] = {
+            ...state.filteredStaff[index],
+            ...updatedStaff,
+          };
         }
       })
       .addCase(updateStaffPerformance.rejected, (state, action) => {

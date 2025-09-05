@@ -10,6 +10,7 @@ import {
   deleteStaff,
   getStaffStats,
   updatePerformance,
+  updateStaffStatus,
   getNewHires,
   getStaffByDepartment,
 } from "../controllers/staffController.js";
@@ -94,5 +95,8 @@ router.patch(
   validateRequest,
   updatePerformance
 );
+
+// Status Management Routes
+router.patch("/:id/status", authenticateToken, updateStaffStatus);
 
 export default router;
