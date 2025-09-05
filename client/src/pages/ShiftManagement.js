@@ -340,28 +340,56 @@ const ShiftManagement = () => {
           <select
             value={selectedStatus}
             onChange={(e) => handleStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
           >
-            <option value="">All Status</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="no_show">No Show</option>
+            <option value="" className="text-gray-900">
+              All Status
+            </option>
+            <option value="scheduled" className="text-gray-900">
+              Scheduled
+            </option>
+            <option value="confirmed" className="text-gray-900">
+              Confirmed
+            </option>
+            <option value="in_progress" className="text-gray-900">
+              In Progress
+            </option>
+            <option value="completed" className="text-gray-900">
+              Completed
+            </option>
+            <option value="cancelled" className="text-gray-900">
+              Cancelled
+            </option>
+            <option value="no_show" className="text-gray-900">
+              No Show
+            </option>
           </select>
           <select
             value={selectedType}
             onChange={(e) => handleTypeFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
           >
-            <option value="">All Types</option>
-            <option value="regular">Regular</option>
-            <option value="overtime">Overtime</option>
-            <option value="holiday">Holiday</option>
-            <option value="weekend">Weekend</option>
-            <option value="night">Night</option>
-            <option value="split">Split</option>
+            <option value="" className="text-gray-900">
+              All Types
+            </option>
+            <option value="regular" className="text-gray-900">
+              Regular
+            </option>
+            <option value="overtime" className="text-gray-900">
+              Overtime
+            </option>
+            <option value="holiday" className="text-gray-900">
+              Holiday
+            </option>
+            <option value="weekend" className="text-gray-900">
+              Weekend
+            </option>
+            <option value="night" className="text-gray-900">
+              Night
+            </option>
+            <option value="split" className="text-gray-900">
+              Split
+            </option>
           </select>
         </div>
       </div>

@@ -92,15 +92,15 @@ const path = require('path');
 async function runMigrations() {
   try {
     console.log('🔄 Running database migrations...');
-    
+
     // List of migration files to run
     const migrations = [
       '20250115000000-add-department-id-to-staff.cjs',
-      '20250115000001-create-departments-table.cjs', 
+      '20250115000001-create-departments-table.cjs',
       '20250115000002-add-name-fields-to-staff.cjs',
       '20250115000003-add-missing-ticket-columns.cjs'
     ];
-    
+
     for (const migrationFile of migrations) {
       try {
         const migrationPath = path.join(__dirname, 'database/migrations', migrationFile);
@@ -117,7 +117,7 @@ async function runMigrations() {
         }
       }
     }
-    
+
     console.log('✅ All migrations completed successfully!');
     process.exit(0);
   } catch (error) {
@@ -136,13 +136,24 @@ node run-ticket-migration.cjs  # For ticket columns
 #### Common Migration Issues
 
 **Issue**: `npx: command not found`
+
 - **Solution**: Use Node.js directly as shown above, or install npm globally
 
 **Issue**: `Unknown column 'column_name' in 'field list'`
+
 - **Solution**: Run the appropriate migration script to add missing columns
 
 **Issue**: `Cannot read properties of undefined (reading 'query')`
+
 - **Solution**: Ensure sequelize instance is properly initialized in migration scripts
+
+**Issue**: `Unknown column 'tax_rate' in 'field list'` (Settings module)
+
+- **Solution**: Run `node run-settings-migration.cjs` to add outlet columns
+
+**Issue**: `Permission is not associated to Role!` (Settings module)
+
+- **Solution**: Run `node run-settings-migration.cjs` to create role_permissions junction table
 
 #### Creating New Migrations
 
@@ -233,9 +244,37 @@ cd backend && node -e "const { sequelize } = require('./config/database-cli.cjs'
 # Run specific migration
 node run-ticket-migration.cjs
 
+# Run settings migration (outlet columns + role-permissions)
+node run-settings-migration.cjs
+
 # Check database schema
 mysql -u root -p hugamara_dev -e "DESCRIBE table_name;"
 ```
+
+#### Settings Migration Requirements
+
+The settings module requires specific database columns and tables:
+
+**Outlet Table Columns:**
+
+- `tax_rate` (DECIMAL(5,2)) - Tax rate as percentage
+- `service_charge` (DECIMAL(5,2)) - Service charge as percentage
+- `delivery_fee` (DECIMAL(8,2)) - Delivery fee amount
+- `operating_hours` (JSON) - Operating hours for each day
+
+**Role-Permission Junction Table:**
+
+- `role_permissions` table with `role_id` and `permission_id` foreign keys
+- Unique constraint on `(role_id, permission_id)` combination
+
+**Migration Script:**
+
+```bash
+# Run the settings migration
+cd backend && node run-settings-migration.cjs
+```
+
+This migration adds the required columns and tables for the Settings module to function properly.
 
 ### Frontend
 

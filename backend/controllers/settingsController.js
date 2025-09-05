@@ -16,10 +16,10 @@ export const getSystemSettings = async (req, res) => {
         "email",
         "timezone",
         "currency",
-        "taxRate",
-        "serviceCharge",
-        "deliveryFee",
-        "operatingHours",
+        "tax_rate",
+        "service_charge",
+        "delivery_fee",
+        "operating_hours",
         "settings",
       ],
     });
@@ -47,17 +47,21 @@ export const getSystemSettings = async (req, res) => {
     };
 
     res.json({
-      outlet,
+      outlet: {
+        ...outlet.toJSON(),
+        taxRate: outlet.tax_rate,
+        serviceCharge: outlet.service_charge,
+        deliveryFee: outlet.delivery_fee,
+        operatingHours: outlet.operating_hours,
+      },
       systemSettings,
     });
   } catch (error) {
     console.error("Error fetching system settings:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error fetching system settings",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error fetching system settings",
+      error: error.message,
+    });
   }
 };
 
@@ -86,12 +90,10 @@ export const updateSystemSettings = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating system settings:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error updating system settings",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error updating system settings",
+      error: error.message,
+    });
   }
 };
 
@@ -142,30 +144,28 @@ export const updateOutletInfo = async (req, res) => {
         email: outlet.email,
         timezone: outlet.timezone,
         currency: outlet.currency,
-        taxRate: outlet.taxRate,
-        serviceCharge: outlet.serviceCharge,
-        deliveryFee: outlet.deliveryFee,
-        operatingHours: outlet.operatingHours,
+        taxRate: outlet.tax_rate,
+        serviceCharge: outlet.service_charge,
+        deliveryFee: outlet.delivery_fee,
+        operatingHours: outlet.operating_hours,
       },
     });
   } catch (error) {
     console.error("Error updating outlet information:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error updating outlet information",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error updating outlet information",
+      error: error.message,
+    });
   }
 };
 
 // Get user preferences
 export const getUserPreferences = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const userId = req.user.id;
 
     const user = await User.findByPk(userId, {
-      attributes: ["id", "username", "email", "preferences"],
+      attributes: ["id", "firstName", "lastName", "email", "preferences"],
     });
 
     if (!user) {
@@ -173,7 +173,7 @@ export const getUserPreferences = async (req, res) => {
     }
 
     const defaultPreferences = {
-      theme: "light",
+      theme: "dark",
       language: "en",
       dateFormat: "MM/DD/YYYY",
       timeFormat: "12h",
@@ -197,19 +197,17 @@ export const getUserPreferences = async (req, res) => {
     res.json({ preferences });
   } catch (error) {
     console.error("Error fetching user preferences:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error fetching user preferences",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error fetching user preferences",
+      error: error.message,
+    });
   }
 };
 
 // Update user preferences
 export const updateUserPreferences = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const userId = req.user.id;
     const { preferences } = req.body;
 
     const user = await User.findByPk(userId);
@@ -230,12 +228,10 @@ export const updateUserPreferences = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating user preferences:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error updating user preferences",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error updating user preferences",
+      error: error.message,
+    });
   }
 };
 
@@ -263,12 +259,10 @@ export const getRolesAndPermissions = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching roles and permissions:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error fetching roles and permissions",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error fetching roles and permissions",
+      error: error.message,
+    });
   }
 };
 
@@ -303,12 +297,10 @@ export const updateRolePermissions = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating role permissions:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error updating role permissions",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error updating role permissions",
+      error: error.message,
+    });
   }
 };
 
@@ -318,18 +310,16 @@ export const getSystemStats = async (req, res) => {
     const { outletId } = req.user;
 
     // Get basic counts
-    const [totalUsers, totalStaff, totalTables, totalMenuItems] =
-      await Promise.all([
-        User.count({ where: { outletId } }),
-        User.count({
-          where: { outletId, role: { [Op.in]: ["staff", "supervisor"] } },
-        }),
-        // Assuming we have Table and MenuItem models
-        // Table.count({ where: { outletId } }),
-        // MenuItem.count({ where: { outletId } })
-        0, // Placeholder for tables
-        0, // Placeholder for menu items
-      ]);
+    const [totalUsers, totalStaff] = await Promise.all([
+      User.count({ where: { outletId } }),
+      User.count({
+        where: { outletId, role: { [Op.in]: ["staff", "supervisor"] } },
+      }),
+    ]);
+
+    // Mock data for demonstration - in production, these would be real counts
+    const totalTables = 25; // Mock table count
+    const totalMenuItems = 150; // Mock menu items count
 
     res.json({
       totalUsers,
@@ -339,15 +329,15 @@ export const getSystemStats = async (req, res) => {
       systemUptime: process.uptime(),
       nodeVersion: process.version,
       platform: process.platform,
+      memoryUsage: process.memoryUsage(),
+      cpuUsage: process.cpuUsage(),
     });
   } catch (error) {
     console.error("Error fetching system statistics:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error fetching system statistics",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error fetching system statistics",
+      error: error.message,
+    });
   }
 };
 

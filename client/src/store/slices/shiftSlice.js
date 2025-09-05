@@ -1,4 +1,8 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  createAsyncThunk,
+  createSelector,
+} from "@reduxjs/toolkit";
 import shiftService from "../../services/shiftService";
 
 // Async thunks
@@ -483,53 +487,54 @@ export const selectShiftsFilters = (state) => state.shifts.filters;
 export const selectShiftsPagination = (state) => state.shifts.pagination;
 
 // Memoized selector for filtered shifts
-export const selectFilteredShifts = (state) => {
-  const { shifts, filters } = state.shifts;
+export const selectFilteredShifts = createSelector(
+  [selectShifts, selectShiftsFilters],
+  (shifts, filters) => {
+    return shifts.filter((shift) => {
+      // Search filter
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        const searchableFields = [
+          shift.position,
+          shift.section,
+          shift.shiftType,
+          shift.status,
+          shift.notes,
+        ];
 
-  return shifts.filter((shift) => {
-    // Search filter
-    if (filters.search) {
-      const searchTerm = filters.search.toLowerCase();
-      const searchableFields = [
-        shift.position,
-        shift.section,
-        shift.shiftType,
-        shift.status,
-        shift.notes,
-      ];
+        const matchesSearch = searchableFields.some(
+          (field) => field && field.toLowerCase().includes(searchTerm)
+        );
 
-      const matchesSearch = searchableFields.some(
-        (field) => field && field.toLowerCase().includes(searchTerm)
-      );
+        if (!matchesSearch) return false;
+      }
 
-      if (!matchesSearch) return false;
-    }
+      // Status filter
+      if (filters.status && shift.status !== filters.status) {
+        return false;
+      }
 
-    // Status filter
-    if (filters.status && shift.status !== filters.status) {
-      return false;
-    }
+      // Shift type filter
+      if (filters.shiftType && shift.shiftType !== filters.shiftType) {
+        return false;
+      }
 
-    // Shift type filter
-    if (filters.shiftType && shift.shiftType !== filters.shiftType) {
-      return false;
-    }
+      // Date range filters
+      if (filters.dateFrom) {
+        const shiftDate = new Date(shift.shiftDate);
+        const fromDate = new Date(filters.dateFrom);
+        if (shiftDate < fromDate) return false;
+      }
 
-    // Date range filters
-    if (filters.dateFrom) {
-      const shiftDate = new Date(shift.shiftDate);
-      const fromDate = new Date(filters.dateFrom);
-      if (shiftDate < fromDate) return false;
-    }
+      if (filters.dateTo) {
+        const shiftDate = new Date(shift.shiftDate);
+        const toDate = new Date(filters.dateTo);
+        if (shiftDate > toDate) return false;
+      }
 
-    if (filters.dateTo) {
-      const shiftDate = new Date(shift.shiftDate);
-      const toDate = new Date(filters.dateTo);
-      if (shiftDate > toDate) return false;
-    }
-
-    return true;
-  });
-};
+      return true;
+    });
+  }
+);
 
 export default shiftSlice.reducer;

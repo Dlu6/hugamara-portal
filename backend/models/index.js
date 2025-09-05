@@ -100,6 +100,20 @@ Payment.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
 Order.hasMany(Payment, { foreignKey: "orderId", as: "payments" });
 Outlet.hasMany(Payment, { foreignKey: "outletId", as: "payments" });
 
+// Role-Permission relationships (many-to-many)
+Role.belongsToMany(Permission, {
+  through: "role_permissions",
+  foreignKey: "roleId",
+  otherKey: "permissionId",
+  as: "permissions",
+});
+Permission.belongsToMany(Role, {
+  through: "role_permissions",
+  foreignKey: "permissionId",
+  otherKey: "roleId",
+  as: "roles",
+});
+
 export {
   User,
   Role,
