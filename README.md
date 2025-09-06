@@ -135,6 +135,139 @@ runMigrations();
 node run-ticket-migration.cjs  # For ticket columns
 ```
 
+### Ticket Enhancements Migration (Support Tickets)
+
+This project adds new fields to `tickets` and a new `ticket_history` table to support creator/assignee tracking, escalation, SLA, and an audit timeline. If you see errors like `Unknown column 'Ticket.created_by'` or joins failing on `escalated_to`, run the migration below.
+
+#### What gets added
+
+- `tickets.created_by` (CHAR(36), NOT NULL)
+- `tickets.assigned_to` (CHAR(36), NULL)
+- `tickets.escalated_to` (CHAR(36), NULL)
+- `tickets.escalation_level` (INT, default 0)
+- `tickets.last_escalated_at` (DATETIME, NULL)
+- `ticket_history` table (audit trail of actions on a ticket)
+
+#### Verify current schema
+
+```bash
+# Inspect current columns
+mysql -u root -p "$DB_NAME" -e "DESCRIBE tickets;"
+mysql -u root -p "$DB_NAME" -e "SHOW TABLES LIKE 'ticket_history';"
+```
+
+#### Apply migration (development)
+
+If `sequelize-cli` is available and you have equivalent migration files, prefer:
+
+```bash
+cd backend
+npm run db:migrate
+```
+
+If you do not have migration files locally, use this one-off script approach (reads DB creds from backend/.env):
+
+```bash
+cd backend
+node -e "
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
+const sequelize = new Sequelize(process.env.DB_NAME||'hugamara_dev',process.env.DB_USER||'root',process.env.DB_PASSWORD||'',{host:process.env.DB_HOST||'127.0.0.1',port:process.env.DB_PORT||3306,dialect:'mysql',logging:false});
+(async()=>{
+  const q = (s)=>sequelize.query(s);
+  const [cols] = await q('DESCRIBE tickets');
+  const names = cols.map(c=>c.Field);
+  if(!names.includes('created_by')){
+    await q("ALTER TABLE tickets ADD COLUMN created_by CHAR(36) NULL AFTER status");
+    const [users] = await q('SELECT id FROM users LIMIT 1');
+    if(users.length){ await q(`UPDATE tickets SET created_by='${users[0].id}' WHERE created_by IS NULL`); }
+    await q("ALTER TABLE tickets MODIFY COLUMN created_by CHAR(36) NOT NULL");
+  }
+  if(!names.includes('assigned_to')) await q("ALTER TABLE tickets ADD COLUMN assigned_to CHAR(36) NULL AFTER created_by");
+  if(!names.includes('escalated_to')) await q("ALTER TABLE tickets ADD COLUMN escalated_to CHAR(36) NULL AFTER assigned_to");
+  if(!names.includes('escalation_level')) await q("ALTER TABLE tickets ADD COLUMN escalation_level INT NOT NULL DEFAULT 0 AFTER escalated_to");
+  if(!names.includes('last_escalated_at')) await q("ALTER TABLE tickets ADD COLUMN last_escalated_at DATETIME NULL AFTER escalation_level");
+  await q(`CREATE TABLE IF NOT EXISTS ticket_history (
+    id CHAR(36) PRIMARY KEY,
+    ticket_id CHAR(36) NOT NULL,
+    action ENUM('created','status_changed','assigned','escalated','commented','priority_changed','category_changed','resolved','closed','reopened') NOT NULL,
+    old_value TEXT NULL,
+    new_value TEXT NULL,
+    performed_by CHAR(36) NOT NULL,
+    comment TEXT NULL,
+    metadata JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )`);
+  console.log('Ticket enhancements migration complete');
+  process.exit(0);
+})().catch(e=>{console.error(e);process.exit(1)});
+"
+```
+
+Note: If you hit foreign-key compatibility errors, skip adding FKs initially and add them later after verifying types (`CHAR(36)` across `tickets.id`, `users.id`, and related columns).
+
+#### Apply migration (production)
+
+Use raw SQL on the server. Adjust DB name/credentials.
+
+```sql
+-- Tickets table additions (id columns are CHAR(36))
+ALTER TABLE `tickets`
+  ADD COLUMN IF NOT EXISTS `created_by` CHAR(36) NULL AFTER `status`,
+  ADD COLUMN IF NOT EXISTS `assigned_to` CHAR(36) NULL AFTER `created_by`,
+  ADD COLUMN IF NOT EXISTS `escalated_to` CHAR(36) NULL AFTER `assigned_to`,
+  ADD COLUMN IF NOT EXISTS `escalation_level` INT NOT NULL DEFAULT 0 AFTER `escalated_to`,
+  ADD COLUMN IF NOT EXISTS `last_escalated_at` DATETIME NULL AFTER `escalation_level`;
+
+-- Backfill creator to avoid NOT NULL failures, then enforce NOT NULL
+UPDATE `tickets` SET `created_by` = (SELECT id FROM `users` LIMIT 1) WHERE `created_by` IS NULL;
+ALTER TABLE `tickets` MODIFY COLUMN `created_by` CHAR(36) NOT NULL;
+
+-- Ticket history table (FKs can be added later)
+CREATE TABLE IF NOT EXISTS `ticket_history` (
+  `id` CHAR(36) PRIMARY KEY,
+  `ticket_id` CHAR(36) NOT NULL,
+  `action` ENUM('created','status_changed','assigned','escalated','commented','priority_changed','category_changed','resolved','closed','reopened') NOT NULL,
+  `old_value` TEXT NULL,
+  `new_value` TEXT NULL,
+  `performed_by` CHAR(36) NOT NULL,
+  `comment` TEXT NULL,
+  `metadata` JSON NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+Optionally add FKs once column types are confirmed to match:
+
+```sql
+ALTER TABLE `tickets`
+  ADD CONSTRAINT `fk_tickets_created_by` FOREIGN KEY (`created_by`) REFERENCES `users`(`id`),
+  ADD CONSTRAINT `fk_tickets_assigned_to` FOREIGN KEY (`assigned_to`) REFERENCES `users`(`id`),
+  ADD CONSTRAINT `fk_tickets_escalated_to` FOREIGN KEY (`escalated_to`) REFERENCES `users`(`id`);
+
+ALTER TABLE `ticket_history`
+  ADD CONSTRAINT `fk_ticket_history_ticket_id` FOREIGN KEY (`ticket_id`) REFERENCES `tickets`(`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_ticket_history_performed_by` FOREIGN KEY (`performed_by`) REFERENCES `users`(`id`) ON DELETE CASCADE;
+```
+
+#### Post-migration verification
+
+```bash
+mysql -u root -p "$DB_NAME" -e "DESCRIBE tickets;"
+mysql -u root -p "$DB_NAME" -e "DESCRIBE ticket_history;"
+
+# Restart backend to clear stale connections
+cd backend && npm run dev
+```
+
+#### Troubleshooting
+
+- "Unknown column 'Ticket.created_by' in 'field list'": Run the migration steps above.
+- FK errors like "incompatible" or "Cannot add foreign key constraint": Ensure all related ids use `CHAR(36)` and add FKs after confirming types, or skip FKs initially.
+- Port already in use (`EADDRINUSE: 8000`): Kill the old process or restart dev servers cleanly.
+
 **For Production Environment:**
 
 When deploying to production, use the following approach:

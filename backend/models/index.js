@@ -5,6 +5,7 @@ import Outlet from "./Outlet.js";
 import Guest from "./Guest.js";
 import Reservation from "./Reservation.js";
 import Ticket from "./Ticket.js";
+import TicketHistory from "./TicketHistory.js";
 import Event from "./Event.js";
 import MenuItem from "./MenuItem.js";
 import Order from "./Order.js";
@@ -30,7 +31,25 @@ Table.hasMany(Reservation, { foreignKey: "tableId", as: "reservations" });
 
 // Ticket relationships
 Ticket.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
+Ticket.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
+Ticket.belongsTo(User, { foreignKey: "assignedTo", as: "assignee" });
+Ticket.belongsTo(User, { foreignKey: "escalatedTo", as: "escalatedToUser" });
 Outlet.hasMany(Ticket, { foreignKey: "outletId", as: "tickets" });
+User.hasMany(Ticket, { foreignKey: "createdBy", as: "createdTickets" });
+User.hasMany(Ticket, { foreignKey: "assignedTo", as: "assignedTickets" });
+User.hasMany(Ticket, { foreignKey: "escalatedTo", as: "escalatedTickets" });
+
+// Ticket History relationships
+TicketHistory.belongsTo(Ticket, { foreignKey: "ticketId", as: "ticket" });
+TicketHistory.belongsTo(User, {
+  foreignKey: "performedBy",
+  as: "performedByUser",
+});
+Ticket.hasMany(TicketHistory, { foreignKey: "ticketId", as: "history" });
+User.hasMany(TicketHistory, {
+  foreignKey: "performedBy",
+  as: "performedActions",
+});
 
 // Event relationships
 Event.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
@@ -124,6 +143,7 @@ export {
   Guest,
   Reservation,
   Ticket,
+  TicketHistory,
   Event,
   MenuItem,
   Order,

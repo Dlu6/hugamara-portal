@@ -23,6 +23,7 @@ import { useToast } from "../components/ui/ToastProvider";
 import {
   fetchTickets,
   fetchTicketStats,
+  fetchTicketById,
   createTicket,
   updateTicket,
   deleteTicket,
@@ -76,11 +77,14 @@ const SupportTickets = () => {
   const filters = useSelector(selectTicketsFilters);
 
   const { success: showSuccess, error: showError } = useToast();
+  const user = useSelector((state) => state.auth.user);
 
   useEffect(() => {
+    // console.log("Fetching tickets with filters:", filters);
+    // console.log("Current user:", user);
     dispatch(fetchTickets(filters));
     dispatch(fetchTicketStats());
-  }, [dispatch, filters]);
+  }, [dispatch, filters, user]);
 
   useEffect(() => {
     if (error) {
@@ -113,10 +117,11 @@ const SupportTickets = () => {
   };
 
   const openViewModal = (ticket) => {
-    dispatch(setViewingTicket(ticket));
+    dispatch(fetchTicketById(ticket.id));
   };
 
   const openStatusModal = (ticket) => {
+    if (ticket.status === "closed") return; // Prevent status updates on closed tickets
     dispatch(setStatusModal(ticket));
     dispatch(
       setStatusData({
@@ -152,17 +157,20 @@ const SupportTickets = () => {
       dispatch(fetchTicketStats());
     } catch (error) {
       console.error("Failed to save ticket:", error);
-      if (error?.response?.data?.details) {
+      const errData = error?.response?.data;
+      if (errData?.details && Array.isArray(errData.details)) {
         const errors = {};
-        error.response.data.details.forEach((detail) => {
-          errors[detail.field] = detail.message;
+        errData.details.forEach((detail) => {
+          if (detail?.field && detail?.message) {
+            errors[detail.field] = detail.message;
+          }
         });
         dispatch(setFormErrors(errors));
+        const firstMsg =
+          errData.details[0]?.message || errData.message || "Validation Error";
+        showError("Validation Error", firstMsg);
       } else {
-        showError(
-          "Failed to save ticket",
-          error?.response?.data?.message || ""
-        );
+        showError("Failed to save ticket", errData?.message || "");
       }
     }
   };
@@ -191,6 +199,10 @@ const SupportTickets = () => {
         updateTicketStatus({ id: statusModal.id, statusData })
       ).unwrap();
       showSuccess("Ticket status updated successfully");
+      // Refresh viewing ticket details so timeline updates immediately
+      if (statusModal?.id) {
+        dispatch(fetchTicketById(statusModal.id));
+      }
       dispatch(setStatusModal(null));
       dispatch(fetchTickets(filters));
       dispatch(fetchTicketStats());
@@ -210,6 +222,10 @@ const SupportTickets = () => {
         addTicketComment({ id: commentModal.id, commentData })
       ).unwrap();
       showSuccess("Comment added successfully");
+      // Refresh viewing ticket details to show the new comment in the timeline
+      if (commentModal?.id) {
+        dispatch(fetchTicketById(commentModal.id));
+      }
       dispatch(setCommentModal(null));
       dispatch(fetchTickets(filters));
     } catch (error) {
@@ -256,6 +272,7 @@ const SupportTickets = () => {
   };
 
   const formatCategory = (category) => {
+    if (!category) return "Other";
     return category
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -263,10 +280,12 @@ const SupportTickets = () => {
   };
 
   const formatPriority = (priority) => {
+    if (!priority) return "Medium";
     return priority.charAt(0).toUpperCase() + priority.slice(1);
   };
 
   const formatStatus = (status) => {
+    if (!status) return "Open";
     return status
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -288,6 +307,69 @@ const SupportTickets = () => {
     } else {
       return `${diffMinutes}m ago`;
     }
+  };
+
+  // Timeline styles per action
+  const getTimelineStyle = (action) => {
+    const styles = {
+      created: {
+        dot: "bg-green-500",
+        label: "text-green-400",
+        pill: "bg-green-900/30 text-green-300",
+      },
+      status_changed: {
+        dot: "bg-amber-500",
+        label: "text-amber-400",
+        pill: "bg-amber-900/30 text-amber-300",
+      },
+      commented: {
+        dot: "bg-purple-500",
+        label: "text-purple-400",
+        pill: "bg-purple-900/30 text-purple-300",
+      },
+      assigned: {
+        dot: "bg-cyan-500",
+        label: "text-cyan-400",
+        pill: "bg-cyan-900/30 text-cyan-300",
+      },
+      escalated: {
+        dot: "bg-red-500",
+        label: "text-red-400",
+        pill: "bg-red-900/30 text-red-300",
+      },
+      priority_changed: {
+        dot: "bg-pink-500",
+        label: "text-pink-400",
+        pill: "bg-pink-900/30 text-pink-300",
+      },
+      category_changed: {
+        dot: "bg-blue-500",
+        label: "text-blue-400",
+        pill: "bg-blue-900/30 text-blue-300",
+      },
+      resolved: {
+        dot: "bg-emerald-500",
+        label: "text-emerald-400",
+        pill: "bg-emerald-900/30 text-emerald-300",
+      },
+      closed: {
+        dot: "bg-gray-400",
+        label: "text-gray-300",
+        pill: "bg-gray-800/60 text-gray-200",
+      },
+      reopened: {
+        dot: "bg-indigo-500",
+        label: "text-indigo-400",
+        pill: "bg-indigo-900/30 text-indigo-300",
+      },
+    };
+    return (
+      styles[action] || {
+        dot: "bg-neutral-500",
+        label: "text-neutral-300",
+        pill: "bg-neutral-800/60 text-neutral-300",
+      }
+    );
   };
 
   if (loading)
@@ -480,94 +562,107 @@ const SupportTickets = () => {
               </tr>
             </thead>
             <tbody>
-              {tickets.map((ticket) => (
-                <tr
-                  key={ticket.id}
-                  className="border-t border-neutral-700 hover:bg-neutral-750"
-                >
-                  <td className="px-4 py-3">
-                    <div>
-                      <div className="font-medium text-white">
-                        {ticket.ticketNumber}
+              {/* {console.log("Tickets in render:", tickets)} */}
+              {tickets
+                .filter((ticket) => ticket && ticket.id)
+                .map((ticket) => (
+                  <tr
+                    key={ticket.id}
+                    className="border-t border-neutral-700 hover:bg-neutral-750"
+                  >
+                    <td className="px-4 py-3">
+                      <div>
+                        <div className="font-medium text-white">
+                          {ticket.ticketNumber || "N/A"}
+                        </div>
+                        <div className="text-sm text-neutral-400 truncate max-w-xs">
+                          {ticket.title || "No title"}
+                        </div>
                       </div>
-                      <div className="text-sm text-neutral-400 truncate max-w-xs">
-                        {ticket.title}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="capitalize text-neutral-300">
+                        {formatCategory(ticket.category || "other")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                          ticket.priority || "medium"
+                        )}`}
+                      >
+                        {formatPriority(ticket.priority || "medium")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getStatusColor(
+                          ticket.status || "open"
+                        )}`}
+                      >
+                        {getStatusIcon(ticket.status || "open")}
+                        {formatStatus(ticket.status || "open")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white">
+                      {ticket.location || "N/A"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-white">
+                        {ticket.createdAt
+                          ? getTimeAgo(ticket.createdAt)
+                          : "N/A"}
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="capitalize text-neutral-300">
-                      {formatCategory(ticket.category)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                        ticket.priority
-                      )}`}
-                    >
-                      {formatPriority(ticket.priority)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 w-fit ${getStatusColor(
-                        ticket.status
-                      )}`}
-                    >
-                      {getStatusIcon(ticket.status)}
-                      {formatStatus(ticket.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-white">
-                    {ticket.location || "N/A"}
-                  </td>
-                  <td className="px-4 py-3 text-white">
-                    {getTimeAgo(ticket.createdAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openViewModal(ticket)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => openEditModal(ticket)}
-                        className="bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="Edit Ticket"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => openStatusModal(ticket)}
-                        className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="Update Status"
-                      >
-                        <CheckCircle className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => openCommentModal(ticket)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                        title="Add Comment"
-                      >
-                        <MessageCircle className="h-3 w-3" />
-                      </button>
-                      {ticket.status === "closed" && (
-                        <button
-                          onClick={() => handleDelete(ticket.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm transition-colors"
-                          title="Delete Ticket"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
+                      {ticket.creator && (
+                        <div className="text-xs text-neutral-400">
+                          by {ticket.creator.firstName}{" "}
+                          {ticket.creator.lastName}
+                        </div>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openViewModal(ticket)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => openEditModal(ticket)}
+                          className="bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded text-sm transition-colors"
+                          title="Edit Ticket"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => openStatusModal(ticket)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-sm transition-colors"
+                          title="Update Status"
+                        >
+                          <CheckCircle className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => openCommentModal(ticket)}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-sm transition-colors"
+                          title="Add Comment"
+                        >
+                          <MessageCircle className="h-3 w-3" />
+                        </button>
+                        {ticket.status === "closed" && (
+                          <button
+                            onClick={() => handleDelete(ticket.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-sm transition-colors"
+                            title="Delete Ticket"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
@@ -575,8 +670,14 @@ const SupportTickets = () => {
 
       {/* Create/Edit Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-neutral-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[9999] p-4 pt-20 overflow-y-auto">
+          <div
+            className="bg-neutral-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-neutral-700"
+            style={{
+              boxShadow:
+                "0 25px 50px -12px rgba(255, 255, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)",
+            }}
+          >
             <div className="p-6">
               <h2 className="text-xl font-bold text-white mb-4">
                 {editingTicket ? "Edit Ticket" : "Create Ticket"}
@@ -589,9 +690,13 @@ const SupportTickets = () => {
                   <input
                     type="text"
                     value={formData.title}
-                    onChange={(e) =>
-                      dispatch(setFormData({ title: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      dispatch(setFormData({ title: e.target.value }));
+                      if (formErrors.title)
+                        dispatch(
+                          setFormErrors({ ...formErrors, title: undefined })
+                        );
+                    }}
                     className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       formErrors.title ? "border-red-500" : "border-neutral-600"
                     }`}
@@ -610,9 +715,16 @@ const SupportTickets = () => {
                   </label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) =>
-                      dispatch(setFormData({ description: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      dispatch(setFormData({ description: e.target.value }));
+                      if (formErrors.description)
+                        dispatch(
+                          setFormErrors({
+                            ...formErrors,
+                            description: undefined,
+                          })
+                        );
+                    }}
                     className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       formErrors.description
                         ? "border-red-500"
@@ -635,9 +747,16 @@ const SupportTickets = () => {
                     </label>
                     <select
                       value={formData.category}
-                      onChange={(e) =>
-                        dispatch(setFormData({ category: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        dispatch(setFormData({ category: e.target.value }));
+                        if (formErrors.category)
+                          dispatch(
+                            setFormErrors({
+                              ...formErrors,
+                              category: undefined,
+                            })
+                          );
+                      }}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.category
                           ? "border-red-500"
@@ -669,9 +788,16 @@ const SupportTickets = () => {
                     </label>
                     <select
                       value={formData.priority}
-                      onChange={(e) =>
-                        dispatch(setFormData({ priority: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        dispatch(setFormData({ priority: e.target.value }));
+                        if (formErrors.priority)
+                          dispatch(
+                            setFormErrors({
+                              ...formErrors,
+                              priority: undefined,
+                            })
+                          );
+                      }}
                       className={`w-full p-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         formErrors.priority
                           ? "border-red-500"
@@ -749,8 +875,14 @@ const SupportTickets = () => {
 
       {/* Status Update Modal */}
       {statusModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 p-6 rounded-lg w-96">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[9999] p-4 pt-20 overflow-y-auto">
+          <div
+            className="bg-neutral-800 p-6 rounded-lg w-96 shadow-2xl border border-neutral-700"
+            style={{
+              boxShadow:
+                "0 25px 50px -12px rgba(255, 255, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)",
+            }}
+          >
             <h2 className="text-lg font-bold text-white mb-4">
               Update Status - {statusModal.ticketNumber}
             </h2>
@@ -816,8 +948,14 @@ const SupportTickets = () => {
 
       {/* Comment Modal */}
       {commentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 p-6 rounded-lg w-96">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[9999] p-4 pt-20 overflow-y-auto">
+          <div
+            className="bg-neutral-800 p-6 rounded-lg w-96 shadow-2xl border border-neutral-700"
+            style={{
+              boxShadow:
+                "0 25px 50px -12px rgba(255, 255, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)",
+            }}
+          >
             <h2 className="text-lg font-bold text-white mb-4">
               Add Comment - {commentModal.ticketNumber}
             </h2>
@@ -864,76 +1002,258 @@ const SupportTickets = () => {
 
       {/* View Details Modal */}
       {viewingTicket && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 p-6 rounded-lg w-96 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-white mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[9999] p-4 pt-20 overflow-y-auto">
+          <div
+            className="bg-neutral-800 p-6 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-neutral-700"
+            style={{
+              boxShadow:
+                "0 25px 50px -12px rgba(255, 255, 255, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)",
+            }}
+          >
+            <h2 className="text-xl font-bold text-white mb-6">
               Ticket Details - {viewingTicket.ticketNumber}
             </h2>
-            <div className="space-y-3">
-              <div>
-                <span className="text-neutral-400">Title:</span>
-                <p className="text-white mt-1">{viewingTicket.title}</p>
-              </div>
-              <div>
-                <span className="text-neutral-400">Description:</span>
-                <p className="text-white mt-1">{viewingTicket.description}</p>
-              </div>
-              <div>
-                <span className="text-neutral-400">Category:</span>
-                <span className="text-white ml-2">
-                  {formatCategory(viewingTicket.category)}
-                </span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Priority:</span>
-                <span
-                  className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                    viewingTicket.priority
-                  )}`}
-                >
-                  {formatPriority(viewingTicket.priority)}
-                </span>
-              </div>
-              <div>
-                <span className="text-neutral-400">Status:</span>
-                <span
-                  className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                    viewingTicket.status
-                  )}`}
-                >
-                  {formatStatus(viewingTicket.status)}
-                </span>
-              </div>
-              {viewingTicket.location && (
-                <div>
-                  <span className="text-neutral-400">Location:</span>
-                  <span className="text-white ml-2">
-                    {viewingTicket.location}
-                  </span>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Ticket Information */}
+              <div className="space-y-4">
+                <div className="bg-neutral-700 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-white mb-3">
+                    Ticket Information
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-neutral-400">Title:</span>
+                      <p className="text-white mt-1">{viewingTicket.title}</p>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400">Description:</span>
+                      <p className="text-white mt-1">
+                        {viewingTicket.description}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-neutral-400">Category:</span>
+                        <span className="text-white ml-2">
+                          {formatCategory(viewingTicket.category)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400">Priority:</span>
+                        <span
+                          className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                            viewingTicket.priority
+                          )}`}
+                        >
+                          {formatPriority(viewingTicket.priority)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-neutral-400">Status:</span>
+                        <span
+                          className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            viewingTicket.status
+                          )}`}
+                        >
+                          {formatStatus(viewingTicket.status)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-neutral-400">Location:</span>
+                        <span className="text-white ml-2">
+                          {viewingTicket.location || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-              <div>
-                <span className="text-neutral-400">Created:</span>
-                <span className="text-white ml-2">
-                  {new Date(viewingTicket.createdAt).toLocaleString()}
-                </span>
-              </div>
-              {viewingTicket.resolutionNotes && (
-                <div>
-                  <span className="text-neutral-400">Resolution Notes:</span>
-                  <p className="text-white mt-1">
-                    {viewingTicket.resolutionNotes}
-                  </p>
+
+                {/* People Involved */}
+                <div className="bg-neutral-700 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-white mb-3">
+                    People Involved
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <span className="text-neutral-400">Created by:</span>
+                      <div className="text-white mt-1">
+                        {viewingTicket.creator ? (
+                          <div>
+                            <div className="font-medium">
+                              {viewingTicket.creator.firstName}{" "}
+                              {viewingTicket.creator.lastName}
+                            </div>
+                            <div className="text-sm text-neutral-400">
+                              {viewingTicket.creator.email} •{" "}
+                              {viewingTicket.creator.role}
+                            </div>
+                          </div>
+                        ) : (
+                          "Unknown"
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400">Assigned to:</span>
+                      <div className="text-white mt-1">
+                        {viewingTicket.assignee ? (
+                          <div>
+                            <div className="font-medium">
+                              {viewingTicket.assignee.firstName}{" "}
+                              {viewingTicket.assignee.lastName}
+                            </div>
+                            <div className="text-sm text-neutral-400">
+                              {viewingTicket.assignee.email} •{" "}
+                              {viewingTicket.assignee.role}
+                            </div>
+                          </div>
+                        ) : (
+                          "Unassigned"
+                        )}
+                      </div>
+                    </div>
+                    {viewingTicket.escalatedToUser && (
+                      <div>
+                        <span className="text-neutral-400">Escalated to:</span>
+                        <div className="text-white mt-1">
+                          <div className="font-medium">
+                            {viewingTicket.escalatedToUser.firstName}{" "}
+                            {viewingTicket.escalatedToUser.lastName}
+                          </div>
+                          <div className="text-sm text-neutral-400">
+                            {viewingTicket.escalatedToUser.email} •{" "}
+                            {viewingTicket.escalatedToUser.role}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
+
+                {/* SLA Information */}
+                <div className="bg-neutral-700 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-white mb-3">
+                    SLA Information
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">SLA Target:</span>
+                      <span className="text-white">
+                        {viewingTicket.slaTarget || 0} minutes
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">
+                        Actual Resolution:
+                      </span>
+                      <span className="text-white">
+                        {viewingTicket.actualResolutionTime || 0} minutes
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-400">SLA Breached:</span>
+                      <span
+                        className={`font-medium ${
+                          viewingTicket.slaBreached
+                            ? "text-red-500"
+                            : "text-green-500"
+                        }`}
+                      >
+                        {viewingTicket.slaBreached ? "Yes" : "No"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Timeline */}
+              <div className="bg-neutral-700 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  Incident Timeline
+                </h3>
+                <div className="space-y-4">
+                  {viewingTicket.history && viewingTicket.history.length > 0 ? (
+                    <div className="space-y-3">
+                      {viewingTicket.history.map((entry, index) => (
+                        <div key={entry.id} className="flex gap-3">
+                          <div className="flex-shrink-0">
+                            <div
+                              className={`w-3 h-3 rounded-full mt-2 ${
+                                getTimelineStyle(entry.action).dot
+                              }`}
+                            ></div>
+                            {index < viewingTicket.history.length - 1 && (
+                              <div className="w-px h-8 bg-neutral-600 ml-1.5"></div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div
+                              className={`font-medium ${
+                                getTimelineStyle(entry.action).label
+                              }`}
+                            >
+                              {entry.action
+                                .replace("_", " ")
+                                .replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </div>
+                            <div className="text-sm text-neutral-400">
+                              {entry.performedByUser
+                                ? `${entry.performedByUser.firstName} ${entry.performedByUser.lastName}`
+                                : "System"}
+                            </div>
+                            <div className="text-xs text-neutral-500">
+                              {new Date(entry.createdAt).toLocaleString()}
+                            </div>
+                            {entry.comment && (
+                              <div className="text-sm text-neutral-300 mt-1">
+                                {entry.comment}
+                              </div>
+                            )}
+                            {entry.oldValue && entry.newValue && (
+                              <div
+                                className={`text-xs inline-flex items-center gap-2 px-2 py-1 rounded ${
+                                  getTimelineStyle(entry.action).pill
+                                } mt-2`}
+                              >
+                                <span>From: {entry.oldValue}</span>
+                                <span>→</span>
+                                <span>To: {entry.newValue}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-neutral-400 text-center py-4">
+                      No timeline data available
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => dispatch(setViewingTicket(null))}
-                className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Close
-              </button>
+
+            {viewingTicket.resolutionNotes && (
+              <div className="mt-6 bg-neutral-700 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  Resolution Notes
+                </h3>
+                <p className="text-white">{viewingTicket.resolutionNotes}</p>
+              </div>
+            )}
+
+            <div className="flex mt-6">
+              <div className="ml-auto">
+                <button
+                  onClick={() => dispatch(setViewingTicket(null))}
+                  className="bg-neutral-600 hover:bg-neutral-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

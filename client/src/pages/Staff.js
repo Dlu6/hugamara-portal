@@ -680,8 +680,8 @@ const Staff = () => {
 
       {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-50 overflow-y-auto">
-          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-5xl w-full mt-8 sm:mt-12 mb-4 sm:mb-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 sm:p-6 z-50 overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-5xl w-full border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
             {/* Sticky Header */}
             <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 px-6 pt-8 pb-6 rounded-t-lg z-10">
               <div className="flex items-center justify-between">

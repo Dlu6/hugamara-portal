@@ -1,5 +1,30 @@
 import { Op } from "sequelize";
-import { Ticket, Outlet } from "../models/index.js";
+import { Ticket, Outlet, User, TicketHistory } from "../models/index.js";
+
+// Helper function to log ticket history
+const logTicketHistory = async (
+  ticketId,
+  action,
+  performedBy,
+  oldValue = null,
+  newValue = null,
+  comment = null,
+  metadata = {}
+) => {
+  try {
+    await TicketHistory.create({
+      ticketId,
+      action,
+      performedBy,
+      oldValue,
+      newValue,
+      comment,
+      metadata,
+    });
+  } catch (error) {
+    console.error("Failed to log ticket history:", error);
+  }
+};
 
 export const getAllTickets = async (req, res) => {
   try {
@@ -37,6 +62,21 @@ export const getAllTickets = async (req, res) => {
           as: "outlet",
           attributes: ["id", "name", "code", "type"],
         },
+        {
+          model: User,
+          as: "creator",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "assignee",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "escalatedToUser",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
       ],
       limit: parseInt(limit),
       offset: (parseInt(page) - 1) * parseInt(limit),
@@ -68,12 +108,43 @@ export const getTicketById = async (req, res) => {
           as: "outlet",
           attributes: ["id", "name", "code", "type"],
         },
+        {
+          model: User,
+          as: "creator",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "assignee",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "escalatedToUser",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
       ],
     });
 
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
     }
+
+    // Get ticket history
+    const history = await TicketHistory.findAll({
+      where: { ticketId: id },
+      include: [
+        {
+          model: User,
+          as: "performedByUser",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    // Add history to ticket object
+    ticket.dataValues.history = history;
 
     res.json({ ticket });
   } catch (error) {
@@ -87,12 +158,15 @@ export const createTicket = async (req, res) => {
     const ticketData = {
       ...req.body,
       outletId: req.user.outletId,
+      createdBy: req.user.id,
     };
 
     // Generate ticket number if not provided
     if (!ticketData.ticketNumber) {
       const outletCode = req.user.outlet?.code || "OUT";
-      const count = await Ticket.count({ where: { outletId: userOutletId } });
+      const count = await Ticket.count({
+        where: { outletId: req.user.outletId },
+      });
       ticketData.ticketNumber = `TKT-${outletCode}-${String(count + 1).padStart(
         6,
         "0"
@@ -112,12 +186,33 @@ export const createTicket = async (req, res) => {
 
     const ticket = await Ticket.create(ticketData);
 
+    // Log ticket creation
+    await logTicketHistory(
+      ticket.id,
+      "created",
+      req.user.id,
+      null,
+      null,
+      `Ticket created with priority: ${ticketData.priority}`,
+      { priority: ticketData.priority, category: ticketData.category }
+    );
+
     const fullTicket = await Ticket.findByPk(ticket.id, {
       include: [
         {
           model: Outlet,
           as: "outlet",
           attributes: ["id", "name", "code", "type"],
+        },
+        {
+          model: User,
+          as: "creator",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "assignee",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
         },
       ],
     });
@@ -361,6 +456,7 @@ export const updateTicketStatus = async (req, res) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
+    const oldStatus = ticket.status;
     const updateData = { status };
 
     // Calculate resolution time if status changed to resolved
@@ -384,7 +480,46 @@ export const updateTicketStatus = async (req, res) => {
 
     await ticket.update(updateData);
 
-    res.json({ message: "Ticket status updated successfully" });
+    // Log status change history
+    if (oldStatus !== status) {
+      await logTicketHistory(
+        ticket.id,
+        "status_changed",
+        req.user.id,
+        oldStatus,
+        status,
+        resolutionNotes || null,
+        {}
+      );
+    }
+
+    // Return updated ticket (with associations)
+    const updatedTicket = await Ticket.findByPk(ticket.id, {
+      include: [
+        {
+          model: Outlet,
+          as: "outlet",
+          attributes: ["id", "name", "code", "type"],
+        },
+        {
+          model: User,
+          as: "creator",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "assignee",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "escalatedToUser",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+      ],
+    });
+
+    return res.json({ ticket: updatedTicket });
   } catch (error) {
     console.error("Update ticket status error:", error);
     res.status(500).json({ error: "Failed to update ticket status" });
@@ -467,7 +602,44 @@ export const addTicketComment = async (req, res) => {
 
     await ticket.update({ resolutionNotes: newNotes });
 
-    res.json({ message: "Comment added successfully" });
+    // Log comment history
+    await logTicketHistory(
+      ticket.id,
+      "commented",
+      req.user.id,
+      null,
+      null,
+      comment || null,
+      {}
+    );
+
+    // Return updated ticket (with associations)
+    const updatedTicket = await Ticket.findByPk(ticket.id, {
+      include: [
+        {
+          model: Outlet,
+          as: "outlet",
+          attributes: ["id", "name", "code", "type"],
+        },
+        {
+          model: User,
+          as: "creator",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "assignee",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+        {
+          model: User,
+          as: "escalatedToUser",
+          attributes: ["id", "firstName", "lastName", "email", "role"],
+        },
+      ],
+    });
+
+    return res.json({ ticket: updatedTicket });
   } catch (error) {
     console.error("Add ticket comment error:", error);
     res.status(500).json({ error: "Failed to add comment" });
