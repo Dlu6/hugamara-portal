@@ -420,6 +420,279 @@ EOF
 5. **Add comments** to explain what each migration does
 6. **Test both up and down** migrations
 
+## Debugging Guide
+
+### Common Issues and Solutions
+
+#### 1. "Table not found" Error in Seat Reservation
+
+**Problem**: When trying to assign a table to a reservation, you get a 404 "Table not found" error.
+
+**Root Cause**: The backend is enforcing strict `outletId` matching between user, reservation, and table, but these might not be properly aligned.
+
+**Debugging Steps**:
+
+1. **Check Database State**:
+
+```bash
+# Create a debug script
+cat > backend/debug-tables.mjs << 'EOF'
+import { sequelize } from "./config/database.js";
+import { Table, Outlet, Reservation } from "./models/index.js";
+
+async function debugTables() {
+  try {
+    console.log("Checking tables and outlets...");
+
+    // Check outlets
+    const outlets = await Outlet.findAll();
+    console.log("Outlets:", outlets.map(o => ({ id: o.id, name: o.name })));
+
+    // Check tables
+    const tables = await Table.findAll();
+    console.log("Tables:", tables.map(t => ({
+      id: t.id,
+      tableNumber: t.tableNumber,
+      outletId: t.outletId,
+      status: t.status,
+      isActive: t.isActive
+    })));
+
+    // Check reservations
+    const reservations = await Reservation.findAll();
+    console.log("Reservations:", reservations.map(r => ({
+      id: r.id,
+      outletId: r.outletId,
+      status: r.status
+    })));
+
+  } catch (error) {
+    console.error("Error:", error.message);
+  } finally {
+    await sequelize.close();
+  }
+}
+
+debugTables();
+EOF
+
+# Run the debug script
+cd backend && node debug-tables.mjs
+```
+
+2. **Check User's OutletId**:
+
+```bash
+# Add temporary logging to see user's outletId
+# In reservationController.js, add:
+console.log('User outletId:', req.user.outletId);
+```
+
+3. **Fix the Issue**:
+
+The issue is usually that the user doesn't have an `outletId` set, or the reservation/table has a different `outletId`. Here are the proper solutions:
+
+**Option A: Ensure User Has Correct OutletId**
+
+```javascript
+// Check if user has outletId in auth middleware
+// In middleware/auth.js, ensure user.outletId is set correctly
+```
+
+**Option B: Fix Data Alignment**
+
+```bash
+# Update reservation to match user's outlet
+mysql -u root -p hugamara_dev -e "
+UPDATE reservations
+SET outlet_id = '550e8400-e29b-41d4-a716-446655440001'
+WHERE id = 'reservation-id-here';
+"
+
+# Update table to match user's outlet
+mysql -u root -p hugamara_dev -e "
+UPDATE tables
+SET outlet_id = '550e8400-e29b-41d4-a716-446655440001'
+WHERE id = 'table-id-here';
+"
+```
+
+**Option C: Temporary Bypass (NOT RECOMMENDED for production)**
+
+```javascript
+// In reservationController.js, modify seatReservation function:
+export const seatReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tableId } = req.body;
+    const userOutletId = req.user.outletId;
+
+    // Find reservation - require outletId matching for security
+    const reservation = await Reservation.findOne({
+      where: userOutletId ? { id, outletId: userOutletId } : { id },
+    });
+
+    if (!reservation) {
+      return res.status(404).json({ error: "Reservation not found" });
+    }
+
+    // Check if table exists and is available - require outletId matching for security
+    const table = await Table.findOne({
+      where: userOutletId
+        ? { id: tableId, outletId: userOutletId }
+        : { id: tableId },
+    });
+
+    if (!table) {
+      return res.status(404).json({ error: "Table not found" });
+    }
+
+    // Rest of the function...
+  } catch (error) {
+    console.error("Seat reservation error:", error);
+    res.status(500).json({ error: "Failed to seat reservation" });
+  }
+};
+```
+
+4. **Clean Up**:
+
+```bash
+# Remove debug files
+rm backend/debug-tables.mjs
+```
+
+#### 2. Dialog Boxes Being Covered by Header
+
+**Problem**: Modal dialogs have their content covered by the fixed header.
+
+**Solution**: Update all dialog z-index and positioning:
+
+```javascript
+// Change from:
+<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+
+// To:
+<div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-[9999] overflow-y-auto">
+  <div className="bg-neutral-800 rounded-lg shadow-xl w-full max-w-2xl mt-8 sm:mt-12 mb-4 sm:mb-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+    {/* Sticky Header */}
+    <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 px-6 pt-6 pb-4 rounded-t-lg z-10">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold text-white">Modal Title</h2>
+        <button onClick={onClose} className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors" title="Close Modal">×</button>
+      </div>
+    </div>
+    {/* Modal Content */}
+    <div className="p-6 sm:p-8 pb-8">
+      {/* Your content here */}
+    </div>
+  </div>
+</div>
+```
+
+#### 3. Reservations Dropdown Not Populating in Orders
+
+**Problem**: The reservations dropdown in Orders.js shows no options.
+
+**Solution**: Use the correct slice for reservations data:
+
+```javascript
+// In Orders.js, update imports:
+import {
+  fetchReservations,
+  selectReservations,
+} from "../store/slices/reservationsSlice";
+
+// Remove from ordersSlice imports:
+// fetchReservations, selectReservations
+
+// Update the filter to show more reservations:
+{
+  reservations
+    .filter((r) => r.status === "seated" || r.status === "confirmed")
+    .map((r) => (
+      <option key={r.id} value={r.id} className="text-gray-900">
+        {r.reservationNumber} • {r.partySize} people • {r.status}
+      </option>
+    ));
+}
+```
+
+#### 4. Database Connection Issues
+
+**Problem**: "Cannot read properties of undefined (reading 'query')" or similar database errors.
+
+**Solution**:
+
+```bash
+# Check if database is running
+mysql -u root -p -e "SELECT 1;"
+
+# Check environment variables
+cat backend/.env
+
+# Test database connection
+cd backend && node -e "
+const { sequelize } = require('./config/database-cli.cjs');
+sequelize.authenticate()
+  .then(() => console.log('✅ Database connected'))
+  .catch(err => console.error('❌ Database error:', err))
+  .finally(() => process.exit());
+"
+```
+
+#### 5. Missing Database Columns
+
+**Problem**: "Unknown column 'column_name' in 'field list'" errors.
+
+**Solution**:
+
+```bash
+# Check what columns exist
+mysql -u root -p hugamara_dev -e "DESCRIBE table_name;"
+
+# Add missing columns
+mysql -u root -p hugamara_dev -e "ALTER TABLE table_name ADD COLUMN column_name VARCHAR(255) NULL;"
+
+# Or run the comprehensive migration
+mysql -u root -p hugamara_dev < backend/create-missing-tables.sql
+```
+
+### Debugging Checklist
+
+When encountering issues, follow this systematic approach:
+
+1. **Check the Error Message**: Read the full error message and stack trace
+2. **Check Database State**: Use debug scripts to verify data exists
+3. **Check API Endpoints**: Test endpoints with tools like Postman or curl
+4. **Check Frontend Console**: Look for JavaScript errors or network failures
+5. **Check Backend Logs**: Monitor server console for error messages
+6. **Check Environment Variables**: Ensure all required env vars are set
+7. **Check Database Connection**: Verify database is running and accessible
+8. **Check File Permissions**: Ensure proper read/write permissions
+9. **Check Dependencies**: Verify all packages are installed correctly
+10. **Check Code Syntax**: Look for typos, missing imports, or syntax errors
+
+### Quick Fix Commands
+
+```bash
+# Reset everything and start fresh
+npm run db:setup
+npm run server_client
+
+# Check specific table structure
+mysql -u root -p hugamara_dev -e "DESCRIBE reservations;"
+
+# Check if specific data exists
+mysql -u root -p hugamara_dev -e "SELECT COUNT(*) FROM tables;"
+
+# Restart just the backend
+cd backend && npm run dev
+
+# Restart just the frontend
+cd client && npm start
+```
+
 ### 5. Start Development Servers
 
 ```bash

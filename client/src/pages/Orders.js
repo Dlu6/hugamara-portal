@@ -23,7 +23,6 @@ import {
   updateOrderStatus,
   deleteOrder,
   fetchTables,
-  fetchReservations,
   fetchGuests,
   fetchMenuItems,
   fetchOrderStats,
@@ -38,7 +37,6 @@ import {
   selectOrders,
   selectSelectedOrder,
   selectTables,
-  selectReservations,
   selectGuests,
   selectMenuItems,
   selectOrderStats,
@@ -52,6 +50,10 @@ import {
   selectOrdersShowMenuItems,
   selectOrdersFilters,
 } from "../store/slices/ordersSlice";
+import {
+  fetchReservations,
+  selectReservations,
+} from "../store/slices/reservationsSlice";
 
 // StatCard component
 const StatCard = ({ title, value, icon: Icon, color = "blue", subtitle }) => (
@@ -102,6 +104,11 @@ const Orders = () => {
     dispatch(fetchGuests());
     dispatch(fetchMenuItems());
   }, [dispatch, filters]);
+
+  // Debug: Log reservations data
+  useEffect(() => {
+    // console.log("Reservations in Orders:", reservations);
+  }, [reservations]);
 
   useEffect(() => {
     if (error) {
@@ -268,331 +275,266 @@ const Orders = () => {
 
       {/* Create Order Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-900 text-white p-6 rounded-lg w-96 shadow-xl">
-            <h2 className="text-lg font-bold mb-4">New Order</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-neutral-300">Order Type</label>
-                  <select
-                    value={formData.orderType}
-                    onChange={(e) =>
-                      dispatch(setFormData({ orderType: e.target.value }))
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
-                    required
-                  >
-                    <option value="dine_in">Dine In</option>
-                    <option value="takeaway">Takeaway</option>
-                    <option value="delivery">Delivery</option>
-                    <option value="bar">Bar</option>
-                    <option value="bottle_service">Bottle Service</option>
-                  </select>
-                  {formErrors.orderType && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.orderType}
-                    </div>
-                  )}
-                </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-[9999] overflow-y-auto">
+          <div className="bg-neutral-900 text-white rounded-lg w-full max-w-2xl mt-8 sm:mt-12 mb-4 sm:mb-8 shadow-xl min-h-fit max-h-[90vh] overflow-y-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-0 bg-neutral-900 border-b border-neutral-700 px-6 pt-6 pb-4 rounded-t-lg z-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">New Order</h2>
+                <button
+                  onClick={() => dispatch(setShowForm(false))}
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Form"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
 
-                <div>
-                  <label className="text-sm text-neutral-300">Table</label>
-                  <select
-                    value={formData.tableId}
-                    onChange={(e) =>
-                      dispatch(setFormData({ tableId: e.target.value }))
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
-                  >
-                    <option value="">Select table</option>
-                    {tables
-                      .filter((t) => t.isActive)
-                      .map((t) => (
-                        <option
-                          key={t.id}
-                          value={t.id}
-                          className="text-gray-900"
-                        >
-                          {t.tableNumber} • {t.minCapacity}-{t.maxCapacity}
-                        </option>
-                      ))}
-                  </select>
-                  {formErrors.tableId && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.tableId}
-                    </div>
-                  )}
-                </div>
+            {/* Modal Content */}
+            <div className="p-6 sm:p-8 pb-8">
+              <form onSubmit={handleSubmit}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-neutral-300">
+                      Order Type
+                    </label>
+                    <select
+                      value={formData.orderType}
+                      onChange={(e) =>
+                        dispatch(setFormData({ orderType: e.target.value }))
+                      }
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                      required
+                    >
+                      <option value="dine_in">Dine In</option>
+                      <option value="takeaway">Takeaway</option>
+                      <option value="delivery">Delivery</option>
+                      <option value="bar">Bar</option>
+                      <option value="bottle_service">Bottle Service</option>
+                    </select>
+                    {formErrors.orderType && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.orderType}
+                      </div>
+                    )}
+                  </div>
 
-                <div>
-                  <label className="text-sm text-neutral-300">
-                    Reservation
-                  </label>
-                  <select
-                    value={formData.reservationId}
-                    onChange={(e) =>
-                      dispatch(
-                        setFormData({
-                          reservationId: e.target.value,
-                        })
-                      )
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
-                  >
-                    <option value="">Select reservation</option>
-                    {reservations
-                      .filter((r) => r.status === "seated")
-                      .map((r) => (
-                        <option
-                          key={r.id}
-                          value={r.id}
-                          className="text-gray-900"
-                        >
-                          {r.reservationNumber} • {r.partySize} people
-                        </option>
-                      ))}
-                  </select>
-                  {formErrors.reservationId && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.reservationId}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm text-neutral-300">Guest</label>
-                  <select
-                    value={formData.guestId}
-                    onChange={(e) =>
-                      dispatch(setFormData({ guestId: e.target.value }))
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
-                  >
-                    <option value="">Select guest</option>
-                    {guests.map((g) => (
-                      <option key={g.id} value={g.id} className="text-gray-900">
-                        {g.firstName} {g.lastName}{" "}
-                        {g.phone ? `• ${g.phone}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.guestId && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.guestId}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm text-neutral-300">Priority</label>
-                  <select
-                    value={formData.priority}
-                    onChange={(e) =>
-                      dispatch(setFormData({ priority: e.target.value }))
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                    <option value="vip">VIP</option>
-                  </select>
-                  {formErrors.priority && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.priority}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm text-neutral-300">
-                    Payment Method
-                  </label>
-                  <select
-                    value={formData.paymentMethod}
-                    onChange={(e) =>
-                      dispatch(
-                        setFormData({
-                          paymentMethod: e.target.value,
-                        })
-                      )
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
-                  >
-                    <option value="">Select payment method</option>
-                    <option value="cash">Cash</option>
-                    <option value="card">Card</option>
-                    <option value="mobile_money">Mobile Money</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="gift_card">Gift Card</option>
-                  </select>
-                  {formErrors.paymentMethod && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.paymentMethod}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm text-neutral-300">
-                    Special Instructions
-                  </label>
-                  <textarea
-                    value={formData.specialInstructions}
-                    onChange={(e) =>
-                      dispatch(
-                        setFormData({
-                          specialInstructions: e.target.value,
-                        })
-                      )
-                    }
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
-                    placeholder="Any special instructions..."
-                    rows={3}
-                  />
-                  {formErrors.specialInstructions && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.specialInstructions}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm text-neutral-300">Menu Items</label>
-                  <button
-                    type="button"
-                    onClick={() => dispatch(setShowMenuItems(!showMenuItems))}
-                    className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white text-left"
-                  >
-                    {formData.items.length > 0
-                      ? `${formData.items.length} item(s) selected`
-                      : "Select menu items (optional)"}
-                  </button>
-                  {showMenuItems && (
-                    <div className="mt-2 max-h-40 overflow-y-auto border rounded bg-neutral-800 border-neutral-700">
-                      {menuItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between p-2 border-b border-neutral-700 last:border-b-0"
-                        >
-                          <div className="flex-1">
-                            <div className="text-white text-sm">
-                              {item.name}
-                            </div>
-                            <div className="text-neutral-400 text-xs">
-                              {item.category}
-                            </div>
-                          </div>
-                          <div className="text-green-400 text-sm font-semibold">
-                            {new Intl.NumberFormat("en-UG", {
-                              style: "currency",
-                              currency: "UGX",
-                            }).format(item.price)}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const existingItem = formData.items.find(
-                                (i) => i.menuItemId === item.id
-                              );
-                              if (existingItem) {
-                                dispatch(
-                                  setFormData({
-                                    items: formData.items.map((i) =>
-                                      i.menuItemId === item.id
-                                        ? {
-                                            ...i,
-                                            quantity: i.quantity + 1,
-                                            totalPrice:
-                                              (i.quantity + 1) * i.unitPrice,
-                                          }
-                                        : i
-                                    ),
-                                  })
-                                );
-                              } else {
-                                dispatch(
-                                  setFormData({
-                                    items: [
-                                      ...formData.items,
-                                      {
-                                        menuItemId: item.id,
-                                        quantity: 1,
-                                        unitPrice: item.price,
-                                        totalPrice: item.price,
-                                      },
-                                    ],
-                                  })
-                                );
-                              }
-                            }}
-                            className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded"
+                  <div>
+                    <label className="text-sm text-neutral-300">Table</label>
+                    <select
+                      value={formData.tableId}
+                      onChange={(e) =>
+                        dispatch(setFormData({ tableId: e.target.value }))
+                      }
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    >
+                      <option value="">Select table</option>
+                      {tables
+                        .filter((t) => t.isActive)
+                        .map((t) => (
+                          <option
+                            key={t.id}
+                            value={t.id}
+                            className="text-gray-900"
                           >
-                            Add
-                          </button>
-                        </div>
+                            {t.tableNumber} • {t.minCapacity}-{t.maxCapacity}
+                          </option>
+                        ))}
+                    </select>
+                    {formErrors.tableId && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.tableId}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-300">
+                      Reservation
+                    </label>
+                    <select
+                      value={formData.reservationId}
+                      onChange={(e) =>
+                        dispatch(
+                          setFormData({
+                            reservationId: e.target.value,
+                          })
+                        )
+                      }
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    >
+                      <option value="">Select reservation</option>
+                      {reservations
+                        .filter(
+                          (r) =>
+                            r.status === "seated" || r.status === "confirmed"
+                        )
+                        .map((r) => (
+                          <option
+                            key={r.id}
+                            value={r.id}
+                            className="text-gray-900"
+                          >
+                            {r.reservationNumber} • {r.partySize} people •{" "}
+                            {r.status}
+                          </option>
+                        ))}
+                    </select>
+                    {formErrors.reservationId && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.reservationId}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-300">Guest</label>
+                    <select
+                      value={formData.guestId}
+                      onChange={(e) =>
+                        dispatch(setFormData({ guestId: e.target.value }))
+                      }
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    >
+                      <option value="">Select guest</option>
+                      {guests.map((g) => (
+                        <option
+                          key={g.id}
+                          value={g.id}
+                          className="text-gray-900"
+                        >
+                          {g.firstName} {g.lastName}{" "}
+                          {g.phone ? `• ${g.phone}` : ""}
+                        </option>
                       ))}
-                    </div>
-                  )}
-                  {formData.items.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {formData.items.map((item, index) => {
-                        const menuItem = menuItems.find(
-                          (m) => m.id === item.menuItemId
-                        );
-                        return (
+                    </select>
+                    {formErrors.guestId && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.guestId}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-300">Priority</label>
+                    <select
+                      value={formData.priority}
+                      onChange={(e) =>
+                        dispatch(setFormData({ priority: e.target.value }))
+                      }
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="vip">VIP</option>
+                    </select>
+                    {formErrors.priority && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.priority}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-300">
+                      Payment Method
+                    </label>
+                    <select
+                      value={formData.paymentMethod}
+                      onChange={(e) =>
+                        dispatch(
+                          setFormData({
+                            paymentMethod: e.target.value,
+                          })
+                        )
+                      }
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white"
+                    >
+                      <option value="">Select payment method</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="mobile_money">Mobile Money</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="gift_card">Gift Card</option>
+                    </select>
+                    {formErrors.paymentMethod && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.paymentMethod}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-300">
+                      Special Instructions
+                    </label>
+                    <textarea
+                      value={formData.specialInstructions}
+                      onChange={(e) =>
+                        dispatch(
+                          setFormData({
+                            specialInstructions: e.target.value,
+                          })
+                        )
+                      }
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white placeholder-neutral-400"
+                      placeholder="Any special instructions..."
+                      rows={3}
+                    />
+                    {formErrors.specialInstructions && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.specialInstructions}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-neutral-300">
+                      Menu Items
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => dispatch(setShowMenuItems(!showMenuItems))}
+                      className="w-full p-2 border rounded bg-neutral-800 border-neutral-700 text-white text-left"
+                    >
+                      {formData.items.length > 0
+                        ? `${formData.items.length} item(s) selected`
+                        : "Select menu items (optional)"}
+                    </button>
+                    {showMenuItems && (
+                      <div className="mt-2 max-h-40 overflow-y-auto border rounded bg-neutral-800 border-neutral-700">
+                        {menuItems.map((item) => (
                           <div
-                            key={index}
-                            className="flex items-center justify-between p-2 bg-neutral-800 rounded"
+                            key={item.id}
+                            className="flex items-center justify-between p-2 border-b border-neutral-700 last:border-b-0"
                           >
-                            <span className="text-white text-sm">
-                              {menuItem?.name || "Unknown Item"}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (item.quantity > 1) {
-                                    dispatch(
-                                      setFormData({
-                                        items: formData.items.map((i, idx) =>
-                                          idx === index
-                                            ? {
-                                                ...i,
-                                                quantity: i.quantity - 1,
-                                                totalPrice:
-                                                  (i.quantity - 1) *
-                                                  i.unitPrice,
-                                              }
-                                            : i
-                                        ),
-                                      })
-                                    );
-                                  } else {
-                                    dispatch(
-                                      setFormData({
-                                        items: formData.items.filter(
-                                          (_, idx) => idx !== index
-                                        ),
-                                      })
-                                    );
-                                  }
-                                }}
-                                className="px-2 py-1 bg-red-600 text-white text-xs rounded"
-                              >
-                                -
-                              </button>
-                              <span className="text-white text-sm">
-                                {item.quantity}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
+                            <div className="flex-1">
+                              <div className="text-white text-sm">
+                                {item.name}
+                              </div>
+                              <div className="text-neutral-400 text-xs">
+                                {item.category}
+                              </div>
+                            </div>
+                            <div className="text-green-400 text-sm font-semibold">
+                              {new Intl.NumberFormat("en-UG", {
+                                style: "currency",
+                                currency: "UGX",
+                              }).format(item.price)}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const existingItem = formData.items.find(
+                                  (i) => i.menuItemId === item.id
+                                );
+                                if (existingItem) {
                                   dispatch(
                                     setFormData({
-                                      items: formData.items.map((i, idx) =>
-                                        idx === index
+                                      items: formData.items.map((i) =>
+                                        i.menuItemId === item.id
                                           ? {
                                               ...i,
                                               quantity: i.quantity + 1,
@@ -603,119 +545,237 @@ const Orders = () => {
                                       ),
                                     })
                                   );
-                                }}
-                                className="px-2 py-1 bg-green-600 text-white text-xs rounded"
-                              >
-                                +
-                              </button>
-                              <span className="text-green-400 text-sm font-semibold">
-                                {new Intl.NumberFormat("en-UG", {
-                                  style: "currency",
-                                  currency: "UGX",
-                                }).format(item.totalPrice)}
-                              </span>
-                            </div>
+                                } else {
+                                  dispatch(
+                                    setFormData({
+                                      items: [
+                                        ...formData.items,
+                                        {
+                                          menuItemId: item.id,
+                                          quantity: 1,
+                                          unitPrice: item.price,
+                                          totalPrice: item.price,
+                                        },
+                                      ],
+                                    })
+                                  );
+                                }
+                              }}
+                              className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded"
+                            >
+                              Add
+                            </button>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {formErrors.items && (
-                    <div className="text-xs text-red-400 mt-1">
-                      {formErrors.items}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                    {formData.items.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {formData.items.map((item, index) => {
+                          const menuItem = menuItems.find(
+                            (m) => m.id === item.menuItemId
+                          );
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-2 bg-neutral-800 rounded"
+                            >
+                              <span className="text-white text-sm">
+                                {menuItem?.name || "Unknown Item"}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (item.quantity > 1) {
+                                      dispatch(
+                                        setFormData({
+                                          items: formData.items.map((i, idx) =>
+                                            idx === index
+                                              ? {
+                                                  ...i,
+                                                  quantity: i.quantity - 1,
+                                                  totalPrice:
+                                                    (i.quantity - 1) *
+                                                    i.unitPrice,
+                                                }
+                                              : i
+                                          ),
+                                        })
+                                      );
+                                    } else {
+                                      dispatch(
+                                        setFormData({
+                                          items: formData.items.filter(
+                                            (_, idx) => idx !== index
+                                          ),
+                                        })
+                                      );
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-red-600 text-white text-xs rounded"
+                                >
+                                  -
+                                </button>
+                                <span className="text-white text-sm">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    dispatch(
+                                      setFormData({
+                                        items: formData.items.map((i, idx) =>
+                                          idx === index
+                                            ? {
+                                                ...i,
+                                                quantity: i.quantity + 1,
+                                                totalPrice:
+                                                  (i.quantity + 1) *
+                                                  i.unitPrice,
+                                              }
+                                            : i
+                                        ),
+                                      })
+                                    );
+                                  }}
+                                  className="px-2 py-1 bg-green-600 text-white text-xs rounded"
+                                >
+                                  +
+                                </button>
+                                <span className="text-green-400 text-sm font-semibold">
+                                  {new Intl.NumberFormat("en-UG", {
+                                    style: "currency",
+                                    currency: "UGX",
+                                  }).format(item.totalPrice)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {formErrors.items && (
+                      <div className="text-xs text-red-400 mt-1">
+                        {formErrors.items}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded shadow"
-                >
-                  Create
-                </button>
-                <button
-                  type="button"
-                  onClick={() => dispatch(setShowForm(false))}
-                  className="bg-neutral-700 text-white px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-4 py-2 rounded shadow"
+                  >
+                    Create
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dispatch(setShowForm(false))}
+                    className="bg-neutral-700 text-white px-4 py-2 rounded"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Order Detail Modal */}
       {showDetail.open && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-900 text-white p-6 rounded-lg w-96 shadow-xl max-h-[80vh] overflow-y-auto">
-            <h2 className="text-lg font-bold mb-4">Order Details</h2>
-            <div className="space-y-4">
-              <div>
-                <span className="text-sm text-neutral-300">Order Number:</span>
-                <p className="text-white">{selectedOrder.orderNumber}</p>
-              </div>
-              <div>
-                <span className="text-sm text-neutral-300">Status:</span>
-                <span
-                  className={`ml-2 px-2 py-1 rounded text-sm ${getStatusColor(
-                    selectedOrder.status
-                  )}`}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-[9999] overflow-y-auto">
+          <div className="bg-neutral-900 text-white rounded-lg w-full max-w-2xl mt-8 sm:mt-12 mb-4 sm:mb-8 shadow-xl min-h-fit max-h-[90vh] overflow-y-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-0 bg-neutral-900 border-b border-neutral-700 px-6 pt-6 pb-4 rounded-t-lg z-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">
+                  Order Details
+                </h2>
+                <button
+                  onClick={() =>
+                    dispatch(setShowDetail({ open: false, orderId: null }))
+                  }
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Modal"
                 >
-                  {selectedOrder.status}
-                </span>
+                  ×
+                </button>
               </div>
-              <div>
-                <span className="text-sm text-neutral-300">Type:</span>
-                <p className="text-white capitalize">
-                  {selectedOrder.orderType?.replace("_", " ")}
-                </p>
-              </div>
-              {selectedOrder.table && (
-                <div>
-                  <span className="text-sm text-neutral-300">Table:</span>
-                  <p className="text-white">
-                    {selectedOrder.table.tableNumber}
-                  </p>
-                </div>
-              )}
-              {selectedOrder.guest && (
-                <div>
-                  <span className="text-sm text-neutral-300">Guest:</span>
-                  <p className="text-white">
-                    {selectedOrder.guest.firstName}{" "}
-                    {selectedOrder.guest.lastName}
-                  </p>
-                </div>
-              )}
-              <div>
-                <span className="text-sm text-neutral-300">Total Amount:</span>
-                <p className="text-white font-semibold">
-                  {formatCurrency(selectedOrder.totalAmount)}
-                </p>
-              </div>
-              {selectedOrder.specialInstructions && (
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 sm:p-8 pb-8">
+              <div className="space-y-4">
                 <div>
                   <span className="text-sm text-neutral-300">
-                    Special Instructions:
+                    Order Number:
                   </span>
-                  <p className="text-white">
-                    {selectedOrder.specialInstructions}
+                  <p className="text-white">{selectedOrder.orderNumber}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-neutral-300">Status:</span>
+                  <span
+                    className={`ml-2 px-2 py-1 rounded text-sm ${getStatusColor(
+                      selectedOrder.status
+                    )}`}
+                  >
+                    {selectedOrder.status}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-sm text-neutral-300">Type:</span>
+                  <p className="text-white capitalize">
+                    {selectedOrder.orderType?.replace("_", " ")}
                   </p>
                 </div>
-              )}
-            </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() =>
-                  dispatch(setShowDetail({ open: false, orderId: null }))
-                }
-                className="bg-neutral-700 text-white px-4 py-2 rounded"
-              >
-                Close
-              </button>
+                {selectedOrder.table && (
+                  <div>
+                    <span className="text-sm text-neutral-300">Table:</span>
+                    <p className="text-white">
+                      {selectedOrder.table.tableNumber}
+                    </p>
+                  </div>
+                )}
+                {selectedOrder.guest && (
+                  <div>
+                    <span className="text-sm text-neutral-300">Guest:</span>
+                    <p className="text-white">
+                      {selectedOrder.guest.firstName}{" "}
+                      {selectedOrder.guest.lastName}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <span className="text-sm text-neutral-300">
+                    Total Amount:
+                  </span>
+                  <p className="text-white font-semibold">
+                    {formatCurrency(selectedOrder.totalAmount)}
+                  </p>
+                </div>
+                {selectedOrder.specialInstructions && (
+                  <div>
+                    <span className="text-sm text-neutral-300">
+                      Special Instructions:
+                    </span>
+                    <p className="text-white">
+                      {selectedOrder.specialInstructions}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() =>
+                    dispatch(setShowDetail({ open: false, orderId: null }))
+                  }
+                  className="bg-neutral-700 text-white px-4 py-2 rounded"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -28,8 +28,10 @@ import {
   updateStock,
   getLowStockItems,
   getExpiringItems,
+  generateSKU,
   setFilters,
   setFormData,
+  setFormErrors,
   setShowForm,
   setEditingItem,
   setViewingItem,
@@ -101,10 +103,78 @@ const Inventory = () => {
     dispatch(setFilters({ category }));
   };
 
+  // Apply local filters to inventory
+  const getFilteredInventory = () => {
+    let filtered = [...inventory];
+
+    // Apply search filter
+    if (filters.search) {
+      filtered = filtered.filter(
+        (item) =>
+          item.itemName.toLowerCase().includes(filters.search.toLowerCase()) ||
+          (item.description &&
+            item.description
+              .toLowerCase()
+              .includes(filters.search.toLowerCase())) ||
+          (item.sku &&
+            item.sku.toLowerCase().includes(filters.search.toLowerCase()))
+      );
+    }
+
+    // Apply category filter
+    if (filters.category) {
+      filtered = filtered.filter((item) => item.category === filters.category);
+    }
+
+    // Apply low stock filter
+    if (showLowStock) {
+      filtered = filtered.filter(
+        (item) => item.currentStock <= item.minimumStock
+      );
+    }
+
+    // Apply expiring filter
+    if (showExpiring) {
+      filtered = filtered.filter((item) => {
+        if (!item.isPerishable || !item.expiryDate) return false;
+        const expiryDate = new Date(item.expiryDate);
+        const now = new Date();
+        const diffTime = expiryDate - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= 7 && diffDays > 0;
+      });
+    }
+
+    return filtered;
+  };
+
+  const displayInventory = getFilteredInventory();
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    const newValue = type === "checkbox" ? checked : value;
+    let newValue = type === "checkbox" ? checked : value;
+
+    // Handle date fields - convert empty strings to null
+    if (name === "expiryDate" && value === "") {
+      newValue = null;
+    }
+
     dispatch(setFormData({ [name]: newValue }));
+
+    // Auto-generate SKU when category changes and SKU is empty
+    if (name === "category" && !formData.sku) {
+      handleGenerateSKU(value);
+    }
+  };
+
+  const handleGenerateSKU = async (category) => {
+    if (!category) return;
+
+    try {
+      await dispatch(generateSKU({ category })).unwrap();
+    } catch (error) {
+      console.error("Failed to generate SKU:", error);
+    }
   };
 
   const handleArrayChange = (name, value) => {
@@ -200,7 +270,7 @@ const Inventory = () => {
         unitCost: 0,
         supplierName: "",
         leadTime: 0,
-        expiryDate: "",
+        expiryDate: null,
         isPerishable: false,
         location: "",
         notes: "",
@@ -213,6 +283,10 @@ const Inventory = () => {
     resetForm();
     dispatch(setEditingItem(null));
     dispatch(setShowForm(true));
+    // Generate initial SKU for new items
+    setTimeout(() => {
+      handleGenerateSKU("food");
+    }, 100);
   };
 
   const formatCurrency = (amount) => {
@@ -442,7 +516,7 @@ const Inventory = () => {
               </tr>
             </thead>
             <tbody className="bg-neutral-800 divide-y divide-neutral-700">
-              {filteredInventory.map((item) => {
+              {displayInventory.map((item) => {
                 const StatusIcon = getStatusIcon(item);
                 return (
                   <tr key={item.id} className="hover:bg-neutral-750">
@@ -526,7 +600,7 @@ const Inventory = () => {
           </table>
         </div>
 
-        {filteredInventory.length === 0 && (
+        {displayInventory.length === 0 && (
           <div className="text-center py-12">
             <Package className="mx-auto h-12 w-12 text-neutral-400" />
             <h3 className="mt-2 text-sm font-medium text-white">
@@ -550,10 +624,11 @@ const Inventory = () => {
 
       {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-neutral-700">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-[9999] overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-2xl w-full mt-8 sm:mt-12 mb-4 sm:mb-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 px-6 pt-6 pb-4 rounded-t-lg z-10">
+              <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-white">
                   {editingItem
                     ? "Edit Inventory Item"
@@ -561,12 +636,16 @@ const Inventory = () => {
                 </h2>
                 <button
                   onClick={() => dispatch(setShowForm(false))}
-                  className="text-neutral-400 hover:text-white"
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Form"
                 >
                   ×
                 </button>
               </div>
+            </div>
 
+            {/* Modal Content */}
+            <div className="p-6 sm:p-8 pb-8">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -610,14 +689,36 @@ const Inventory = () => {
                   <div>
                     <label className="block text-sm font-medium text-neutral-300 mb-1">
                       SKU
+                      <span className="text-xs text-neutral-500 ml-1">
+                        (Auto-generated)
+                      </span>
                     </label>
-                    <input
-                      type="text"
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        name="sku"
+                        value={formData.sku}
+                        onChange={handleInputChange}
+                        className="flex-1 px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Will be auto-generated"
+                        readOnly={!editingItem}
+                      />
+                      {!editingItem && formData.category && (
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateSKU(formData.category)}
+                          className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                          title="Generate new SKU"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    {formErrors.sku && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {formErrors.sku}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -726,6 +827,21 @@ const Inventory = () => {
                     </span>
                   </label>
                 </div>
+
+                {formData.isPerishable && (
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-300 mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      name="expiryDate"
+                      value={formData.expiryDate || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-3 pt-4">
                   <button

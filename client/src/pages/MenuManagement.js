@@ -561,286 +561,298 @@ const MenuManagement = () => {
 
       {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-neutral-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-neutral-700">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white">
-                {editingMenuItem ? "Edit Menu Item" : "Create Menu Item"}
-              </h2>
-              <button
-                onClick={resetForm}
-                className="text-gray-400 hover:text-white"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-[9999] overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl w-full max-w-2xl mt-8 sm:mt-12 mb-4 sm:mb-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 px-6 pt-6 pb-4 rounded-t-lg z-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">
+                  {editingMenuItem ? "Edit Menu Item" : "Create Menu Item"}
+                </h2>
+                <button
+                  onClick={resetForm}
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Form"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.name ? "border-red-500" : "border-neutral-600"
-                    }`}
-                    placeholder="Enter menu item name"
-                  />
-                  {formErrors.name && (
-                    <p className="text-red-400 text-sm mt-1">
-                      {formErrors.name}
-                    </p>
-                  )}
+            {/* Modal Content */}
+            <div className="p-6 sm:p-8 pb-8">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.name
+                          ? "border-red-500"
+                          : "border-neutral-600"
+                      }`}
+                      placeholder="Enter menu item name"
+                    />
+                    {formErrors.name && (
+                      <p className="text-red-400 text-sm mt-1">
+                        {formErrors.name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Category *
+                    </label>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.category
+                          ? "border-red-500"
+                          : "border-neutral-600"
+                      }`}
+                    >
+                      {getCategoryOptions().map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {formErrors.category && (
+                      <p className="text-red-400 text-sm mt-1">
+                        {formErrors.category}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Price *
+                    </label>
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      step="0.01"
+                      min="0"
+                      className={`w-full px-3 py-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        formErrors.price
+                          ? "border-red-500"
+                          : "border-neutral-600"
+                      }`}
+                      placeholder="0.00"
+                    />
+                    {formErrors.price && (
+                      <p className="text-red-400 text-sm mt-1">
+                        {formErrors.price}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Cost Price
+                    </label>
+                    <input
+                      type="number"
+                      name="cost"
+                      value={formData.cost}
+                      onChange={handleInputChange}
+                      step="0.01"
+                      min="0"
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Subcategory
+                    </label>
+                    <input
+                      type="text"
+                      name="subcategory"
+                      value={formData.subcategory}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., Pasta, Pizza, Salad"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Preparation Time (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      name="preparationTime"
+                      value={formData.preparationTime}
+                      onChange={handleInputChange}
+                      min="0"
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Calories
+                    </label>
+                    <input
+                      type="number"
+                      name="calories"
+                      value={formData.calories}
+                      onChange={handleInputChange}
+                      min="0"
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Image URL
+                    </label>
+                    <input
+                      type="url"
+                      name="imageUrl"
+                      value={formData.imageUrl}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Category *
+                    Description
                   </label>
-                  <select
-                    name="category"
-                    value={formData.category}
+                  <textarea
+                    name="description"
+                    value={formData.description}
                     onChange={handleInputChange}
-                    className={`w-full px-3 py-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.category
-                        ? "border-red-500"
-                        : "border-neutral-600"
-                    }`}
+                    rows={3}
+                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter menu item description"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Dietary Tags
+                    </label>
+                    <div className="space-y-2">
+                      {getDietaryTagOptions().map((option) => (
+                        <label key={option.value} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={
+                              formData.dietaryTags?.includes(option.value) ||
+                              false
+                            }
+                            onChange={(e) => {
+                              const currentTags = formData.dietaryTags || [];
+                              const newTags = e.target.checked
+                                ? [...currentTags, option.value]
+                                : currentTags.filter(
+                                    (tag) => tag !== option.value
+                                  );
+                              handleArrayChange("dietaryTags", newTags);
+                            }}
+                            className="mr-2 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-300">
+                            {option.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Allergens
+                    </label>
+                    <div className="space-y-2">
+                      {getAllergenOptions().map((option) => (
+                        <label key={option.value} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={
+                              formData.allergens?.includes(option.value) ||
+                              false
+                            }
+                            onChange={(e) => {
+                              const currentAllergens = formData.allergens || [];
+                              const newAllergens = e.target.checked
+                                ? [...currentAllergens, option.value]
+                                : currentAllergens.filter(
+                                    (allergen) => allergen !== option.value
+                                  );
+                              handleArrayChange("allergens", newAllergens);
+                            }}
+                            className="mr-2 text-red-600 bg-neutral-700 border-neutral-600 rounded focus:ring-red-500"
+                          />
+                          <span className="text-sm text-gray-300">
+                            {option.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="isAvailable"
+                      checked={formData.isAvailable}
+                      onChange={handleInputChange}
+                      className="mr-2 text-green-600 bg-neutral-700 border-neutral-600 rounded focus:ring-green-500"
+                    />
+                    <span className="text-sm text-gray-300">Available</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="isFeatured"
+                      checked={formData.isFeatured}
+                      onChange={handleInputChange}
+                      className="mr-2 text-yellow-600 bg-neutral-700 border-neutral-600 rounded focus:ring-yellow-500"
+                    />
+                    <span className="text-sm text-gray-300">Featured</span>
+                  </label>
+                </div>
+
+                <div className="flex justify-end space-x-4 pt-6">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-4 py-2 text-gray-300 bg-neutral-700 hover:bg-neutral-600 rounded-lg transition-colors"
                   >
-                    {getCategoryOptions().map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.category && (
-                    <p className="text-red-400 text-sm mt-1">
-                      {formErrors.category}
-                    </p>
-                  )}
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  >
+                    {editingMenuItem ? "Update" : "Create"} Menu Item
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Price *
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    min="0"
-                    className={`w-full px-3 py-2 bg-neutral-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.price ? "border-red-500" : "border-neutral-600"
-                    }`}
-                    placeholder="0.00"
-                  />
-                  {formErrors.price && (
-                    <p className="text-red-400 text-sm mt-1">
-                      {formErrors.price}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Cost Price
-                  </label>
-                  <input
-                    type="number"
-                    name="cost"
-                    value={formData.cost}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    min="0"
-                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Subcategory
-                  </label>
-                  <input
-                    type="text"
-                    name="subcategory"
-                    value={formData.subcategory}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., Pasta, Pizza, Salad"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Preparation Time (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    name="preparationTime"
-                    value={formData.preparationTime}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Calories
-                  </label>
-                  <input
-                    type="number"
-                    name="calories"
-                    value={formData.calories}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Image URL
-                  </label>
-                  <input
-                    type="url"
-                    name="imageUrl"
-                    value={formData.imageUrl}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-3 py-2 bg-neutral-700 border border-neutral-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter menu item description"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Dietary Tags
-                  </label>
-                  <div className="space-y-2">
-                    {getDietaryTagOptions().map((option) => (
-                      <label key={option.value} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={
-                            formData.dietaryTags?.includes(option.value) ||
-                            false
-                          }
-                          onChange={(e) => {
-                            const currentTags = formData.dietaryTags || [];
-                            const newTags = e.target.checked
-                              ? [...currentTags, option.value]
-                              : currentTags.filter(
-                                  (tag) => tag !== option.value
-                                );
-                            handleArrayChange("dietaryTags", newTags);
-                          }}
-                          className="mr-2 text-blue-600 bg-neutral-700 border-neutral-600 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-300">
-                          {option.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Allergens
-                  </label>
-                  <div className="space-y-2">
-                    {getAllergenOptions().map((option) => (
-                      <label key={option.value} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={
-                            formData.allergens?.includes(option.value) || false
-                          }
-                          onChange={(e) => {
-                            const currentAllergens = formData.allergens || [];
-                            const newAllergens = e.target.checked
-                              ? [...currentAllergens, option.value]
-                              : currentAllergens.filter(
-                                  (allergen) => allergen !== option.value
-                                );
-                            handleArrayChange("allergens", newAllergens);
-                          }}
-                          className="mr-2 text-red-600 bg-neutral-700 border-neutral-600 rounded focus:ring-red-500"
-                        />
-                        <span className="text-sm text-gray-300">
-                          {option.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isAvailable"
-                    checked={formData.isAvailable}
-                    onChange={handleInputChange}
-                    className="mr-2 text-green-600 bg-neutral-700 border-neutral-600 rounded focus:ring-green-500"
-                  />
-                  <span className="text-sm text-gray-300">Available</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="isFeatured"
-                    checked={formData.isFeatured}
-                    onChange={handleInputChange}
-                    className="mr-2 text-yellow-600 bg-neutral-700 border-neutral-600 rounded focus:ring-yellow-500"
-                  />
-                  <span className="text-sm text-gray-300">Featured</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end space-x-4 pt-6">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 text-gray-300 bg-neutral-700 hover:bg-neutral-600 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  {editingMenuItem ? "Update" : "Create"} Menu Item
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

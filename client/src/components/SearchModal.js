@@ -264,7 +264,7 @@ const SearchModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] overflow-y-auto">
       <div className="flex items-start justify-center min-h-screen pt-16 px-4 pb-20 text-center sm:block sm:p-0">
         <div
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
@@ -272,19 +272,24 @@ const SearchModal = ({ isOpen, onClose }) => {
         ></div>
 
         <div className="inline-block align-bottom bg-primary-bg rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-          <div className="bg-primary-bg px-6 py-4">
-            <div className="flex items-center justify-between mb-4">
+          {/* Sticky Header */}
+          <div className="sticky top-0 bg-primary-bg border-b border-border px-6 pt-6 pb-4 rounded-t-lg z-10">
+            <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-text-primary">
                 Search
               </h3>
               <button
                 onClick={onClose}
-                className="text-text-secondary hover:text-text-primary transition-colors"
+                className="text-text-secondary hover:text-text-primary text-3xl font-bold p-2 hover:bg-primary-bg-accent rounded-full transition-colors"
+                title="Close Search"
               >
-                <X className="w-6 h-6" />
+                ×
               </button>
             </div>
+          </div>
 
+          {/* Modal Content */}
+          <div className="px-6 py-4">
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-text-secondary" />
               <input

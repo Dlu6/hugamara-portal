@@ -64,6 +64,8 @@ MenuItem.hasMany(OrderItem, { foreignKey: "menuItemId", as: "orderItems" });
 // Guest relationships
 Guest.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
 Outlet.hasMany(Guest, { foreignKey: "outletId", as: "guests" });
+Guest.hasMany(Reservation, { foreignKey: "guestId", as: "reservations" });
+Reservation.belongsTo(Guest, { foreignKey: "guestId", as: "guest" });
 
 // Table relationships
 Table.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });

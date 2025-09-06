@@ -9,6 +9,7 @@ import {
   guestsAPI,
   ordersAPI,
 } from "../../services/apiClient";
+import api from "../../services/apiClient";
 
 // Async Thunks for CRUD operations
 export const fetchReservations = createAsyncThunk(
@@ -105,7 +106,9 @@ export const updateReservationStatus = createAsyncThunk(
   "reservations/updateReservationStatus",
   async ({ id, status }, { rejectWithValue }) => {
     try {
-      const response = await reservationsAPI.update(id, { status });
+      const response = await api.patch(`/reservations/${id}/status`, {
+        status,
+      });
       return {
         id,
         status,
@@ -123,10 +126,7 @@ export const seatReservation = createAsyncThunk(
   "reservations/seatReservation",
   async ({ id, tableId }, { rejectWithValue }) => {
     try {
-      const response = await reservationsAPI.update(id, {
-        status: "seated",
-        tableId,
-      });
+      const response = await api.patch(`/reservations/${id}/seat`, { tableId });
       return {
         id,
         tableId,

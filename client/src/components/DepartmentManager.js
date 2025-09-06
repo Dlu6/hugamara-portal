@@ -84,21 +84,26 @@ const DepartmentManager = ({
 
       {/* Add Department Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-md w-full border border-neutral-700">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 sm:p-6 z-[9999] overflow-y-auto">
+          <div className="bg-neutral-800 rounded-lg shadow-xl max-w-md w-full mt-8 sm:mt-12 mb-4 sm:mb-8 border border-neutral-700 min-h-fit max-h-[90vh] overflow-y-auto">
+            {/* Sticky Header */}
+            <div className="sticky top-0 bg-neutral-800 border-b border-neutral-700 px-6 pt-6 pb-4 rounded-t-lg z-10">
+              <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-white">
                   Add New Department
                 </h3>
                 <button
                   onClick={handleModalClose}
-                  className="text-neutral-400 hover:text-white"
+                  className="text-neutral-400 hover:text-white text-3xl font-bold p-2 hover:bg-neutral-700 rounded-full transition-colors"
+                  title="Close Modal"
                 >
-                  <X className="w-5 h-5" />
+                  ×
                 </button>
               </div>
+            </div>
 
+            {/* Modal Content */}
+            <div className="p-6 sm:p-8 pb-8">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

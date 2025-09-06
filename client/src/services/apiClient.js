@@ -123,6 +123,12 @@ export const inventoryAPI = {
     api.get("/inventory/expiring", { params: { days } }),
   updateStock: (id, data) => api.patch(`/inventory/${id}/stock`, data),
   bulkUpdateStock: (data) => api.patch("/inventory/bulk-stock", data),
+  generateSKU: (category, outletId) =>
+    api.get(
+      `/inventory/generate-sku?category=${category}${
+        outletId ? `&outletId=${outletId}` : ""
+      }`
+    ),
 };
 export const guestsAPI = {
   ...createResourceAPI("guests"),
