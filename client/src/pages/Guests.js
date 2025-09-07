@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useToast } from "../components/ui/ToastProvider";
 import {
@@ -39,6 +39,8 @@ import {
 const Guests = () => {
   const dispatch = useDispatch();
   const { success: showSuccess, error: showError } = useToast();
+
+  const [submitting, setSubmitting] = useState(false);
 
   const guests = useSelector(selectGuests);
   const guestStats = useSelector(selectGuestStats);
@@ -99,7 +101,7 @@ const Guests = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+    setSubmitting(true);
     try {
       const sanitizeGuestPayload = (data) => {
         const cleaned = { ...data };
@@ -165,6 +167,8 @@ const Guests = () => {
       dispatch(fetchGuestStats());
     } catch (error) {
       // Error handling is done in the slice
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -496,8 +500,8 @@ const Guests = () => {
 
       {/* Create/Edit Guest Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto mt-16">
             <h2 className="text-xl font-bold text-white mb-4">
               {editingGuest ? "Edit Guest" : "Add New Guest"}
             </h2>
@@ -815,10 +819,10 @@ const Guests = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none"
-                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={loading || submitting}
                 >
-                  {loading
+                  {loading || submitting
                     ? "Saving..."
                     : editingGuest
                     ? "Update Guest"
