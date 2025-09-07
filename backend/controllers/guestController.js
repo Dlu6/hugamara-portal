@@ -352,8 +352,9 @@ export const getGuestHistory = async (req, res) => {
         attributes: [
           "id",
           "reservationNumber",
-          "date",
-          "time",
+          // Use model attribute names that map to reservation_date/reservation_time
+          "reservationDate",
+          "reservationTime",
           "partySize",
           "status",
           "createdAt",
