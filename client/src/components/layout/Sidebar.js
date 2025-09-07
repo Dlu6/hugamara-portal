@@ -95,6 +95,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                 src="/hugamara-logo.png"
                 alt="Hugamara"
                 className="w-8 h-8"
+                style={{
+                  filter:
+                    "drop-shadow(0 0 8px rgba(255,255,255,0.35)) drop-shadow(0 4px 12px rgba(255,255,255,0.2))",
+                }}
               />
               <h1 className="text-lg font-bold text-text-primary">Hugamara</h1>
             </div>
@@ -110,7 +114,15 @@ const Sidebar = ({ isOpen, onClose }) => {
         {/* Logo and Brand */}
         <div className="p-6 border-b border-border">
           <div className="flex items-center space-x-3">
-            <img src="/hugamara-logo.png" alt="Hugamara" className="w-8 h-8" />
+            <img
+              src="/hugamara-logo.png"
+              alt="Hugamara"
+              className="w-12 h-12"
+              style={{
+                filter:
+                  "drop-shadow(0 1px 1px rgb(255, 255, 255)) drop-shadow(0 3px 1px rgb(255, 255, 255))",
+              }}
+            />
             <div>
               <h1 className="text-xl font-bold text-text-primary">Hugamara</h1>
               <p className="text-sm text-text-secondary">Management Portal</p>

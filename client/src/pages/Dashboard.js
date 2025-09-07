@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { formatUGX } from "../utils/currency";
 import dashboardService from "../services/dashboardService";
+import { connectSocket, getSocket, disconnectSocket } from "../services/socket";
 import {
   TrendingUp,
   Users,
@@ -182,6 +183,72 @@ const Dashboard = () => {
 
     fetchDashboardData();
     fetchChartData();
+
+    // Realtime socket: subscribe to outlet room and live events
+    try {
+      const token = localStorage.getItem("token");
+      const outletId = currentOutlet?.id;
+      const sock = connectSocket(token, { outletId });
+
+      const handleDashboardUpdate = (payload) => {
+        // payload can include partials like { revenue, tickets, inventory } etc.
+        if (payload?.revenue) {
+          setDashboardData((prev) => ({
+            ...(prev || {}),
+            revenue: payload.revenue,
+          }));
+        }
+        if (payload?.tickets) {
+          setDashboardData((prev) => ({
+            ...(prev || {}),
+            tickets: payload.tickets,
+          }));
+        }
+        if (payload?.inventory) {
+          setDashboardData((prev) => ({
+            ...(prev || {}),
+            inventory: payload.inventory,
+          }));
+        }
+        if (payload?.reservations) {
+          setDashboardData((prev) => ({
+            ...(prev || {}),
+            reservations: payload.reservations,
+          }));
+        }
+        if (payload?.guests) {
+          setDashboardData((prev) => ({
+            ...(prev || {}),
+            guests: payload.guests,
+          }));
+        }
+      };
+
+      const handleTicketStats = (stats) => {
+        setDashboardData((prev) => ({ ...(prev || {}), tickets: stats }));
+      };
+
+      const handleRevenueTick = (revenue) => {
+        setDashboardData((prev) => ({ ...(prev || {}), revenue }));
+      };
+
+      sock?.on?.("dashboard:update", handleDashboardUpdate);
+      sock?.on?.("tickets:stats", handleTicketStats);
+      sock?.on?.("revenue:tick", handleRevenueTick);
+
+      // Clean up listeners on unmount or outlet change
+      return () => {
+        const s = getSocket();
+        try {
+          s?.off?.("dashboard:update", handleDashboardUpdate);
+          s?.off?.("tickets:stats", handleTicketStats);
+          s?.off?.("revenue:tick", handleRevenueTick);
+        } catch {}
+        // Do not disconnect app-wide socket entirely; keep it if needed globally.
+      };
+    } catch (e) {
+      // Non-fatal; dashboard will continue polling fallback
+    }
   }, [currentOutlet?.id]);
 
   // Show loading state

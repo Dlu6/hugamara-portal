@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LogIn, Building2 } from 'lucide-react';
-import { login } from '../../store/slices/authSlice';
-import { fetchOutlets } from '../../store/slices/outletSlice';
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, LogIn, Building2 } from "lucide-react";
+import { login } from "../../store/slices/authSlice";
+import { fetchOutlets } from "../../store/slices/outletSlice";
 
 const LoginForm = () => {
   const dispatch = useDispatch();
@@ -12,11 +12,23 @@ const LoginForm = () => {
   const { outlets } = useSelector((state) => state.outlets);
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    outletId: ''
+    email: "",
+    password: "",
+    outletId: "",
   });
   const [showPassword, setShowPassword] = useState(false);
+
+  const getInitials = (name = "") => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  };
+
+  const isSelectedOutlet = (id) => formData.outletId === id;
+
+  const handleSelectOutlet = (id) => {
+    setFormData((prev) => ({ ...prev, outletId: id }));
+  };
 
   useEffect(() => {
     dispatch(fetchOutlets());
@@ -25,13 +37,13 @@ const LoginForm = () => {
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.email || !formData.password || !formData.outletId) {
       return;
     }
@@ -39,10 +51,10 @@ const LoginForm = () => {
     try {
       const result = await dispatch(login(formData)).unwrap();
       if (result.user) {
-        navigate('/dashboard');
+        navigate("/dashboard");
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error("Login failed:", error);
     }
   };
 
@@ -65,7 +77,10 @@ const LoginForm = () => {
           <div className="rounded-md shadow-sm space-y-4">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Email Address
               </label>
               <input
@@ -83,14 +98,17 @@ const LoginForm = () => {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Password
               </label>
               <div className="relative">
                 <input
                   id="password"
                   name="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
                   className="appearance-none relative block w-full px-3 py-2 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
@@ -114,24 +132,65 @@ const LoginForm = () => {
 
             {/* Outlet Selection */}
             <div>
-              <label htmlFor="outletId" className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Outlet
               </label>
-              <select
-                id="outletId"
-                name="outletId"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                value={formData.outletId}
-                onChange={handleChange}
-              >
-                <option value="">Choose an outlet...</option>
+
+              {/* Adorned, clickable outlet cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {outlets.map((outlet) => (
-                  <option key={outlet.id} value={outlet.id}>
-                    {outlet.name} ({outlet.code})
-                  </option>
+                  <button
+                    type="button"
+                    key={outlet.id}
+                    onClick={() => handleSelectOutlet(outlet.id)}
+                    className={`group flex items-center gap-3 p-3 rounded-lg border transition-all text-left shadow-sm ${
+                      isSelectedOutlet(outlet.id)
+                        ? "border-indigo-500 ring-2 ring-indigo-300/40 bg-indigo-50"
+                        : "border-gray-200 hover:border-indigo-300 bg-white"
+                    }`}
+                    title={`${outlet.name} (${outlet.code})`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold shadow ${
+                        isSelectedOutlet(outlet.id)
+                          ? "bg-indigo-600"
+                          : "bg-gray-800"
+                      }`}
+                      style={{
+                        filter: "drop-shadow(0 1px 1px rgba(255,255,255,0.75))",
+                      }}
+                    >
+                      {getInitials(outlet.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">
+                        {outlet.name}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {outlet.code}
+                      </div>
+                    </div>
+                  </button>
                 ))}
-              </select>
+              </div>
+
+              {/* Accessible native select as fallback/keyboard selection */}
+              <div className="sr-only">
+                <label htmlFor="outletId-hidden">Outlet</label>
+                <select
+                  id="outletId-hidden"
+                  name="outletId"
+                  value={formData.outletId}
+                  onChange={handleChange}
+                >
+                  <option value="">Choose an outlet...</option>
+                  {outlets.map((outlet) => (
+                    <option key={outlet.id} value={outlet.id}>
+                      {outlet.name} ({outlet.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -139,7 +198,7 @@ const LoginForm = () => {
           {error && (
             <div className="rounded-md bg-red-50 p-4">
               <div className="text-sm text-red-700">
-                {error.message || 'Login failed. Please try again.'}
+                {error.message || "Login failed. Please try again."}
               </div>
             </div>
           )}
@@ -148,23 +207,36 @@ const LoginForm = () => {
           <div>
             <button
               type="submit"
-              disabled={loading || !formData.email || !formData.password || !formData.outletId}
+              disabled={
+                loading ||
+                !formData.email ||
+                !formData.password ||
+                !formData.outletId
+              }
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="absolute left-0 inset-y-0 flex items-center pl-3">
                 <LogIn className="h-5 w-5 text-indigo-500 group-hover:text-indigo-400" />
               </span>
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </div>
 
           {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-gray-50 rounded-md">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Demo Credentials:</h4>
+            <h4 className="text-sm font-medium text-gray-700 mb-2">
+              Demo Credentials:
+            </h4>
             <div className="text-xs text-gray-600 space-y-1">
-              <div><strong>Email:</strong> admin@hugamara.com</div>
-              <div><strong>Password:</strong> password123</div>
-              <div><strong>Outlet:</strong> CS (Server Room)</div>
+              <div>
+                <strong>Email:</strong> admin@hugamara.com
+              </div>
+              <div>
+                <strong>Password:</strong> password123
+              </div>
+              <div>
+                <strong>Outlet:</strong> CS (Server Room)
+              </div>
             </div>
           </div>
         </form>
