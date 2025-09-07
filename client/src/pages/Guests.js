@@ -101,16 +101,52 @@ const Guests = () => {
     e.preventDefault();
 
     try {
+      const sanitizeGuestPayload = (data) => {
+        const cleaned = { ...data };
+        const optionalStringFields = [
+          "email",
+          "phone",
+          "dateOfBirth",
+          "gender",
+          "address",
+          "city",
+          "country",
+          "preferences",
+          "allergies",
+          "dietaryRestrictions",
+          "notes",
+        ];
+
+        optionalStringFields.forEach((field) => {
+          if (cleaned[field] === "" || cleaned[field] === undefined) {
+            delete cleaned[field];
+          }
+        });
+
+        ["loyaltyPoints", "totalSpent", "visitCount"].forEach((field) => {
+          const val = cleaned[field];
+          if (val === "" || val === null || val === undefined) {
+            delete cleaned[field];
+          } else if (!Number.isNaN(Number(val))) {
+            cleaned[field] = Number(val);
+          }
+        });
+
+        return cleaned;
+      };
+
+      const payload = sanitizeGuestPayload(formData);
+
       if (editingGuest) {
         const result = await dispatch(
           updateGuest({
             id: editingGuest.id,
-            guestData: formData,
+            guestData: payload,
           })
         ).unwrap();
         showSuccess("Guest updated successfully");
       } else {
-        const result = await dispatch(createGuest(formData)).unwrap();
+        const result = await dispatch(createGuest(payload)).unwrap();
         showSuccess("Guest created successfully");
       }
 
