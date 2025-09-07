@@ -52,6 +52,8 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState(null);
   const [chartData, setChartData] = useState({
     revenueData: [],
     topMenuItems: [],
@@ -72,57 +74,6 @@ const Dashboard = () => {
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
         setError("Failed to load dashboard data");
-        // Fallback to mock data for development
-        setDashboardData({
-          revenue: {
-            today: 12500,
-            week: 87500,
-            month: 325000,
-            change: "+12.5%",
-          },
-          reservations: {
-            booked: 45,
-            seated: 38,
-            noShow: 7,
-            rate: "15.6%",
-          },
-          guests: {
-            total: 156,
-            new: 23,
-            returning: 133,
-          },
-          tickets: {
-            open: 8,
-            resolved: 42,
-            critical: 2,
-          },
-          inventory: {
-            totalItems: 245,
-            lowStock: 12,
-            outOfStock: 3,
-            expiringSoon: 8,
-            totalValue: 45000,
-          },
-          menu: {
-            totalItems: 89,
-            available: 76,
-            unavailable: 13,
-            topSellers: ["Margherita Pizza", "Chicken Wings", "Caesar Salad"],
-          },
-          tables: {
-            total: 24,
-            occupied: 18,
-            available: 4,
-            cleaning: 2,
-            reserved: 8,
-          },
-          staff: {
-            total: 15,
-            onShift: 12,
-            offDuty: 3,
-            overtime: 2,
-          },
-        });
       } finally {
         setLoading(false);
       }
@@ -130,54 +81,35 @@ const Dashboard = () => {
 
     const fetchChartData = async () => {
       try {
-        const [revenueData, topMenuItems] = await Promise.all([
+        setAnalyticsLoading(true);
+        setAnalyticsError(null);
+
+        const [revenueData, topMenuItems, analyticsData] = await Promise.all([
           dashboardService.getRevenueChart(currentOutlet?.id),
           dashboardService.getTopMenuItems(currentOutlet?.id),
+          dashboardService.getAnalyticsData(currentOutlet?.id),
         ]);
-
-        // Generate mock chart data for demonstration
-        const mockOrderStatusData = [
-          { name: "Pending", value: 15, color: "#F59E0B" },
-          { name: "Confirmed", value: 45, color: "#10B981" },
-          { name: "Preparing", value: 25, color: "#3B82F6" },
-          { name: "Completed", value: 60, color: "#8B5CF6" },
-          { name: "Cancelled", value: 5, color: "#EF4444" },
-        ];
-
-        const mockGuestActivityData = [
-          { name: "Mon", new: 12, returning: 28 },
-          { name: "Tue", new: 8, returning: 35 },
-          { name: "Wed", new: 15, returning: 42 },
-          { name: "Thu", new: 20, returning: 38 },
-          { name: "Fri", new: 25, returning: 55 },
-          { name: "Sat", new: 30, returning: 68 },
-          { name: "Sun", new: 18, returning: 45 },
-        ];
-
-        const mockInventoryData = [
-          { name: "In Stock", value: 180, color: "#10B981" },
-          { name: "Low Stock", value: 12, color: "#F59E0B" },
-          { name: "Out of Stock", value: 3, color: "#EF4444" },
-          { name: "Expiring Soon", value: 8, color: "#8B5CF6" },
-        ];
-
-        const mockTableStatusData = [
-          { name: "Available", value: 4, color: "#10B981" },
-          { name: "Occupied", value: 18, color: "#3B82F6" },
-          { name: "Cleaning", value: 2, color: "#F59E0B" },
-          { name: "Reserved", value: 8, color: "#8B5CF6" },
-        ];
 
         setChartData({
           revenueData: revenueData?.revenueData || [],
           topMenuItems: topMenuItems?.topMenuItems || [],
-          orderStatusData: mockOrderStatusData,
-          guestActivityData: mockGuestActivityData,
-          inventoryData: mockInventoryData,
-          tableStatusData: mockTableStatusData,
+          orderStatusData: analyticsData.orderStatusData || [],
+          guestActivityData: analyticsData.guestActivityData || [],
+          inventoryData: analyticsData.inventoryData || [],
+          tableStatusData: analyticsData.tableStatusData || [],
         });
+
+        // Update dashboard data with real analytics data
+        setDashboardData((prev) => ({
+          ...prev,
+          staff: analyticsData.staff || prev.staff,
+          tickets: analyticsData.tickets || prev.tickets,
+        }));
       } catch (err) {
         console.error("Failed to fetch chart data:", err);
+        setAnalyticsError("Failed to load analytics data");
+      } finally {
+        setAnalyticsLoading(false);
       }
     };
 
@@ -435,21 +367,21 @@ const Dashboard = () => {
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">On Shift</span>
+          <span className="text-gray-600">Front of House</span>
           <span className="font-semibold text-green-600">
-            {dashboardData.staff.onShift}
+            {dashboardData.staff.frontOfHouse}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Off Duty</span>
-          <span className="font-semibold text-gray-500">
-            {dashboardData.staff.offDuty}
+          <span className="text-gray-600">Kitchen</span>
+          <span className="font-semibold text-blue-600">
+            {dashboardData.staff.kitchen}
           </span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Overtime</span>
-          <span className="font-semibold text-yellow-600">
-            {dashboardData.staff.overtime}
+          <span className="text-gray-600">Management</span>
+          <span className="font-semibold text-purple-600">
+            {dashboardData.staff.management}
           </span>
         </div>
       </div>
@@ -595,9 +527,23 @@ const Dashboard = () => {
 
       {/* Power BI Style Charts */}
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-accent-primary mb-4">
-          Analytics & Insights
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-accent-primary mb-4">
+            Analytics & Insights
+          </h2>
+          {analyticsLoading && (
+            <div className="flex items-center text-[#11BCC9]">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <span className="text-sm">Loading analytics...</span>
+            </div>
+          )}
+          {analyticsError && (
+            <div className="flex items-center text-yellow-600">
+              <AlertCircle className="w-4 h-4 mr-2" />
+              <span className="text-sm">Using sample data</span>
+            </div>
+          )}
+        </div>
 
         {/* Revenue Trend Chart */}
         <div className="dashboard-card">
@@ -616,62 +562,73 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData.revenueData}>
-                <defs>
-                  <linearGradient
-                    id="revenueGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="5%" stopColor="#11BCC9" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#11BCC9" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis
-                  dataKey="date"
-                  stroke="#9CA3AF"
-                  fontSize={12}
-                  tickFormatter={(value) =>
-                    new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }
-                />
-                <YAxis
-                  stroke="#9CA3AF"
-                  fontSize={12}
-                  tickFormatter={(value) => `UGX ${(value / 1000).toFixed(0)}K`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1F2937",
-                    border: "1px solid #374151",
-                    borderRadius: "8px",
-                    color: "#F9FAFB",
-                  }}
-                  formatter={(value) => [formatUGX(value), "Revenue"]}
-                  labelFormatter={(label) =>
-                    new Date(label).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }
-                />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#11BCC9"
-                  strokeWidth={3}
-                  fill="url(#revenueGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {analyticsLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#11BCC9] mx-auto mb-4" />
+                  <p className="text-gray-600">Loading revenue data...</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData.revenueData}>
+                  <defs>
+                    <linearGradient
+                      id="revenueGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor="#11BCC9" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#11BCC9" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickFormatter={(value) =>
+                      new Date(value).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })
+                    }
+                  />
+                  <YAxis
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickFormatter={(value) =>
+                      `UGX ${(value / 1000).toFixed(0)}K`
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1F2937",
+                      border: "1px solid #374151",
+                      borderRadius: "8px",
+                      color: "#F9FAFB",
+                    }}
+                    formatter={(value) => [formatUGX(value), "Revenue"]}
+                    labelFormatter={(label) =>
+                      new Date(label).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    }
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#11BCC9"
+                    strokeWidth={3}
+                    fill="url(#revenueGradient)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -686,35 +643,46 @@ const Dashboard = () => {
               </h3>
             </div>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={chartData.orderStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {chartData.orderStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1F2937",
-                      border: "1px solid #374151",
-                      borderRadius: "8px",
-                      color: "#F9FAFB",
-                    }}
-                    formatter={(value) => [value, "Orders"]}
-                  />
-                  <Legend
-                    wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#11BCC9] mx-auto mb-2" />
+                    <p className="text-gray-600 text-sm">
+                      Loading order data...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={chartData.orderStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {chartData.orderStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1F2937",
+                        border: "1px solid #374151",
+                        borderRadius: "8px",
+                        color: "#F9FAFB",
+                      }}
+                      formatter={(value) => [value, "Orders"]}
+                    />
+                    <Legend
+                      wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
@@ -727,36 +695,47 @@ const Dashboard = () => {
               </h3>
             </div>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData.guestActivityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
-                  <YAxis stroke="#9CA3AF" fontSize={12} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1F2937",
-                      border: "1px solid #374151",
-                      borderRadius: "8px",
-                      color: "#F9FAFB",
-                    }}
-                  />
-                  <Legend
-                    wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
-                  />
-                  <Bar
-                    dataKey="new"
-                    fill="#11BCC9"
-                    name="New Guests"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="returning"
-                    fill="#10B981"
-                    name="Returning Guests"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#11BCC9] mx-auto mb-2" />
+                    <p className="text-gray-600 text-sm">
+                      Loading guest data...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={chartData.guestActivityData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis dataKey="name" stroke="#9CA3AF" fontSize={12} />
+                    <YAxis stroke="#9CA3AF" fontSize={12} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1F2937",
+                        border: "1px solid #374151",
+                        borderRadius: "8px",
+                        color: "#F9FAFB",
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
+                    />
+                    <Bar
+                      dataKey="new"
+                      fill="#11BCC9"
+                      name="New Guests"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="returning"
+                      fill="#10B981"
+                      name="Returning Guests"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
@@ -769,35 +748,46 @@ const Dashboard = () => {
               </h3>
             </div>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={chartData.inventoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {chartData.inventoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1F2937",
-                      border: "1px solid #374151",
-                      borderRadius: "8px",
-                      color: "#F9FAFB",
-                    }}
-                    formatter={(value) => [value, "Items"]}
-                  />
-                  <Legend
-                    wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#11BCC9] mx-auto mb-2" />
+                    <p className="text-gray-600 text-sm">
+                      Loading inventory data...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={chartData.inventoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {chartData.inventoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1F2937",
+                        border: "1px solid #374151",
+                        borderRadius: "8px",
+                        color: "#F9FAFB",
+                      }}
+                      formatter={(value) => [value, "Items"]}
+                    />
+                    <Legend
+                      wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
@@ -810,35 +800,46 @@ const Dashboard = () => {
               </h3>
             </div>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={chartData.tableStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {chartData.tableStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "#1F2937",
-                      border: "1px solid #374151",
-                      borderRadius: "8px",
-                      color: "#F9FAFB",
-                    }}
-                    formatter={(value) => [value, "Tables"]}
-                  />
-                  <Legend
-                    wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#11BCC9] mx-auto mb-2" />
+                    <p className="text-gray-600 text-sm">
+                      Loading table data...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={chartData.tableStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {chartData.tableStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#1F2937",
+                        border: "1px solid #374151",
+                        borderRadius: "8px",
+                        color: "#F9FAFB",
+                      }}
+                      formatter={(value) => [value, "Tables"]}
+                    />
+                    <Legend
+                      wrapperStyle={{ color: "#9CA3AF", fontSize: "12px" }}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
         </div>
@@ -852,34 +853,47 @@ const Dashboard = () => {
             </h3>
           </div>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData.topMenuItems} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis
-                  type="number"
-                  stroke="#9CA3AF"
-                  fontSize={12}
-                  tickFormatter={(value) => value}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  stroke="#9CA3AF"
-                  fontSize={12}
-                  width={120}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1F2937",
-                    border: "1px solid #374151",
-                    borderRadius: "8px",
-                    color: "#F9FAFB",
-                  }}
-                  formatter={(value, name) => [value, "Quantity Sold"]}
-                />
-                <Bar dataKey="totalSold" fill="#11BCC9" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {analyticsLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#11BCC9] mx-auto mb-4" />
+                  <p className="text-gray-600">Loading menu data...</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData.topMenuItems} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis
+                    type="number"
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    tickFormatter={(value) => value}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    width={120}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1F2937",
+                      border: "1px solid #374151",
+                      borderRadius: "8px",
+                      color: "#F9FAFB",
+                    }}
+                    formatter={(value, name) => [value, "Quantity Sold"]}
+                  />
+                  <Bar
+                    dataKey="totalSold"
+                    fill="#11BCC9"
+                    radius={[0, 4, 4, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>
@@ -903,12 +917,23 @@ const Dashboard = () => {
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">85%</div>
+              <div className="text-2xl font-bold text-green-600">
+                {dashboardData?.tables?.total
+                  ? Math.round(
+                      (dashboardData.tables.occupied /
+                        dashboardData.tables.total) *
+                        100
+                    )
+                  : 0}
+                %
+              </div>
               <div className="text-sm text-gray-600">Table Occupancy</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-[#11BCC9]">12</div>
-              <div className="text-sm text-gray-600">Active Staff</div>
+              <div className="text-2xl font-bold text-[#11BCC9]">
+                {dashboardData?.staff?.total || 0}
+              </div>
+              <div className="text-sm text-gray-600">Total Staff</div>
             </div>
           </div>
         </div>
@@ -966,15 +991,20 @@ const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Tables Seated</span>
-              <span className="font-semibold text-success">24/30</span>
+              <span className="font-semibold text-success">
+                {dashboardData?.tables?.occupied || 0}/
+                {dashboardData?.tables?.total || 0}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Wait Time</span>
-              <span className="font-semibold text-warning">15 min avg</span>
+              <span className="font-semibold text-warning">Calculating...</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Active Orders</span>
-              <span className="font-semibold text-accent-primary">18</span>
+              <span className="font-semibold text-accent-primary">
+                {dashboardData?.revenue?.pendingOrders || 0}
+              </span>
             </div>
           </div>
         </div>
@@ -986,15 +1016,19 @@ const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Orders Pending</span>
-              <span className="font-semibold text-warning">8</span>
+              <span className="font-semibold text-warning">
+                {dashboardData?.revenue?.pendingOrders || 0}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Prep Time</span>
-              <span className="font-semibold text-success">12 min avg</span>
+              <span className="font-semibold text-success">Calculating...</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">86'd Items</span>
-              <span className="font-semibold text-error">2</span>
+              <span className="font-semibold text-error">
+                {dashboardData?.menu?.unavailable || 0}
+              </span>
             </div>
           </div>
         </div>
@@ -1043,15 +1077,21 @@ const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Tables Assigned</span>
-              <span className="font-semibold text-accent-primary">8</span>
+              <span className="font-semibold text-accent-primary">
+                {dashboardData?.tables?.occupied || 0}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Active Orders</span>
-              <span className="font-semibold text-warning">5</span>
+              <span className="font-semibold text-warning">
+                {dashboardData?.revenue?.pendingOrders || 0}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-text-secondary">Guests Served</span>
-              <span className="font-semibold text-success">23</span>
+              <span className="font-semibold text-success">
+                {dashboardData?.guests?.total || 0}
+              </span>
             </div>
           </div>
         </div>
@@ -1062,13 +1102,7 @@ const Dashboard = () => {
           </h3>
           <div className="space-y-2">
             <div className="text-sm text-text-secondary">
-              • Order #1234 ready for pickup
-            </div>
-            <div className="text-sm text-text-secondary">
-              • Caesar Salad 86'd - use Garden Salad instead
-            </div>
-            <div className="text-sm text-text-secondary">
-              • Margherita Pizza - 5 min prep time
+              • No recent updates
             </div>
           </div>
         </div>

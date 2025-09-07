@@ -1009,6 +1009,8 @@ The system comes with pre-seeded test users:
 - **Touch-Friendly Interface**: Optimized all components for mobile devices
 - **Responsive Layout**: Updated CSS with mobile breakpoints and touch interactions
 - **Mobile Navigation**: Added hamburger menu with overlay and smooth transitions
+- **Improved Tooltips**: Updated tooltip text color to white for better visibility
+- **Favicon Support**: Added favicon for better branding and user experience
 
 ### New Modules Added
 

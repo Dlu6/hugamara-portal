@@ -104,6 +104,18 @@ export const dashboardAPI = {
   getRevenue: (period = "week", params = {}) =>
     api.get("/dashboard/revenue", { params: { period, ...params } }),
   getTopItems: (params = {}) => api.get("/dashboard/top-items", { params }),
+  getOrderStatus: (params = {}) =>
+    api.get("/dashboard/order-status", { params }),
+  getGuestActivity: (params = {}) =>
+    api.get("/dashboard/guest-activity", { params }),
+  getInventoryStatus: (params = {}) =>
+    api.get("/dashboard/inventory-status", { params }),
+  getTableStatus: (params = {}) =>
+    api.get("/dashboard/table-status", { params }),
+  getStaffStatus: (params = {}) =>
+    api.get("/dashboard/staff-status", { params }),
+  getTicketStats: (params = {}) =>
+    api.get("/dashboard/ticket-stats", { params }),
 };
 
 // Resource APIs

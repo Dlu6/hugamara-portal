@@ -84,6 +84,82 @@ const dashboardService = {
     const response = await dashboardAPI.getTopItems(params);
     return response.data;
   },
+
+  // Analytics data methods
+  getOrderStatusDistribution: async (outletId) => {
+    const params = outletId ? { outletId } : {};
+    const response = await dashboardAPI.getOrderStatus(params);
+    return response.data;
+  },
+
+  getGuestActivityData: async (outletId, days = 7) => {
+    const params = outletId ? { outletId, days } : { days };
+    const response = await dashboardAPI.getGuestActivity(params);
+    return response.data;
+  },
+
+  getInventoryStatusData: async (outletId) => {
+    const params = outletId ? { outletId } : {};
+    const response = await dashboardAPI.getInventoryStatus(params);
+    return response.data;
+  },
+
+  getTableStatusData: async (outletId) => {
+    const params = outletId ? { outletId } : {};
+    const response = await dashboardAPI.getTableStatus(params);
+    return response.data;
+  },
+
+  getStaffStatusData: async (outletId) => {
+    const params = outletId ? { outletId } : {};
+    const response = await dashboardAPI.getStaffStatus(params);
+    return response.data;
+  },
+
+  getTicketStats: async (outletId) => {
+    const params = outletId ? { outletId } : {};
+    const response = await dashboardAPI.getTicketStats(params);
+    return response.data;
+  },
+
+  // Comprehensive analytics data
+  getAnalyticsData: async (outletId) => {
+    const params = outletId ? { outletId } : {};
+
+    const [
+      orderStatusRes,
+      guestActivityRes,
+      inventoryStatusRes,
+      tableStatusRes,
+      staffStatusRes,
+      ticketStatsRes,
+    ] = await Promise.all([
+      dashboardAPI.getOrderStatus(params),
+      dashboardAPI.getGuestActivity(params),
+      dashboardAPI.getInventoryStatus(params),
+      dashboardAPI.getTableStatus(params),
+      dashboardAPI.getStaffStatus(params),
+      dashboardAPI.getTicketStats(params),
+    ]);
+
+    return {
+      orderStatusData: orderStatusRes.data?.orderStatusData || [],
+      guestActivityData: guestActivityRes.data?.guestActivityData || [],
+      inventoryData: inventoryStatusRes.data?.inventoryData || [],
+      tableStatusData: tableStatusRes.data?.tableStatusData || [],
+      staff: staffStatusRes.data?.staff || {
+        total: 0,
+        onShift: 0,
+        offDuty: 0,
+        overtime: 0,
+      },
+      tickets: ticketStatsRes.data?.tickets || {
+        open: 0,
+        resolved: 0,
+        critical: 0,
+      },
+    };
+  },
 };
 
 export default dashboardService;
