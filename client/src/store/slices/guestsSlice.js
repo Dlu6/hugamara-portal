@@ -39,8 +39,8 @@ export const createGuest = createAsyncThunk(
   "guests/createGuest",
   async (guestData, { rejectWithValue }) => {
     try {
-      const response = await guestsService.create(guestData);
-      return response?.guest || response?.data;
+      const created = await guestsService.create(guestData);
+      return created;
     } catch (error) {
       if (error?.response?.data?.details) {
         const errors = {};
@@ -63,8 +63,8 @@ export const updateGuest = createAsyncThunk(
   "guests/updateGuest",
   async ({ id, guestData }, { rejectWithValue }) => {
     try {
-      const response = await guestsService.update(id, guestData);
-      return response?.guest || response?.data;
+      const updated = await guestsService.update(id, guestData);
+      return updated;
     } catch (error) {
       if (error?.response?.data?.details) {
         const errors = {};
@@ -363,8 +363,14 @@ const guestsSlice = createSlice({
       })
       .addCase(createGuest.fulfilled, (state, action) => {
         state.loading = false;
+        if (!Array.isArray(state.guests)) {
+          state.guests = [];
+        }
         if (action.payload?.id) {
-          state.guests.unshift(action.payload);
+          // Prepend and ensure we don't exceed current page size limit
+          state.guests = [action.payload, ...state.guests];
+          // Optimistically bump totals
+          state.total += 1;
         }
         state.showModal = false;
         state.formData = {
@@ -406,12 +412,17 @@ const guestsSlice = createSlice({
       })
       .addCase(updateGuest.fulfilled, (state, action) => {
         state.loading = false;
+        if (!Array.isArray(state.guests)) {
+          state.guests = [];
+        }
         if (action.payload?.id) {
           const index = state.guests.findIndex(
             (g) => g.id === action.payload.id
           );
           if (index !== -1) {
             state.guests[index] = action.payload;
+          } else {
+            state.guests = [action.payload, ...state.guests];
           }
         }
         state.showModal = false;

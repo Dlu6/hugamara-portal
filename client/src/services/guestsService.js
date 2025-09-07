@@ -28,7 +28,8 @@ class GuestsService {
   async create(guestData) {
     try {
       const response = await this.baseAPI.create(guestData);
-      return response;
+      // Normalize to return the created guest object directly
+      return response?.data?.guest || response?.data || response;
     } catch (error) {
       console.error("Create guest error:", error);
       throw error;
@@ -38,7 +39,8 @@ class GuestsService {
   async update(id, guestData) {
     try {
       const response = await this.baseAPI.update(id, guestData);
-      return response;
+      // Normalize updated guest shape
+      return response?.data?.guest || response?.data || response;
     } catch (error) {
       console.error("Update guest error:", error);
       throw error;

@@ -83,7 +83,12 @@ const Guests = () => {
       showError("Operation failed", error);
       dispatch(clearError());
     }
-  }, [error, showError, dispatch]);
+
+    // console.log("[Guests] Modal visibility changed", { showModal, submitting });
+    if (!showModal && submitting) {
+      setSubmitting(false);
+    }
+  }, [error, showError, dispatch, showModal]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -101,7 +106,12 @@ const Guests = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // console.log("[Guests] onSubmit fired", { submitting, showModal });
+    if (submitting) {
+      return; // prevent double submission
+    }
     setSubmitting(true);
+    // console.log("[Guests] Submitting set to true, proceeding with save");
     try {
       const sanitizeGuestPayload = (data) => {
         const cleaned = { ...data };
@@ -140,35 +150,32 @@ const Guests = () => {
       const payload = sanitizeGuestPayload(formData);
 
       if (editingGuest) {
+        // console.log("[Guests] Dispatch updateGuest", { id: editingGuest.id, payload });
         const result = await dispatch(
           updateGuest({
             id: editingGuest.id,
             guestData: payload,
           })
         ).unwrap();
+        // console.log("[Guests] updateGuest fulfilled", result);
         showSuccess("Guest updated successfully");
       } else {
+        // console.log("[Guests] Dispatch createGuest", payload);
         const result = await dispatch(createGuest(payload)).unwrap();
+        // console.log("[Guests] createGuest fulfilled", result);
         showSuccess("Guest created successfully");
       }
 
-      // Refresh data
-      const params = {
-        page: currentPage,
-        limit: filters.limit,
-        search: filters.search,
-        loyaltyTier: filters.loyaltyTier || undefined,
-        isActive:
-          filters.isActive === "all"
-            ? undefined
-            : filters.isActive === "active",
-      };
-      dispatch(fetchGuests(params));
+      // Close modal after successful save and refresh lightweight stats only
+      // console.log("[Guests] Closing modal after success");
+      closeModal();
       dispatch(fetchGuestStats());
     } catch (error) {
       // Error handling is done in the slice
+      // console.error("[Guests] Submit error", error);
     } finally {
       setSubmitting(false);
+      // console.log("[Guests] Submitting set to false (finally)");
     }
   };
 
@@ -373,7 +380,7 @@ const Guests = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
-              {loading ? (
+              {loading && guests.length === 0 ? (
                 <tr>
                   <td
                     colSpan="7"
@@ -500,8 +507,16 @@ const Guests = () => {
 
       {/* Create/Edit Guest Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto mt-16">
+        <div
+          className={`fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 ${
+            submitting ? "pointer-events-none" : ""
+          }`}
+        >
+          <div
+            className={`bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto mt-16 ${
+              submitting ? "opacity-95" : ""
+            }`}
+          >
             <h2 className="text-xl font-bold text-white mb-4">
               {editingGuest ? "Edit Guest" : "Add New Guest"}
             </h2>
@@ -820,9 +835,16 @@ const Guests = () => {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={loading || submitting}
+                  disabled={submitting}
+                  onClick={() =>
+                    console.log("[Guests] Submit button click", {
+                      submitting,
+                      showModal,
+                      formData,
+                    })
+                  }
                 >
-                  {loading || submitting
+                  {submitting
                     ? "Saving..."
                     : editingGuest
                     ? "Update Guest"

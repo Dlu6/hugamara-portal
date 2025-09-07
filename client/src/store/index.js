@@ -3,7 +3,6 @@ import authReducer from "./slices/authSlice";
 import userReducer from "./slices/userSlice";
 import outletReducer from "./slices/outletSlice";
 import reservationReducer from "./slices/reservationSlice";
-import guestReducer from "./slices/guestSlice";
 import ticketReducer from "./slices/ticketSlice";
 import eventReducer from "./slices/eventSlice";
 import eventsReducer from "./slices/eventsSlice";
@@ -25,7 +24,6 @@ export const store = configureStore({
     users: userReducer,
     outlets: outletReducer,
     reservation: reservationReducer,
-    guest: guestReducer,
     ticket: ticketReducer,
     event: eventReducer,
     events: eventsReducer,

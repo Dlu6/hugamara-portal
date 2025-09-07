@@ -92,7 +92,8 @@ const guestSlice = createSlice({
       })
       .addCase(createGuest.fulfilled, (state, action) => {
         state.loading = false;
-        state.guests.push(action.payload);
+        if (!Array.isArray(state.guests)) state.guests = [];
+        if (action.payload) state.guests = [action.payload, ...state.guests];
       })
       .addCase(createGuest.rejected, (state, action) => {
         state.loading = false;

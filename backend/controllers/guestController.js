@@ -418,12 +418,13 @@ export const getGuestHistory = async (req, res) => {
         order: [["createdAt", "DESC"]],
       }),
       Payment.findAll({
-        where: { "$order.guestId$": id, "$order.outletId$": userOutletId },
         include: [
           {
             model: Order,
             as: "order",
+            required: true,
             attributes: [],
+            where: { guestId: id, outletId: userOutletId },
           },
         ],
         attributes: [
