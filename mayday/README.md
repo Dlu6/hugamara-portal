@@ -71,8 +71,9 @@ The Mayday Call Center system consists of two main components:
 
 ### Individual Services
 
-- **Backend only:** `npm run callcenter:backend`
-- **Frontend only:** `npm run callcenter:frontend`
+- **Provisioning Backend only:** `npm run callcenter:provisioning` (Port 8001)
+- **Slave Backend only:** `npm run callcenter:backend` (Port 8004)
+- **Frontend only:** `npm run callcenter:frontend` (Port 3002)
 
 ## 📁 Project Structure
 
@@ -108,13 +109,14 @@ mayday/
 
 ## 🌐 Services & Ports
 
-| Service              | Port | Description                |
-| -------------------- | ---- | -------------------------- |
-| **Slave Backend**    | 8004 | Node.js API server         |
-| **Client Dashboard** | 3002 | React frontend             |
-| **Asterisk AMI**     | 5038 | Asterisk Manager Interface |
-| **Redis**            | 6379 | Session storage            |
-| **MariaDB**          | 3306 | Database                   |
+| Service                  | Port | Description                |
+| ------------------------ | ---- | -------------------------- |
+| **Provisioning Backend** | 8001 | License management server  |
+| **Slave Backend**        | 8004 | Node.js API server         |
+| **Client Dashboard**     | 3002 | React frontend             |
+| **Asterisk AMI**         | 5038 | Asterisk Manager Interface |
+| **Redis**                | 6379 | Session storage            |
+| **MariaDB**              | 3306 | Database                   |
 
 ## 🔌 Integration with Main Hugamara System
 
@@ -122,7 +124,7 @@ mayday/
 
 The Mayday Call Center system is designed as a **standalone module** within the Hugamara ecosystem:
 
-1. **Independent Operation**: Runs on separate ports (8004, 3002)
+1. **Independent Operation**: Runs on separate ports (8001, 8004, 3002)
 2. **Shared Database**: Uses the same MariaDB instance with dedicated `asterisk` database
 3. **Shared Infrastructure**: Leverages existing Redis and EC2 infrastructure
 4. **Modular Design**: Can be enabled/disabled without affecting main hospitality system

@@ -8,3 +8,8 @@ To start provisioning server and it's client
 
 To push to production, the client is on netlify under www.maydaycrm.com project. Build is automatic since it's linked to the repo
 ~ The provisioning server is on heroku using a mono repo build. So we just have to trigger a build from the master branch using heroku's UI
+
+TO START BOTH HUGAMARA HOSPITALITY SYSTEM AND CALL CENTER
+~ Open two terminals
+**_ In one, run cd "/Users/Mydhe Files/Hugamara" && npm run callcenter || Starts callcenter backend, client + provisioning server
+_** In another, run "npm run server_client_hugamara"

@@ -21,7 +21,7 @@ import {
 import { useSnackbar } from "notistack";
 import useAuth from "../hooks/useAuth";
 // import reachmilogo from "../assets/images/reachmi-logo.svg"; // Placeholder path
-import morvenlogo from "../assets/images/morven-logo-black.svg"; // Placeholder path
+import hugamaraLogo from "../assets/images/hugamara-dark-logo.svg"; // Placeholder path
 
 const LoginForm = () => {
   const [username, setUsername] = useState("");
@@ -114,13 +114,13 @@ const LoginForm = () => {
 
           {/* Add Logo */}
           <img
-            src={morvenlogo}
+            src={hugamaraLogo}
             alt="Mayday Logo"
             style={{
-              width: "250px",
-              height: "250px",
+              width: "300px",
+              height: "300px",
               objectFit: "contain",
-              marginBottom: "1rem",
+              marginBottom: "-3rem",
               // center the logo
               display: "block",
               marginLeft: "auto",
@@ -234,7 +234,13 @@ const LoginForm = () => {
             )}
             <Button
               type="submit"
-              color="warning"
+              sx={{
+                backgroundColor: "#046577",
+                "&:hover": {
+                  backgroundColor: "#046577",
+                },
+              }}
+              // color="warning"
               variant="contained"
               fullWidth
               disabled={loading} // Disable button while loading
