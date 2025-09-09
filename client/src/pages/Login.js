@@ -9,6 +9,8 @@ import {
   Users,
   Clock,
   Check,
+  Phone,
+  ExternalLink,
 } from "lucide-react";
 import { login } from "../store/slices/authSlice";
 import outletService from "../services/outletService";
@@ -24,6 +26,9 @@ const Login = () => {
   const [outlets, setOutlets] = useState([]);
   const [loadingOutlets, setLoadingOutlets] = useState(true);
   const [failedLogoIds, setFailedLogoIds] = useState({});
+  const [callCenterUrl, setCallCenterUrl] = useState(
+    process.env.REACT_APP_CALL_CENTER_URL || "http://localhost:3002"
+  ); // Default call center URL
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -37,9 +42,31 @@ const Login = () => {
     const fetchOutlets = async () => {
       try {
         const response = await outletService.getAll();
-        setOutlets(response.data.outlets || []);
+        const regularOutlets = response.data.outlets || [];
+
+        // Add call center as a special outlet
+        const callCenterOutlet = {
+          id: "callcenter",
+          name: "Mayday ",
+          code: "Call Center",
+          type: "Call Center",
+          logoUrl: "/logos/mayday.svg",
+          isCallCenter: true,
+        };
+
+        setOutlets([callCenterOutlet, ...regularOutlets]);
       } catch (error) {
         console.error("Failed to fetch outlets:", error);
+        // Even if API fails, show call center option
+        const callCenterOutlet = {
+          id: "callcenter",
+          name: "Call Center",
+          code: "CC",
+          type: "Call Center",
+          logoUrl: "/logos/mayday.svg",
+          isCallCenter: true,
+        };
+        setOutlets([callCenterOutlet]);
       } finally {
         setLoadingOutlets(false);
       }
@@ -68,6 +95,19 @@ const Login = () => {
 
     if (!selectedOutlet) {
       alert("Please select an outlet");
+      return;
+    }
+
+    // Check if call center is selected
+    if (selectedOutlet === "callcenter") {
+      // Open call center in new tab - no email required
+      window.open(callCenterUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // For regular outlets, validate email and password
+    if (!formData.email || !formData.password) {
+      alert("Please enter both email and password");
       return;
     }
 
@@ -270,6 +310,19 @@ const Login = () => {
                 </div>
               )}
 
+              {selectedOutlet === "callcenter" && (
+                <div className="mb-6 p-4 bg-orange-50 border border-orange-200 text-orange-700 rounded-xl text-sm">
+                  <div className="flex items-center space-x-2">
+                    <ExternalLink className="w-4 h-4" />
+                    <span className="font-medium">Call Center Access</span>
+                  </div>
+                  <p className="mt-1">
+                    No login required. Click "Open Mayday Call Center" to access
+                    the call center dashboard directly.
+                  </p>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Outlet Selection */}
                 <div>
@@ -293,7 +346,9 @@ const Login = () => {
                             onClick={() => setSelectedOutlet(outlet.id)}
                             className={`group relative w-full flex items-center gap-4 p-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] ${
                               isSelectedOutlet(outlet.id)
-                                ? "bg-[#046577] text-white shadow-lg shadow-[#046577]/25 scale-[1.02]"
+                                ? outlet.isCallCenter
+                                  ? "bg-gradient-to-r from-orange-500 to-amber-600 text-white shadow-lg shadow-orange-500/25 scale-[1.02]"
+                                  : "bg-[#046577] text-white shadow-lg shadow-[#046577]/25 scale-[1.02]"
                                 : "bg-white/80 hover:bg-white text-gray-900 shadow-sm hover:shadow-md"
                             }`}
                             style={{
@@ -303,13 +358,19 @@ const Login = () => {
                             }}
                             title={`${outlet.name} (${
                               outlet.code || outlet.type || "Outlet"
-                            })`}
+                            })${
+                              outlet.isCallCenter ? " - Opens in new tab" : ""
+                            }`}
                           >
                             {/* Logo container */}
                             <div
                               className={`relative w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shadow-lg transition-all duration-300 ${
                                 isSelectedOutlet(outlet.id)
-                                  ? "bg-white/20 ring-2 ring-white/30"
+                                  ? outlet.isCallCenter
+                                    ? "bg-white/20 ring-2 ring-white/30"
+                                    : "bg-white/20 ring-2 ring-white/30"
+                                  : outlet.isCallCenter
+                                  ? "bg-gradient-to-br from-orange-500 to-amber-600 ring-1 ring-orange-300"
                                   : "bg-gradient-to-br from-[#0f1f22] to-[#1a2a2d] ring-1 ring-gray-200"
                               }`}
                               style={{
@@ -317,8 +378,12 @@ const Login = () => {
                                   "drop-shadow(0 4px 8px rgba(0,0,0,0.15))",
                               }}
                             >
-                              {getLogoForOutlet(outlet) &&
-                              !failedLogoIds[outlet.id] ? (
+                              {outlet.isCallCenter &&
+                              (!getLogoForOutlet(outlet) ||
+                                failedLogoIds[outlet.id]) ? (
+                                <Phone className="w-8 h-8 text-white" />
+                              ) : getLogoForOutlet(outlet) &&
+                                !failedLogoIds[outlet.id] ? (
                                 <img
                                   src={getLogoForOutlet(outlet)}
                                   alt={`${outlet.name} logo`}
@@ -373,7 +438,11 @@ const Login = () => {
                             {isSelectedOutlet(outlet.id) && (
                               <div className="flex-shrink-0">
                                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center animate-bounce">
-                                  <Check className="w-5 h-5 text-white" />
+                                  {outlet.isCallCenter ? (
+                                    <ExternalLink className="w-5 h-5 text-white" />
+                                  ) : (
+                                    <Check className="w-5 h-5 text-white" />
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -382,7 +451,11 @@ const Login = () => {
                             <div
                               className={`absolute inset-0 rounded-xl transition-opacity duration-300 ${
                                 isSelectedOutlet(outlet.id)
-                                  ? "bg-gradient-to-r from-[#046577]/10 to-transparent opacity-100"
+                                  ? outlet.isCallCenter
+                                    ? "bg-gradient-to-r from-purple-500/10 to-transparent opacity-100"
+                                    : "bg-gradient-to-r from-[#046577]/10 to-transparent opacity-100"
+                                  : outlet.isCallCenter
+                                  ? "bg-gradient-to-r from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100"
                                   : "bg-gradient-to-r from-[#046577]/5 to-transparent opacity-0 group-hover:opacity-100"
                               }`}
                             />
@@ -427,6 +500,11 @@ const Login = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email Address
+                    {selectedOutlet === "callcenter" && (
+                      <span className="text-sm text-gray-500 ml-2">
+                        (Optional for Call Center)
+                      </span>
+                    )}
                   </label>
                   <input
                     type="email"
@@ -434,8 +512,12 @@ const Login = () => {
                     value={formData.email}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#046577] focus:border-[#046577] bg-white text-gray-900 placeholder-gray-500"
-                    placeholder="Enter your email"
-                    required
+                    placeholder={
+                      selectedOutlet === "callcenter"
+                        ? "Enter your email (optional)"
+                        : "Enter your email"
+                    }
+                    required={selectedOutlet !== "callcenter"}
                   />
                 </div>
 
@@ -443,6 +525,11 @@ const Login = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Password
+                    {selectedOutlet === "callcenter" && (
+                      <span className="text-sm text-gray-500 ml-2">
+                        (Optional for Call Center)
+                      </span>
+                    )}
                   </label>
                   <div className="relative">
                     <input
@@ -451,8 +538,12 @@ const Login = () => {
                       value={formData.password}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#046577] focus:border-[#046577] bg-white pr-12 text-gray-900 placeholder-gray-500"
-                      placeholder="Enter your password"
-                      required
+                      placeholder={
+                        selectedOutlet === "callcenter"
+                          ? "Enter your password (optional)"
+                          : "Enter your password"
+                      }
+                      required={selectedOutlet !== "callcenter"}
                     />
                     <button
                       type="button"
@@ -472,12 +563,21 @@ const Login = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-[#046577] hover:bg-[#046577]/90 text-white font-medium py-3 px-4 rounded-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-black/25"
+                  className={`w-full font-medium py-3 px-4 rounded-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg shadow-black/25 ${
+                    selectedOutlet === "callcenter"
+                      ? "bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white"
+                      : "bg-[#046577] hover:bg-[#046577]/90 text-white"
+                  }`}
                 >
                   {loading ? (
                     <div className="flex items-center justify-center space-x-2">
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       <span>Signing In...</span>
+                    </div>
+                  ) : selectedOutlet === "callcenter" ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <ExternalLink className="w-5 h-5" />
+                      <span>Open Mayday Call Center</span>
                     </div>
                   ) : (
                     "Sign In"
