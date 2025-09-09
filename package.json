@@ -21,7 +21,11 @@
     "db:seed": "cd backend && npm run db:seed",
     "seed:placeholder": "cd backend && npm run seed:placeholder",
     "setup": "./setup-dev.sh",
-    "install:all": "./install-deps.sh"
+    "install:all": "./install-deps.sh",
+    "callcenter": "concurrently \"cd mayday/slave-backend && npm run start\" \"cd mayday/mayday-client-dashboard && PORT=3002 npm start\"",
+    "callcenter:install": "cd mayday/slave-backend && npm install && cd ../mayday-client-dashboard && npm install",
+    "callcenter:backend": "cd mayday/slave-backend && npm run start",
+    "callcenter:frontend": "cd mayday/mayday-client-dashboard && PORT=3002 npm start"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"

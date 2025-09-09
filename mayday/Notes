@@ -1,0 +1,10 @@
+# The SECRET_INTERNAL_API_KEY in the provisioning_backend on heroku has to be similar in Netlify. And The REACT_APP_INTERNAL_API_KEY value in the root .env file has to be similar to the REACT_APP_SECRET_INTERNAL_API_KEY entry in the mayday_website folder
+
+This is the command for generating a secure random key
+~ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+To start provisioning server and it's client
+~ npm run master_client_server
+
+To push to production, the client is on netlify under www.maydaycrm.com project. Build is automatic since it's linked to the repo
+~ The provisioning server is on heroku using a mono repo build. So we just have to trigger a build from the master branch using heroku's UI
