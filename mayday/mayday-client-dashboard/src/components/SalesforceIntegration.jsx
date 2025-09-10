@@ -73,7 +73,10 @@ const SalesforceIntegration = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [testConnectionDialog, setTestConnectionDialog] = useState(false);
   const [syncDialog, setSyncDialog] = useState(false);
-  const [fieldMappingDialog] = useState(false);
+  const [fieldMappingDialog, setFieldMappingDialog] = useState({
+    open: false,
+    data: null,
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [showToken, setShowToken] = useState(false);
 

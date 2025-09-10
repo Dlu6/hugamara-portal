@@ -526,7 +526,9 @@ const OutboundRouteEdit = () => {
                               if (app.type === "OutboundDial") {
                                 appdata = `PJSIP/${
                                   app.settings?.prefix || ""
-                                }\\${EXTEN}@${app.settings?.trunkId || ""}`;
+                                }\\${app.settings?.exten || ""}@${
+                                  app.settings?.trunkId || ""
+                                }`;
                               } else if (app.type === "Custom") {
                                 appdata = `${
                                   app.settings?.applicationName || ""
