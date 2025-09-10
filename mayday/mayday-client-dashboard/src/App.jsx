@@ -55,7 +55,7 @@ const App = () => {
 
   return (
     <Provider store={store}>
-      <Router>
+      <Router basename="/callcenter">
         <UserProvider>
           <Routes>
             <Route path="/docs/*" element={<Navigate to="/docs" replace />} />
