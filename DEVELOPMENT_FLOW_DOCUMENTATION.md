@@ -183,6 +183,16 @@ Hugamara/
   - Check `REACT_APP_CALL_CENTER_URL` in `.env.development`
   - Hard refresh browser (Cmd/Cmd+Shift+R)
 
+#### 1b. Call Center page blank with MIME error
+
+- **Symptom**: Console shows: `Refused to execute script ... MIME type 'text/html'` and 404s at `/static/js/...`
+- **Cause**: Call center bundle emitted asset paths under `/static/...` (root) instead of `/callcenter/static/...`, so Nginx serves hospitality `index.html` for those JS files.
+- **Fix**:
+  1. Set `homepage: "/callcenter/"` in `mayday/mayday-client-dashboard/package.json`
+  2. Use `<Router basename="/callcenter">` in `mayday/mayday-client-dashboard/src/App.jsx`
+  3. Rebuild with `PUBLIC_URL=/callcenter npm run build`
+  4. Verify `build/index.html` references `/callcenter/static/...`
+
 #### 2. JWT Secret Error
 
 - **Symptom**: `"secretOrPrivateKey must be a symmetric key when using HS256"`
@@ -196,6 +206,23 @@ Hugamara/
   - Verify backend is running on correct port
   - Check CORS configuration
   - Verify environment variables
+
+#### 4. Port Conflicts (EADDRINUSE: :::5000)
+
+- **Symptom**: Hospitality backend restarts repeatedly with `EADDRINUSE` errors.
+- **Cause**: Another Node/PM2 instance using port 5000, possibly under a different user.
+- **Fix**:
+  - Stop PM2 as both `root` and `admin` users (see PM2 section)
+  - Kill residual Node processes: `sudo pkill -9 -f node`
+  - Verify: `sudo lsof -i :5000` shows nothing, then restart PM2 as `admin`.
+
+#### 5. Redis Authentication Error (Call Center)
+
+- **Symptom**: `ERR AUTH <password> called without any password configured` in logs.
+- **Cause**: App configured a Redis password but Redis server has none.
+- **Fix**:
+  - Either configure `requirepass` in `/etc/redis/redis.conf` and restart Redis, or
+  - Remove `REDIS_PASSWORD` from the call center app environment in `ecosystem.config.js`.
 
 ### Development Commands
 
@@ -223,11 +250,99 @@ npm run callcenter:install
 - **Call Center Frontend**: Served by Nginx at `https://cs.hugamara.com/callcenter/`
 - **Backend APIs**: Proxied through Nginx
 
+#### URL Mapping (expected)
+
+- `https://cs.hugamara.com/` → serves `client/build/index.html` and assets
+- `https://cs.hugamara.com/callcenter/` → serves `mayday/mayday-client-dashboard/build/index.html`
+- `https://cs.hugamara.com/api/` → proxies to hospitality backend on `localhost:5000`
+- `https://cs.hugamara.com/mayday-api/` → proxies to call center backend on `localhost:5001`
+- WebSockets: `/socket.io/` → hospitality backend on `localhost:5000`
+
+Nginx locations used in production:
+
+- `location / { root /home/admin/hugamara-portal/client/build; try_files ... /index.html; }`
+- `location /callcenter/ { alias /home/admin/hugamara-portal/mayday/mayday-client-dashboard/build/; try_files ... /callcenter/index.html; }`
+- `location ^~ /callcenter/static/ { alias .../build/static/; }`
+- `location /api/ { proxy_pass http://localhost:5000; }`
+- `location /mayday-api/ { proxy_pass http://localhost:5001; }`
+
 ### Environment Variables
 
-- Production uses different environment files
+- Production uses different environment files (baked at build time for frontend)
 - JWT secrets are properly configured
 - CORS allows production domains
+
+#### Hospitality Frontend (`client/.env.production`)
+
+```env
+REACT_APP_API_URL=/api
+REACT_APP_ENV=production
+REACT_APP_VERSION=1.0.0
+REACT_APP_CALL_CENTER_URL=/callcenter/login
+```
+
+#### Call Center Frontend (served under sub-path `/callcenter`)
+
+To ensure all assets resolve under `/callcenter/static/...`, configure and build as follows:
+
+1. `mayday/mayday-client-dashboard/package.json`
+
+```json
+{
+  "homepage": "/callcenter/"
+}
+```
+
+2. `mayday/mayday-client-dashboard/src/App.jsx` top-level router:
+
+```jsx
+<Router basename="/callcenter">
+  {/* routes */}
+  ...
+</Router>
+```
+
+3. Build with the correct public URL:
+
+```bash
+cd /home/admin/hugamara-portal/mayday/mayday-client-dashboard
+rm -rf build
+npm ci
+PUBLIC_URL=/callcenter npm run build
+```
+
+4. Sanity checks (optional):
+
+```bash
+grep -n '="/static/' build/index.html || echo "OK: no root /static refs"
+grep -n '="/callcenter/static/' build/index.html
+```
+
+#### PM2 (Production)
+
+- Hospitality backend runs on port `5000`
+- Call center backend runs on port `5001` (changed from 3002)
+- PM2 should run as the `admin` user on this VM (project lives under `/home/admin/`)
+
+Key commands:
+
+```bash
+# As admin user
+sudo -u admin pm2 status
+sudo -u admin pm2 stop all && sudo -u admin pm2 delete all && sudo -u admin pm2 kill
+
+# Start with ecosystem config
+sudo -u admin pm2 start /home/admin/hugamara-portal/ecosystem.config.js
+sudo -u admin pm2 save
+sudo -u admin pm2 startup
+```
+
+If PM2 was also started as `root`, stop those processes first:
+
+```bash
+pm2 stop all && pm2 delete all && pm2 kill
+sudo pkill -9 -f node
+```
 
 ## Security Considerations
 
@@ -246,5 +361,5 @@ npm run callcenter:install
 
 ---
 
-_Last Updated: December 2024_
+_Last Updated: September 2025_
 _Version: 1.0.0_
