@@ -1,11 +1,14 @@
 // src/api/apiClient.js
 import axios from "axios";
 
+const BASE_URL = process.env.REACT_APP_API_URL;
+// console.log("🔥🔥🔥🔥API_BASE_URL", BASE_URL);
+
 const getBaseUrl = () => {
   if (process.env.NODE_ENV === "production") {
     return "/api"; // Use relative path in production
   }
-  return process.env.REACT_APP_API_URL;
+  return BASE_URL;
 };
 
 const apiClient = axios.create({

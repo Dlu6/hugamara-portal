@@ -20,7 +20,7 @@ import Settings from "./components/Settings.jsx";
 import Analytics from "./components/Analytics.js";
 import Integrations from "./components/Integrations.js";
 import NotFound from "./components/NotFound.js";
-import LoginForm from "./components/LoginForm.js";
+import LoginMayday from "./components/LoginMayday.js";
 import ProtectedRoute from "./components/ProtectedRoute.js";
 import AgentsComponent from "./components/Agents.js";
 import Profile from "./components/Profile.js";
@@ -65,7 +65,7 @@ const App = () => {
               path="/login"
               element={
                 <PublicRoute>
-                  <LoginForm />
+                  <LoginMayday />
                 </PublicRoute>
               }
             />

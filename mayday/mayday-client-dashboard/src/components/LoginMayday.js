@@ -23,7 +23,7 @@ import useAuth from "../hooks/useAuth";
 // import reachmilogo from "../assets/images/reachmi-logo.svg"; // Placeholder path
 import hugamaraLogo from "../assets/images/hugamara-dark-logo.svg"; // Placeholder path
 
-const LoginForm = () => {
+const LoginMayday = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -259,4 +259,4 @@ const LoginForm = () => {
   );
 };
 
-export default LoginForm;
+export default LoginMayday;

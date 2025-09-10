@@ -660,7 +660,7 @@ const createLicenseService = () => {
     };
 
     const sessionToken = jwt.sign(sessionData, privateKey, {
-      algorithm: "HS256",
+      algorithm: "RS256",
     });
 
     await ClientSession.create({
@@ -687,7 +687,7 @@ const createLicenseService = () => {
   const validateClientSession = async (sessionToken) => {
     try {
       const decoded = jwt.verify(sessionToken, publicKey, {
-        algorithm: "HS256",
+        algorithm: "RS256",
       });
 
       const session = await ClientSession.findOne({

@@ -10,7 +10,7 @@ import { store } from "./store";
 import "./styles/App.css";
 
 // Auth Components
-import Login from "./pages/Login";
+import LoginHospitality from "./pages/LoginHospitality";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
@@ -66,7 +66,11 @@ const AppContent = () => {
         <Route
           path={ROUTES.LOGIN.path}
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginHospitality />
+            )
           }
         />
         <Route

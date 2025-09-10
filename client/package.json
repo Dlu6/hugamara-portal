@@ -4,7 +4,7 @@
   "description": "Frontend client for Hugamara Hospitality Management System",
   "private": true,
   "scripts": {
-    "start": "react-scripts start",
+    "start": "PORT=3000 react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
