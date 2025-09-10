@@ -43,7 +43,7 @@ module.exports = {
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",
         REDIS_PORT: "6379",
-        REDIS_PASSWORD: "RedLotuskm@1759",
+        // REDIS_PASSWORD: "RedLotuskm@1759",
 
         // AMI Configuration
         AMI_HOST: "cs.hugamara.com",
