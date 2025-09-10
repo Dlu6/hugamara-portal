@@ -6,11 +6,9 @@ const BASE_URL = process.env.REACT_APP_API_URL;
 
 const getBaseUrl = () => {
   if (process.env.NODE_ENV === "production") {
-    // In production the call center backend is proxied by Nginx at /mayday-api
-    return "/mayday-api";
+    return "/mayday-api"; // Use call center API in production
   }
-  // In development, prefer explicit env (falls back to CRA proxy if undefined)
-  return BASE_URL || "/api";
+  return BASE_URL;
 };
 
 const apiClient = axios.create({
