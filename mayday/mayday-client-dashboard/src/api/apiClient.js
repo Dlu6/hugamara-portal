@@ -6,7 +6,7 @@ const BASE_URL = process.env.REACT_APP_API_URL;
 
 const getBaseUrl = () => {
   if (process.env.NODE_ENV === "production") {
-    return "/mayday-api"; // Use call center API in production
+    return "/mayday-api/users"; // Use call center API in production
   }
   return BASE_URL;
 };
