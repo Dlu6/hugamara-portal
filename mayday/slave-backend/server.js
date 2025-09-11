@@ -561,7 +561,7 @@ const initializeApp = async () => {
     console.log(chalk.green("Cache cleanup service started"));
 
     // Start server first
-    const PORT = process.env.BACKEND_PORT;
+    const PORT = process.env.PORT || process.env.BACKEND_PORT;
     httpServer.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
       console.log(chalk.green("Available routes:"));
