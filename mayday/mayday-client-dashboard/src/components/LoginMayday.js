@@ -67,7 +67,6 @@ const LoginMayday = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoginError(null); // Clear previous errors
-    console.log(`[LoginMayday] Attempting login for user: ${username}`); // 🪵 Added Log
     try {
       const result = await login(username, password);
       if (result.user) {
@@ -76,7 +75,7 @@ const LoginMayday = () => {
       }
     } catch (err) {
       // Error is thrown by useAuth login function on failure
-      console.error("[LoginMayday] Login failed in component:", err); // 🪵 Added Log
+      console.error("Login failed:", err);
       const errorMessage =
         err.message || "Login failed. Please check credentials.";
       setLoginError(errorMessage); // Set local error state

@@ -110,7 +110,7 @@ let io;
 
 // Set up CORS options
 const allowedOrigins = [
-  "https://cs.hugamara.com", // 🪵 Added Production Frontend URL
+  "https://cs.hugamara.com",
   // Environment-based origins
   process.env.SLAVE_SERVER_URL,
   process.env.MASTER_SERVER_URL,
