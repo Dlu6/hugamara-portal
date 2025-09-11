@@ -244,105 +244,140 @@ npm run callcenter:install
 
 ## Production Deployment
 
-### VM Configuration
+This section outlines the definitive steps to deploy both applications to a production VM using Nginx and PM2.
 
-- **Hospitality Frontend**: Served by Nginx at `https://cs.hugamara.com/`
-- **Call Center Frontend**: Served by Nginx at `https://cs.hugamara.com/callcenter/`
-- **Backend APIs**: Proxied through Nginx
+### Final URL Mapping
 
-#### URL Mapping (expected)
+- `https://cs.hugamara.com/` → Serves the **Hospitality Frontend**.
+- `https://cs.hugamara.com/callcenter/` → Serves the **Call Center Frontend**.
+- `https://cs.hugamara.com/api/` → Proxies to the **Hospitality Backend** on `localhost:5000`.
+- `https://cs.hugamara.com/mayday-api/` → Proxies to the **Call Center Backend** on `localhost:5001`.
 
-- `https://cs.hugamara.com/` → serves `client/build/index.html` and assets
-- `https://cs.hugamara.com/callcenter/` → serves `mayday/mayday-client-dashboard/build/index.html`
-- `https://cs.hugamara.com/api/` → proxies to hospitality backend on `localhost:5000`
-- `https://cs.hugamara.com/mayday-api/` → proxies to call center backend on `localhost:5001`
-- WebSockets: `/socket.io/` → hospitality backend on `localhost:5000`
+### 1. Backend Setup with PM2
 
-Nginx locations used in production:
+- **User:** All PM2 commands **must** be run as the `admin` user, as the project files reside in `/home/admin`. Use `sudo -u admin pm2 ...`.
+- **Configuration:** The backends are managed by `/home/admin/hugamara-portal/ecosystem.config.js`.
+  - `hugamara-backend` runs on port `5000`.
+  - `mayday-callcenter-backend` runs on port `5001`.
 
-- `location / { root /home/admin/hugamara-portal/client/build; try_files ... /index.html; }`
-- `location /callcenter/ { alias /home/admin/hugamara-portal/mayday/mayday-client-dashboard/build/; try_files ... /callcenter/index.html; }`
-- `location ^~ /callcenter/static/ { alias .../build/static/; }`
-- `location /api/ { proxy_pass http://localhost:5000; }`
-- `location /mayday-api/ { proxy_pass http://localhost:5001; }`
+**Key Commands on VM:**
 
-### Environment Variables
+```bash
+# Stop any existing PM2 instances (run for both root and admin to be safe)
+pm2 kill
+sudo -u admin pm2 kill
 
-- Production uses different environment files (baked at build time for frontend)
-- JWT secrets are properly configured
-- CORS allows production domains
+# Start the applications correctly as the admin user
+cd /home/admin/hugamara-portal
+sudo -u admin pm2 start ecosystem.config.js
 
-#### Hospitality Frontend (`client/.env.production`)
-
-```env
-REACT_APP_API_URL=/api
-REACT_APP_ENV=production
-REACT_APP_VERSION=1.0.0
-REACT_APP_CALL_CENTER_URL=/callcenter/login
+# Save the process list to automatically restart on reboot
+sudo -u admin pm2 save
 ```
 
-#### Call Center Frontend (served under sub-path `/callcenter`)
+### 2. Frontend Build Process
 
-To ensure all assets resolve under `/callcenter/static/...`, configure and build as follows:
+It is critical to build both frontends on the VM with the correct environment variables.
 
-1. `mayday/mayday-client-dashboard/package.json`
+**A. Build Hospitality Frontend:**
 
-```json
-{
-  "homepage": "/callcenter/"
-}
+```bash
+cd /home/admin/hugamara-portal/client
+rm -rf build
+npm ci
+# This variable ensures the 'Open Call Center' button points to the correct URL
+REACT_APP_CALL_CENTER_URL=/callcenter/login npm run build
 ```
 
-2. `mayday/mayday-client-dashboard/src/App.jsx` top-level router:
-
-```jsx
-<Router basename="/callcenter">
-  {/* routes */}
-  ...
-</Router>
-```
-
-3. Build with the correct public URL:
+**B. Build Call Center Frontend:**
 
 ```bash
 cd /home/admin/hugamara-portal/mayday/mayday-client-dashboard
 rm -rf build
 npm ci
+# This variable ensures all asset paths (JS, CSS) are relative to /callcenter/
 PUBLIC_URL=/callcenter npm run build
 ```
 
-4. Sanity checks (optional):
+### 3. Final Nginx Configuration
 
-```bash
-grep -n '="/static/' build/index.html || echo "OK: no root /static refs"
-grep -n '="/callcenter/static/' build/index.html
+The complete and correct configuration for `/etc/nginx/sites-available/hugamara`. This version is confirmed to work.
+
+```nginx
+server {
+    listen 80;
+    server_name cs.hugamara.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name cs.hugamara.com;
+
+    ssl_certificate /etc/letsencrypt/live/cs.hugamara.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/cs.hugamara.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # --- Headers & Gzip ---
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    # ... (other headers) ...
+    gzip on;
+    # ... (gzip settings) ...
+
+    # --- API PROXIES (High Priority) ---
+    # The ^~ modifier ensures these rules are matched before the static file rule.
+
+    location ^~ /api/ {
+        proxy_pass http://localhost:5000;
+        # ... (proxy headers) ...
+    }
+
+    location ^~ /mayday-api/ {
+        proxy_pass http://localhost:5001/api/;
+        # ... (proxy headers) ...
+    }
+
+    # --- FRONTEND APPLICATIONS ---
+
+    # Call Center Assets (must be before /callcenter/)
+    location ^~ /callcenter/static/ {
+        alias /home/admin/hugamara-portal/mayday/mayday-client-dashboard/build/static/;
+        expires 1y;
+        add_header Cache-Control "public"; # Use "public", not "public, immutable"
+    }
+
+    # Call Center Main App
+    location /callcenter/ {
+        alias /home/admin/hugamara-portal/mayday/mayday-client-dashboard/build/;
+        try_files $uri $uri/ /callcenter/index.html;
+    }
+
+    # Hospitality Main App (Catch-all)
+    location / {
+        root /home/admin/hugamara-portal/client/build;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # ... (other locations like /socket.io/) ...
+}
 ```
 
-#### PM2 (Production)
+### Production Troubleshooting Summary
 
-- Hospitality backend runs on port `5000`
-- Call center backend runs on port `5001` (changed from 3002)
-- PM2 should run as the `admin` user on this VM (project lives under `/home/admin/`)
+- **Symptom:** Call Center login fails with **404** or **500** error.
 
-Key commands:
+  - **Cause 1:** PM2 is running as `root` instead of `admin`. **Fix:** Stop all PM2 instances and restart using `sudo -u admin pm2 start`.
+  - **Cause 2:** Call center backend is not listening on its port (e.g., 5001). **Fix:** Corrected `server.js` to use `process.env.PORT` instead of the undefined `process.env.BACKEND_PORT`.
+  - **Cause 3:** Nginx proxy rule is incorrect. **Fix:** Ensure `location ^~ /mayday-api/` uses `proxy_pass http://localhost:5001/api/;` to correctly map the URL.
 
-```bash
-# As admin user
-sudo -u admin pm2 status
-sudo -u admin pm2 stop all && sudo -u admin pm2 delete all && sudo -u admin pm2 kill
+- **Symptom:** Clicking "Open Call Center" leads to a blank page or wrong URL.
 
-# Start with ecosystem config
-sudo -u admin pm2 start /home/admin/hugamara-portal/ecosystem.config.js
-sudo -u admin pm2 save
-sudo -u admin pm2 startup
-```
+  - **Cause:** The main hospitality frontend was built without the correct `REACT_APP_CALL_CENTER_URL`. **Fix:** Rebuild the `client` app with the variable set, e.g., `... npm run build`.
 
-If PM2 was also started as `root`, stop those processes first:
-
-```bash
-pm2 stop all && pm2 delete all && pm2 kill
-sudo pkill -9 -f node
-```
+- **Symptom:** Nginx fails to reload with an `invalid parameter "immutable"` error.
+  - **Cause:** The server's Nginx version is older. **Fix:** Change `add_header Cache-Control "public, immutable";` to `add_header Cache-Control "public";`.
 
 ## Security Considerations
 
