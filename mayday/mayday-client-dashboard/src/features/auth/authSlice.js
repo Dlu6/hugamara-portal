@@ -5,6 +5,10 @@ import { decodeToken } from "../../utils/jwtUtils";
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
   async (userData, { rejectWithValue }) => {
+    console.log(
+      "[authSlice] Sending login request to API with:",
+      userData.username
+    );
     try {
       const response = await apiClient.post("/users/login", {
         username: userData.username,
@@ -12,6 +16,7 @@ export const loginUser = createAsyncThunk(
         isSoftphone: false,
       });
 
+      console.log("[authSlice] API login response successful:", response.data);
       const decodedToken = decodeToken(response.data.token);
 
       const user = {
@@ -29,6 +34,10 @@ export const loginUser = createAsyncThunk(
         user: user,
       };
     } catch (error) {
+      console.error(
+        "[authSlice] API login request failed:",
+        error.response?.data || error.message
+      );
       return rejectWithValue(
         error.response?.data?.message || "Could not login!"
       );

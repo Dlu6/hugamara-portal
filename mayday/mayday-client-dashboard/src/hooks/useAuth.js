@@ -36,6 +36,9 @@ const useAuth = () => {
   // Login function
   const login = async (username, password) => {
     try {
+      console.log("[useAuth] Forwarding login data to authSlice:", {
+        username,
+      });
       const result = await dispatch(loginUser({ username, password })).unwrap();
 
       // Store in localStorage (temporary, consider more secure options later)
@@ -44,7 +47,7 @@ const useAuth = () => {
 
       return result;
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("[useAuth] Error caught in auth hook:", error);
       throw new Error(error || "Login failed");
     }
   };
