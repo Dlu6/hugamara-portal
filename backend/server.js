@@ -24,8 +24,12 @@ import dashboardRoutes from "./routes/dashboard.js";
 import tableRoutes from "./routes/tables.js";
 import menuRoutes from "./routes/menu.js";
 import staffRoutes from "./routes/staff.js";
+import shiftRoutes from "./routes/shifts.js";
+import settingsRoutes from "./routes/settings.js";
 import paymentRoutes from "./routes/payments.js";
 import reportRoutes from "./routes/reports.js";
+import departmentRoutes from "./routes/departments.js";
+import searchRoutes from "./routes/search.js";
 
 // Import middleware
 import { authenticateToken } from "./middleware/auth.js";
@@ -104,8 +108,12 @@ app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/tables", authenticateToken, tableRoutes);
 app.use("/api/menu", authenticateToken, menuRoutes);
 app.use("/api/staff", authenticateToken, staffRoutes);
+app.use("/api/shifts", authenticateToken, shiftRoutes);
+app.use("/api/settings", authenticateToken, settingsRoutes);
 app.use("/api/payments", authenticateToken, paymentRoutes);
 app.use("/api/reports", authenticateToken, reportRoutes);
+app.use("/api/departments", authenticateToken, departmentRoutes);
+app.use("/api/search", authenticateToken, searchRoutes);
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
@@ -141,13 +149,12 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log("✅ Database connection established successfully.");
 
-    // Sync database (in development) - use force: false to avoid deadlocks
-    // Temporarily disabled to avoid MySQL key limit issues
-    // if (NODE_ENV === "development") {
-    //   await sequelize.sync({ force: false, alter: true });
-    //   console.log("✅ Database synchronized.");
-    // }
-    // DISABLED: MySQL key limit error
+    // Optional one-time sync for bootstrapping in new environments
+    // Enable by setting DB_SYNC=true in env, then disable after first run
+    if (process.env.DB_SYNC === "true") {
+      await sequelize.sync({ alter: true });
+      console.log("✅ Database synchronized via sequelize.sync(alter: true).");
+    }
 
     // Start server
     server.listen(PORT, () => {

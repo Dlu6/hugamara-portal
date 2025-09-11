@@ -180,10 +180,7 @@ export const getRoutesByLayout = (layout) => {
 // Helper function to get main navigation routes
 export const getMainNavigationRoutes = () => {
   return Object.values(ROUTES).filter(
-    (route) =>
-      route.layout === "main" &&
-      route.path !== "/profile" &&
-      route.path !== "/access-control"
+    (route) => route.layout === "main" && route.path !== "/access-control"
   );
 };
 

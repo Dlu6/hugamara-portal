@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import { sequelize } from "../config/database.js";
-import { Inventory } from "../models/index.js";
+import { Inventory, Outlet } from "../models/index.js";
+import { generateSKU } from "../utils/skuGenerator.js";
 
 export const getAllInventory = async (req, res) => {
   try {
@@ -82,9 +83,25 @@ export const getInventoryById = async (req, res) => {
 
 export const createInventoryItem = async (req, res) => {
   try {
+    const { category, outletId } = req.body;
+    const userOutletId = req.user.outletId;
+
+    // Get outlet code for SKU generation
+    const outlet = await Outlet.findByPk(outletId || userOutletId);
+    const outletCode = outlet?.code || "CS";
+
+    // Auto-generate SKU if not provided
+    let sku = req.body.sku;
+    if (!sku) {
+      sku = await generateSKU(category, outletCode);
+    }
+
     const inventoryData = {
       ...req.body,
-      outletId: req.user.outletId,
+      sku,
+      outletId: userOutletId,
+      // Handle expiry date - convert empty string to null
+      expiryDate: req.body.expiryDate === "" ? null : req.body.expiryDate,
     };
 
     const item = await Inventory.create(inventoryData);
@@ -108,7 +125,13 @@ export const updateInventoryItem = async (req, res) => {
       return res.status(404).json({ error: "Inventory item not found" });
     }
 
-    await item.update(req.body);
+    const updateData = {
+      ...req.body,
+      // Handle expiry date - convert empty string to null
+      expiryDate: req.body.expiryDate === "" ? null : req.body.expiryDate,
+    };
+
+    await item.update(updateData);
     res.json({ item });
   } catch (error) {
     console.error("Update inventory item error:", error);
@@ -316,5 +339,27 @@ export const bulkUpdateStock = async (req, res) => {
   } catch (error) {
     console.error("Bulk update stock error:", error);
     res.status(500).json({ error: "Failed to bulk update stock" });
+  }
+};
+
+export const generateInventorySKU = async (req, res) => {
+  try {
+    const { category, outletId } = req.query;
+    const userOutletId = req.user.outletId;
+
+    if (!category) {
+      return res.status(400).json({ error: "Category is required" });
+    }
+
+    // Get outlet code for SKU generation
+    const outlet = await Outlet.findByPk(outletId || userOutletId);
+    const outletCode = outlet?.code || "CS";
+
+    const sku = await generateSKU(category, outletCode);
+
+    res.json({ sku });
+  } catch (error) {
+    console.error("Generate SKU error:", error);
+    res.status(500).json({ error: "Failed to generate SKU" });
   }
 };

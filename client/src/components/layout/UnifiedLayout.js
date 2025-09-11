@@ -1,20 +1,29 @@
-import React from "react";
+import React, { useState } from "react";
 import { useSelector } from "react-redux";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 
 const UnifiedLayout = ({ children, title, breadcrumbs, actions }) => {
   const { user } = useSelector((state) => state.auth);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleSidebarToggle = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleSidebarClose = () => {
+    setIsSidebarOpen(false);
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} onClose={handleSidebarClose} />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden md:ml-[280px]">
+      <div className="flex-1 flex flex-col overflow-hidden lg:ml-[280px]">
         {/* Header */}
-        <Header />
+        <Header onMenuClick={handleSidebarToggle} />
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">

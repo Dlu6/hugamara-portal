@@ -13,7 +13,8 @@ export const fetchTickets = createAsyncThunk(
       if (filters?.status) params.append("status", filters.status);
 
       const response = await ticketsAPI.getAll(params.toString());
-      return response.tickets || [];
+      // console.log("Tickets API response:", response);
+      return response.data?.tickets || [];
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to fetch tickets"
@@ -27,10 +28,24 @@ export const fetchTicketStats = createAsyncThunk(
   async (period = "week", { rejectWithValue }) => {
     try {
       const response = await ticketsAPI.getStats(period);
-      return response.stats || {};
+      return response.data?.stats || {};
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to fetch ticket stats"
+      );
+    }
+  }
+);
+
+export const fetchTicketById = createAsyncThunk(
+  "tickets/fetchTicketById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await ticketsAPI.getById(id);
+      return response.data?.ticket;
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to fetch ticket details"
       );
     }
   }
@@ -41,7 +56,7 @@ export const createTicket = createAsyncThunk(
   async (ticketData, { rejectWithValue }) => {
     try {
       const response = await ticketsAPI.create(ticketData);
-      return response.ticket;
+      return response.data?.ticket;
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to create ticket"
@@ -55,7 +70,7 @@ export const updateTicket = createAsyncThunk(
   async ({ id, data }, { rejectWithValue }) => {
     try {
       const response = await ticketsAPI.update(id, data);
-      return response.ticket;
+      return response.data?.ticket;
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to update ticket"
@@ -83,7 +98,7 @@ export const updateTicketStatus = createAsyncThunk(
   async ({ id, statusData }, { rejectWithValue }) => {
     try {
       const response = await ticketsAPI.updateStatus(id, statusData);
-      return response.ticket;
+      return response.data?.ticket;
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to update ticket status"
@@ -97,7 +112,7 @@ export const addTicketComment = createAsyncThunk(
   async ({ id, commentData }, { rejectWithValue }) => {
     try {
       const response = await ticketsAPI.addComment(id, commentData);
-      return response.ticket;
+      return response.data?.ticket;
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to add comment"
@@ -227,7 +242,9 @@ const ticketSlice = createSlice({
       })
       .addCase(fetchTickets.fulfilled, (state, action) => {
         state.loading = false;
-        state.tickets = action.payload;
+        state.tickets = Array.isArray(action.payload)
+          ? action.payload.filter((ticket) => ticket && ticket.id)
+          : [];
       })
       .addCase(fetchTickets.rejected, (state, action) => {
         state.loading = false;
@@ -246,6 +263,19 @@ const ticketSlice = createSlice({
         state.statsLoading = false;
         state.error = action.payload;
       })
+      // Fetch ticket by ID
+      .addCase(fetchTicketById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTicketById.fulfilled, (state, action) => {
+        state.loading = false;
+        state.viewingTicket = action.payload;
+      })
+      .addCase(fetchTicketById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
       // Create ticket
       .addCase(createTicket.pending, (state) => {
         state.loading = true;
@@ -253,7 +283,9 @@ const ticketSlice = createSlice({
       })
       .addCase(createTicket.fulfilled, (state, action) => {
         state.loading = false;
-        state.tickets.unshift(action.payload);
+        if (action.payload && action.payload.id) {
+          state.tickets.unshift(action.payload);
+        }
         state.showForm = false;
         state.formData = initialState.formData;
         state.formErrors = {};
@@ -269,11 +301,13 @@ const ticketSlice = createSlice({
       })
       .addCase(updateTicket.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.tickets.findIndex(
-          (ticket) => ticket.id === action.payload.id
-        );
-        if (index !== -1) {
-          state.tickets[index] = action.payload;
+        if (action.payload && action.payload.id) {
+          const index = state.tickets.findIndex(
+            (ticket) => ticket.id === action.payload.id
+          );
+          if (index !== -1) {
+            state.tickets[index] = action.payload;
+          }
         }
         state.showForm = false;
         state.editingTicket = null;
@@ -306,11 +340,13 @@ const ticketSlice = createSlice({
       })
       .addCase(updateTicketStatus.fulfilled, (state, action) => {
         state.loading = false;
-        const index = state.tickets.findIndex(
-          (ticket) => ticket.id === action.payload.id
-        );
-        if (index !== -1) {
-          state.tickets[index] = action.payload;
+        if (action.payload && action.payload.id) {
+          const index = state.tickets.findIndex(
+            (ticket) => ticket.id === action.payload.id
+          );
+          if (index !== -1) {
+            state.tickets[index] = action.payload;
+          }
         }
         state.statusModal = null;
         state.statusData = initialState.statusData;

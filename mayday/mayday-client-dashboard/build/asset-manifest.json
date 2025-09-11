@@ -1,0 +1,12 @@
+{
+  "files": {
+    "main.js": "/static/js/main.a542fe5c.js",
+    "static/media/morven-logo.svg": "/static/media/morven-logo.4c70f0c3dd3f05fca78ff9020128e573.svg",
+    "static/media/morven-logo-black.svg": "/static/media/morven-logo-black.9333efda4d5091f0cb0d6401f7d4d66e.svg",
+    "index.html": "/index.html",
+    "main.a542fe5c.js.map": "/static/js/main.a542fe5c.js.map"
+  },
+  "entrypoints": [
+    "static/js/main.a542fe5c.js"
+  ]
+}

@@ -102,8 +102,32 @@ export const getGuestById = async (req, res) => {
 
 export const createGuest = async (req, res) => {
   try {
+    const sanitize = (data) => {
+      const cleaned = { ...data };
+      const optionalFields = [
+        "email",
+        "phone",
+        "dateOfBirth",
+        "gender",
+        "address",
+        "city",
+        "country",
+        "preferences",
+        "allergies",
+        "dietaryRestrictions",
+        "notes",
+      ];
+      optionalFields.forEach((f) => {
+        if (cleaned[f] === "" || cleaned[f] === undefined) delete cleaned[f];
+      });
+      ["loyaltyPoints", "totalSpent", "visitCount"].forEach((f) => {
+        if (cleaned[f] === "" || cleaned[f] === undefined) delete cleaned[f];
+      });
+      return cleaned;
+    };
+
     const guestData = {
-      ...req.body,
+      ...sanitize(req.body),
       outletId: req.user.outletId,
     };
 
@@ -139,12 +163,39 @@ export const updateGuest = async (req, res) => {
       return res.status(404).json({ error: "Guest not found" });
     }
 
+    // Sanitize optional fields (treat empty strings as null/undefined)
+    const sanitize = (data) => {
+      const cleaned = { ...data };
+      const optionalFields = [
+        "email",
+        "phone",
+        "dateOfBirth",
+        "gender",
+        "address",
+        "city",
+        "country",
+        "preferences",
+        "allergies",
+        "dietaryRestrictions",
+        "notes",
+      ];
+      optionalFields.forEach((f) => {
+        if (cleaned[f] === "" || cleaned[f] === undefined) delete cleaned[f];
+      });
+      ["loyaltyPoints", "totalSpent", "visitCount"].forEach((f) => {
+        if (cleaned[f] === "" || cleaned[f] === undefined) delete cleaned[f];
+      });
+      return cleaned;
+    };
+
+    const updateData = sanitize(req.body);
+
     // Update loyalty tier if total spent changed
-    if (req.body.totalSpent !== undefined) {
-      req.body.loyaltyTier = calculateLoyaltyTier(req.body.totalSpent);
+    if (updateData.totalSpent !== undefined) {
+      updateData.loyaltyTier = calculateLoyaltyTier(updateData.totalSpent);
     }
 
-    await guest.update(req.body);
+    await guest.update(updateData);
 
     const updatedGuest = await Guest.findByPk(id, {
       include: [
@@ -352,8 +403,9 @@ export const getGuestHistory = async (req, res) => {
         attributes: [
           "id",
           "reservationNumber",
-          "date",
-          "time",
+          // Use model attribute names that map to reservation_date/reservation_time
+          "reservationDate",
+          "reservationTime",
           "partySize",
           "status",
           "createdAt",
@@ -366,12 +418,13 @@ export const getGuestHistory = async (req, res) => {
         order: [["createdAt", "DESC"]],
       }),
       Payment.findAll({
-        where: { "$order.guestId$": id, "$order.outletId$": userOutletId },
         include: [
           {
             model: Order,
             as: "order",
+            required: true,
             attributes: [],
+            where: { guestId: id, outletId: userOutletId },
           },
         ],
         attributes: [

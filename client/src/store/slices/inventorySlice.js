@@ -110,6 +110,18 @@ export const getExpiringItems = createAsyncThunk(
   }
 );
 
+export const generateSKU = createAsyncThunk(
+  "inventory/generateSKU",
+  async ({ category, outletId }, { rejectWithValue }) => {
+    try {
+      const response = await inventoryAPI.generateSKU(category, outletId);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
 // Initial state
 const initialState = {
   inventory: [],
@@ -395,6 +407,20 @@ const inventorySlice = createSlice({
         state.expiringItems = action.payload.items || action.payload;
       })
       .addCase(getExpiringItems.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // Generate SKU
+      .addCase(generateSKU.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(generateSKU.fulfilled, (state, action) => {
+        state.loading = false;
+        state.formData.sku = action.payload.sku;
+      })
+      .addCase(generateSKU.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

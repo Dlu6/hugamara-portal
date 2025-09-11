@@ -85,7 +85,6 @@ jspm_packages/
 
 # Gatsby files
 .cache/
-public
 
 # Storybook build outputs
 .out
@@ -115,3 +114,6 @@ config/local.json
 # Docker
 .dockerignore
 docker-compose.override.yml
+
+# Mayday provisioning backend (excluded from commits)
+mayday/provisioning_backend/

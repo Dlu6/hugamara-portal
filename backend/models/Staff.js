@@ -25,6 +25,16 @@ const Staff = sequelize.define(
       unique: true,
       field: "employee_id",
     },
+    firstName: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      field: "first_name",
+    },
+    lastName: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      field: "last_name",
+    },
     position: {
       type: DataTypes.STRING(100),
       allowNull: false,
@@ -42,6 +52,15 @@ const Staff = sequelize.define(
       ),
       allowNull: false,
     },
+    // departmentId: {
+    //   type: DataTypes.UUID,
+    //   allowNull: true,
+    //   field: "department_id",
+    //   references: {
+    //     model: "departments",
+    //     key: "id",
+    //   },
+    // },
     hireDate: {
       type: DataTypes.DATEONLY,
       allowNull: false,

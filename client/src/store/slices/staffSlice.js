@@ -91,7 +91,7 @@ export const updateStaffStatus = createAsyncThunk(
   async ({ id, status }, { rejectWithValue }) => {
     try {
       const response = await staffService.updateStaffStatus(id, status);
-      return response;
+      return { id, response };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -354,9 +354,11 @@ const staffSlice = createSlice({
       })
       .addCase(fetchStaff.fulfilled, (state, action) => {
         state.loading = false;
-        state.staff = action.payload.staff || action.payload;
-        state.filteredStaff = action.payload.staff || action.payload;
-        state.pagination = action.payload.pagination || state.pagination;
+        // Extract only the data portion, avoiding non-serializable values
+        const responseData = action.payload?.data || action.payload;
+        state.staff = responseData?.staff || responseData || [];
+        state.filteredStaff = responseData?.staff || responseData || [];
+        state.pagination = responseData?.pagination || state.pagination;
       })
       .addCase(fetchStaff.rejected, (state, action) => {
         state.loading = false;
@@ -370,7 +372,8 @@ const staffSlice = createSlice({
       })
       .addCase(fetchStaffById.fulfilled, (state, action) => {
         state.loading = false;
-        state.selectedStaff = action.payload;
+        const responseData = action.payload?.data || action.payload;
+        state.selectedStaff = responseData?.staff || responseData;
       })
       .addCase(fetchStaffById.rejected, (state, action) => {
         state.loading = false;
@@ -384,7 +387,8 @@ const staffSlice = createSlice({
       })
       .addCase(createStaff.fulfilled, (state, action) => {
         state.loading = false;
-        const newStaff = action.payload.staff || action.payload;
+        const responseData = action.payload.data || action.payload;
+        const newStaff = responseData.staff || responseData;
         state.staff.unshift(newStaff);
         state.filteredStaff.unshift(newStaff);
       })
@@ -400,7 +404,8 @@ const staffSlice = createSlice({
       })
       .addCase(updateStaff.fulfilled, (state, action) => {
         state.loading = false;
-        const updatedStaff = action.payload.staff || action.payload;
+        const responseData = action.payload.data || action.payload;
+        const updatedStaff = responseData.staff || responseData;
         const index = state.staff.findIndex(
           (staff) => staff.id === updatedStaff.id
         );
@@ -439,7 +444,7 @@ const staffSlice = createSlice({
       })
       .addCase(fetchStaffStats.fulfilled, (state, action) => {
         state.loading = false;
-        state.stats = action.payload.stats || action.payload;
+        state.stats = action.payload?.stats || action.payload;
       })
       .addCase(fetchStaffStats.rejected, (state, action) => {
         state.loading = false;
@@ -487,12 +492,18 @@ const staffSlice = createSlice({
       })
       .addCase(updateStaffPerformance.fulfilled, (state, action) => {
         state.loading = false;
-        const { id, response } = action.payload;
-        const updatedStaff = response.staff || response;
+        const { id, performanceData } = action.meta.arg;
+        const responseData = action.payload.data || action.payload;
+        const updatedStaff = responseData.staff || responseData;
+
+        // Update the staff member in the list
         const index = state.staff.findIndex((staff) => staff.id === id);
         if (index !== -1) {
-          state.staff[index] = updatedStaff;
-          state.filteredStaff[index] = updatedStaff;
+          state.staff[index] = { ...state.staff[index], ...updatedStaff };
+          state.filteredStaff[index] = {
+            ...state.filteredStaff[index],
+            ...updatedStaff,
+          };
         }
       })
       .addCase(updateStaffPerformance.rejected, (state, action) => {
@@ -507,7 +518,8 @@ const staffSlice = createSlice({
       })
       .addCase(getStaffByDepartment.fulfilled, (state, action) => {
         state.loading = false;
-        state.filteredStaff = action.payload.staff || action.payload;
+        const responseData = action.payload.data || action.payload;
+        state.filteredStaff = responseData.staff || responseData || [];
       })
       .addCase(getStaffByDepartment.rejected, (state, action) => {
         state.loading = false;

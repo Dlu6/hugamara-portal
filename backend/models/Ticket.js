@@ -1,164 +1,213 @@
-import { DataTypes } from 'sequelize';
-import { sequelize } from '../config/database.js';
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/database.js";
 
-const Ticket = sequelize.define('Ticket', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
+const Ticket = sequelize.define(
+  "Ticket",
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    ticketNumber: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      unique: true,
+      field: "ticket_number",
+    },
+    outletId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      field: "outlet_id",
+      references: {
+        model: "outlets",
+        key: "id",
+      },
+    },
+    title: {
+      type: DataTypes.STRING(200),
+      allowNull: false,
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    category: {
+      type: DataTypes.ENUM(
+        "guest_complaint",
+        "equipment_failure",
+        "safety_security",
+        "facility",
+        "it",
+        "hr",
+        "supplier",
+        "other"
+      ),
+      allowNull: false,
+      defaultValue: "other",
+    },
+    priority: {
+      type: DataTypes.ENUM("low", "medium", "high", "critical"),
+      allowNull: false,
+      defaultValue: "medium",
+    },
+    status: {
+      type: DataTypes.ENUM(
+        "open",
+        "in_progress",
+        "waiting",
+        "resolved",
+        "closed"
+      ),
+      allowNull: false,
+      defaultValue: "open",
+    },
+    createdBy: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      field: "created_by",
+      references: {
+        model: "users",
+        key: "id",
+      },
+    },
+    assignedTo: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: "assigned_to",
+      references: {
+        model: "users",
+        key: "id",
+      },
+    },
+    escalatedTo: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: "escalated_to",
+      references: {
+        model: "users",
+        key: "id",
+      },
+    },
+    escalationLevel: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "escalation_level",
+    },
+    lastEscalatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "last_escalated_at",
+    },
+    location: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    estimatedResolutionTime: {
+      type: DataTypes.INTEGER, // in minutes
+      allowNull: true,
+      field: "estimated_resolution_time",
+    },
+    actualResolutionTime: {
+      type: DataTypes.INTEGER, // in minutes
+      allowNull: true,
+      field: "actual_resolution_time",
+    },
+    slaTarget: {
+      type: DataTypes.INTEGER, // in minutes
+      allowNull: true,
+      field: "sla_target",
+    },
+    slaBreached: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: "sla_breached",
+    },
+    tags: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    attachments: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    resolutionNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "resolution_notes",
+    },
+    resolvedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "resolved_at",
+    },
+    closedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: "closed_at",
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      field: "created_at",
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      field: "updated_at",
+    },
+    // Audit fields removed to avoid MySQL key limit issues
   },
-  ticketNumber: {
-    type: DataTypes.STRING(20),
-    allowNull: false,
-    unique: true,
-    field: 'ticket_number'
-  },
-  outletId: {
-    type: DataTypes.UUID,
-    allowNull: false,
-    field: 'outlet_id',
-    references: {
-      model: 'outlets',
-      key: 'id'
-    }
-  },
-  title: {
-    type: DataTypes.STRING(200),
-    allowNull: false
-  },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: false
-  },
-  category: {
-    type: DataTypes.ENUM(
-      'guest_complaint',
-      'equipment_failure',
-      'safety_security',
-      'facility',
-      'it',
-      'hr',
-      'supplier',
-      'other'
-    ),
-    allowNull: false,
-    defaultValue: 'other'
-  },
-  priority: {
-    type: DataTypes.ENUM('low', 'medium', 'high', 'critical'),
-    allowNull: false,
-    defaultValue: 'medium'
-  },
-  status: {
-    type: DataTypes.ENUM('open', 'in_progress', 'waiting', 'resolved', 'closed'),
-    allowNull: false,
-    defaultValue: 'open'
-  },
-  // assignedTo and reportedBy removed to simplify associations
-  // guestId removed to simplify associations
-  // reservationId removed to simplify associations
-  location: {
-    type: DataTypes.STRING(100),
-    allowNull: true
-  },
-  estimatedResolutionTime: {
-    type: DataTypes.INTEGER, // in minutes
-    allowNull: true,
-    field: 'estimated_resolution_time'
-  },
-  actualResolutionTime: {
-    type: DataTypes.INTEGER, // in minutes
-    allowNull: true,
-    field: 'actual_resolution_time'
-  },
-  slaTarget: {
-    type: DataTypes.INTEGER, // in minutes
-    allowNull: true,
-    field: 'sla_target'
-  },
-  slaBreached: {
-    type: DataTypes.BOOLEAN,
-    allowNull: false,
-    defaultValue: false,
-    field: 'sla_breached'
-  },
-  tags: {
-    type: DataTypes.JSON,
-    allowNull: true,
-    defaultValue: []
-  },
-  attachments: {
-    type: DataTypes.JSON,
-    allowNull: true,
-    defaultValue: []
-  },
-  resolutionNotes: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-    field: 'resolution_notes'
-  },
-  resolvedAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'resolved_at'
-  },
-  closedAt: {
-    type: DataTypes.DATE,
-    allowNull: true,
-    field: 'closed_at'
-  },
-  createdAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    field: 'created_at'
-  },
-  updatedAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    field: 'updated_at'
-  },
-  // Audit fields removed to avoid MySQL key limit issues
-}, {
-  tableName: 'tickets',
-  timestamps: true,
-  underscored: true
-});
+  {
+    tableName: "tickets",
+    timestamps: true,
+    underscored: true,
+  }
+);
 
 // Instance methods
-Ticket.prototype.getPriorityColor = function() {
+Ticket.prototype.getPriorityColor = function () {
   const priorityColors = {
-    low: 'success',
-    medium: 'info',
-    high: 'warning',
-    critical: 'danger'
+    low: "success",
+    medium: "info",
+    high: "warning",
+    critical: "danger",
   };
-  return priorityColors[this.priority] || 'secondary';
+  return priorityColors[this.priority] || "secondary";
 };
 
-Ticket.prototype.getStatusColor = function() {
+Ticket.prototype.getStatusColor = function () {
   const statusColors = {
-    open: 'danger',
-    in_progress: 'warning',
-    waiting: 'info',
-    resolved: 'success',
-    closed: 'secondary'
+    open: "danger",
+    in_progress: "warning",
+    waiting: "info",
+    resolved: "success",
+    closed: "secondary",
   };
-  return statusColors[this.status] || 'secondary';
+  return statusColors[this.status] || "secondary";
 };
 
-Ticket.prototype.isOverdue = function() {
-  if (!this.slaTarget || this.status === 'resolved' || this.status === 'closed') {
+Ticket.prototype.isOverdue = function () {
+  if (
+    !this.slaTarget ||
+    this.status === "resolved" ||
+    this.status === "closed"
+  ) {
     return false;
   }
-  
+
   const createdAt = new Date(this.createdAt);
   const now = new Date();
   const elapsedMinutes = Math.floor((now - createdAt) / (1000 * 60));
-  
+
   return elapsedMinutes > this.slaTarget;
 };
 
-Ticket.prototype.calculateResolutionTime = function() {
+Ticket.prototype.calculateResolutionTime = function () {
   if (this.resolvedAt && this.createdAt) {
     const created = new Date(this.createdAt);
     const resolved = new Date(this.resolvedAt);

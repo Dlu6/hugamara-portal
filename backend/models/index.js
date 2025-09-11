@@ -5,6 +5,7 @@ import Outlet from "./Outlet.js";
 import Guest from "./Guest.js";
 import Reservation from "./Reservation.js";
 import Ticket from "./Ticket.js";
+import TicketHistory from "./TicketHistory.js";
 import Event from "./Event.js";
 import MenuItem from "./MenuItem.js";
 import Order from "./Order.js";
@@ -14,6 +15,7 @@ import Inventory from "./Inventory.js";
 import Staff from "./Staff.js";
 import Shift from "./Shift.js";
 import Payment from "./Payment.js";
+import Department from "./Department.js";
 
 // Define associations - Simplified to avoid MySQL key limit issues
 
@@ -29,7 +31,25 @@ Table.hasMany(Reservation, { foreignKey: "tableId", as: "reservations" });
 
 // Ticket relationships
 Ticket.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
+Ticket.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
+Ticket.belongsTo(User, { foreignKey: "assignedTo", as: "assignee" });
+Ticket.belongsTo(User, { foreignKey: "escalatedTo", as: "escalatedToUser" });
 Outlet.hasMany(Ticket, { foreignKey: "outletId", as: "tickets" });
+User.hasMany(Ticket, { foreignKey: "createdBy", as: "createdTickets" });
+User.hasMany(Ticket, { foreignKey: "assignedTo", as: "assignedTickets" });
+User.hasMany(Ticket, { foreignKey: "escalatedTo", as: "escalatedTickets" });
+
+// Ticket History relationships
+TicketHistory.belongsTo(Ticket, { foreignKey: "ticketId", as: "ticket" });
+TicketHistory.belongsTo(User, {
+  foreignKey: "performedBy",
+  as: "performedByUser",
+});
+Ticket.hasMany(TicketHistory, { foreignKey: "ticketId", as: "history" });
+User.hasMany(TicketHistory, {
+  foreignKey: "performedBy",
+  as: "performedActions",
+});
 
 // Event relationships
 Event.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
@@ -63,6 +83,8 @@ MenuItem.hasMany(OrderItem, { foreignKey: "menuItemId", as: "orderItems" });
 // Guest relationships
 Guest.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
 Outlet.hasMany(Guest, { foreignKey: "outletId", as: "guests" });
+Guest.hasMany(Reservation, { foreignKey: "guestId", as: "reservations" });
+Reservation.belongsTo(Guest, { foreignKey: "guestId", as: "guest" });
 
 // Table relationships
 Table.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
@@ -74,7 +96,20 @@ Outlet.hasMany(Inventory, { foreignKey: "outletId", as: "inventory" });
 
 // Staff relationships
 Staff.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
+Staff.belongsTo(Department, {
+  foreignKey: "departmentId",
+  as: "departmentInfo",
+});
 Outlet.hasMany(Staff, { foreignKey: "outletId", as: "staff" });
+Department.hasMany(Staff, { foreignKey: "departmentId", as: "staff" });
+
+// Department relationships
+Department.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
+Department.belongsTo(User, { foreignKey: "createdBy", as: "creator" });
+Department.belongsTo(User, { foreignKey: "updatedBy", as: "updater" });
+Outlet.hasMany(Department, { foreignKey: "outletId", as: "departments" });
+User.hasMany(Department, { foreignKey: "createdBy", as: "createdDepartments" });
+User.hasMany(Department, { foreignKey: "updatedBy", as: "updatedDepartments" });
 
 // Shift relationships
 Shift.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
@@ -86,6 +121,20 @@ Payment.belongsTo(Outlet, { foreignKey: "outletId", as: "outlet" });
 Order.hasMany(Payment, { foreignKey: "orderId", as: "payments" });
 Outlet.hasMany(Payment, { foreignKey: "outletId", as: "payments" });
 
+// Role-Permission relationships (many-to-many)
+Role.belongsToMany(Permission, {
+  through: "role_permissions",
+  foreignKey: "roleId",
+  otherKey: "permissionId",
+  as: "permissions",
+});
+Permission.belongsToMany(Role, {
+  through: "role_permissions",
+  foreignKey: "permissionId",
+  otherKey: "roleId",
+  as: "roles",
+});
+
 export {
   User,
   Role,
@@ -94,6 +143,7 @@ export {
   Guest,
   Reservation,
   Ticket,
+  TicketHistory,
   Event,
   MenuItem,
   Order,
@@ -103,4 +153,5 @@ export {
   Staff,
   Shift,
   Payment,
+  Department,
 };

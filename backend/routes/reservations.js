@@ -6,6 +6,9 @@ import {
   getAllReservations,
   createReservation,
   updateReservation,
+  deleteReservation,
+  updateReservationStatus,
+  seatReservation,
 } from "../controllers/reservationController.js";
 
 const router = express.Router();
@@ -35,5 +38,8 @@ router.post(
   createReservation
 );
 router.put("/:id", authenticateToken, updateReservation);
+router.delete("/:id", authenticateToken, deleteReservation);
+router.patch("/:id/status", authenticateToken, updateReservationStatus);
+router.patch("/:id/seat", authenticateToken, seatReservation);
 
 export default router;

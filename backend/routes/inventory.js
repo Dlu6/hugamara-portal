@@ -13,6 +13,7 @@ import {
   getExpiringItems,
   getInventoryStats,
   bulkUpdateStock,
+  generateInventorySKU,
 } from "../controllers/inventoryController.js";
 
 const router = express.Router();
@@ -75,6 +76,7 @@ router.get("/", authenticateToken, getAllInventory);
 router.get("/stats", authenticateToken, getInventoryStats);
 router.get("/low-stock", authenticateToken, getLowStockItems);
 router.get("/expiring", authenticateToken, getExpiringItems);
+router.get("/generate-sku", authenticateToken, generateInventorySKU);
 router.get("/:id", authenticateToken, getInventoryById);
 router.post(
   "/",

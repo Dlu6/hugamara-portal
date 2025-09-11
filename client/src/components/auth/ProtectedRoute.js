@@ -23,10 +23,21 @@ const ProtectedRoute = ({ children, routeConfig }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // If user is authenticated but user object not loaded yet, wait
+  if (isAuthenticated && !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
   // Check route access if routeConfig is provided
   if (routeConfig && !hasRouteAccess(routeConfig, user, permissions)) {
-    // Redirect to dashboard if user doesn't have access
-    return <Navigate to="/dashboard" replace />;
+    // Avoid redirecting to the same route; send to unauthorized page if needed
+    const redirectTarget =
+      location.pathname === routeConfig.path ? "/unauthorized" : "/dashboard";
+    return <Navigate to={redirectTarget} replace />;
   }
 
   return children;

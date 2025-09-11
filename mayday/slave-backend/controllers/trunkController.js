@@ -1,0 +1,714 @@
+import sequelize, { Op } from "../config/sequelize.js";
+import {
+  PJSIPEndpoint,
+  PJSIPAuth,
+  PJSIPAor,
+  PJSIPEndpointIdentifier,
+  // PJSIPRegistration,
+  // PJSIPEndpointIdentifier,
+  // PJSIPIdentify,
+} from "../models/pjsipModel.js";
+import amiService from "../services/amiService.js";
+import { updatePJSIPConfig } from "../utils/asteriskConfigWriter.js";
+import { checkBalance } from "../services/trunkBalanceService.js";
+
+export const createTrunk = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const {
+      name,
+      defaultUser,
+      password,
+      host,
+      context,
+      transport,
+      codecs = "ulaw,alaw",
+      endpoint_type = "trunk",
+      isP2P = false,
+      fromUser,
+    } = req.body;
+
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: Truck name!",
+      });
+    }
+
+    // Ensure PJSIP transport configurations exist before creating trunk
+    try {
+      const { updatePJSIPTransports, checkPJSIPTransports } = await import(
+        "../utils/asteriskConfigWriter.js"
+      );
+
+      // First check if transports exist
+      const transportStatus = await checkPJSIPTransports();
+      console.log("Current transport status:", transportStatus);
+
+      if (!transportStatus.exists) {
+        // If no transports exist, try to create them
+        await updatePJSIPTransports();
+        console.log(
+          "PJSIP transport configurations created before trunk creation"
+        );
+      } else {
+        console.log("PJSIP transport configurations already exist");
+      }
+    } catch (transportError) {
+      console.error(
+        "Failed to ensure PJSIP transport configurations:",
+        transportError.message
+      );
+      return res.status(500).json({
+        success: false,
+        message:
+          "Cannot create trunk: External IP configuration required. Please configure an external IP in Network Settings first.",
+        details: transportError.message,
+      });
+    }
+
+    const baseId = name;
+    const cleanHost = host.replace(/^sip:/, "").replace(/:\d+$/, "");
+
+    // 1. Create Endpoint
+    await PJSIPEndpoint.create(
+      {
+        id: baseId,
+        transport,
+        context,
+        disallow: "all",
+        allow: codecs,
+        auth: isP2P ? null : `${baseId}_auth`,
+        aors: `${baseId}_aor`,
+        send_pai: "yes",
+        send_rpid: "yes",
+        endpoint_type,
+        trunk_id: baseId,
+        outbound_proxy: `sip:${cleanHost}:5060`,
+        from_domain: cleanHost,
+        from_user: fromUser,
+        rtp_symmetric: "yes",
+        force_rport: "yes",
+        rewrite_contact: "yes",
+        direct_media: "no",
+        account_number: null,
+        phone_number: null,
+      },
+      { transaction }
+    );
+
+    if (!isP2P) {
+      // 2. Create Auth
+      await PJSIPAuth.create(
+        {
+          id: `${baseId}_auth`,
+          auth_type: "userpass",
+          username: defaultUser,
+          password,
+        },
+        { transaction }
+      );
+    }
+
+    // 3. Create AOR
+    await PJSIPAor.create(
+      {
+        id: `${baseId}_aor`,
+        contact: `sip:${cleanHost}:5060`,
+        qualify_frequency: 60,
+        max_contacts: 1,
+        remove_existing: "yes",
+        support_path: "yes",
+      },
+      { transaction }
+    );
+
+    // 4. Create Endpoint Identifier
+    await PJSIPEndpointIdentifier.create(
+      {
+        id: `${baseId}_identify`,
+        endpoint: baseId,
+        match: cleanHost,
+        srv_lookups: "no",
+        match_header: `P-Asserted-Identity: <sip:.*@${cleanHost}>`,
+        match_request_uri: "yes",
+      },
+      { transaction }
+    );
+
+    // Update the PJSIP configuration file
+    await updatePJSIPConfig({
+      name: baseId,
+      username: defaultUser,
+      password,
+      host: cleanHost,
+      transport,
+      context,
+      codecs,
+      isP2P,
+    });
+
+    await transaction.commit();
+
+    // Reload PJSIP
+    await amiService.executeAction({
+      Action: "Command",
+      Command: "pjsip reload",
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Trunk created successfully",
+      trunk: {
+        endpoint: {
+          id: baseId,
+          active: 1,
+          enabled: true,
+        },
+        auth: isP2P ? null : { id: `${baseId}_auth`, username: defaultUser },
+        aor: {
+          id: `${baseId}_aor`,
+          contact: `sip:${cleanHost}:5060`,
+        },
+        identify: {
+          endpoint: baseId,
+          match: cleanHost,
+          srv_lookups: "no",
+        },
+      },
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error creating trunk:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create trunk",
+      error: error.message,
+    });
+  }
+};
+
+export const updateTrunk = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { trunkId } = req.params;
+    const updates = req.body;
+
+    // Fetch the endpoint for the given trunk ID
+    const endpoint = await PJSIPEndpoint.findOne({
+      where: { trunk_id: trunkId },
+      transaction,
+    });
+
+    if (!endpoint) {
+      return res.status(404).json({
+        success: false,
+        message: "Trunk not found",
+      });
+    }
+
+    // Ensure the transport value is properly formatted
+    const transportValue = updates.transport || "transport-udp";
+    if (!transportValue.startsWith("transport-")) {
+      updates.transport = `transport-${transportValue}`;
+    }
+
+    // Update the endpoint
+    await endpoint.update(
+      {
+        enabled: Boolean(updates.enabled),
+        active: updates.enabled ? 1 : 0,
+        transport: updates.transport || "transport-udp",
+        context: updates.context || "from-voip-provider",
+        allow: updates.codecs || "ulaw,alaw",
+        from_user: updates.fromUser || updates.defaultUser,
+        from_domain: updates.fromDomain || updates.host,
+        direct_media: updates.directMedia || "no",
+        outbound_proxy: updates.outboundProxy || "",
+        rewrite_contact: updates.rewriteContact || "yes",
+        rtp_symmetric: updates.rtpSymmetric || "yes",
+        call_counter: updates.callCounter || "yes",
+        encryption: updates.encryption || "no",
+        account_number: updates.account_number || endpoint.account_number,
+        phone_number: updates.phone_number || endpoint.phone_number,
+      },
+      { transaction }
+    );
+
+    // Update the PJSIP Auth
+    await PJSIPAuth.update(
+      {
+        auth_type: updates.auth_type || "userpass",
+        username: updates.defaultUser,
+        password: updates.password,
+        realm: updates.realm || updates.host,
+      },
+      {
+        where: { id: endpoint.auth },
+        transaction,
+      }
+    );
+
+    // Update the PJSIP AOR
+    await PJSIPAor.update(
+      {
+        contact: updates.host.startsWith("sip:")
+          ? updates.host
+          : `sip:${updates.host}:5060`,
+        qualify_frequency: updates.qualifyFrequency || 60,
+        max_contacts: updates.maxContacts || 1,
+        remove_existing: updates.removeExisting || "yes",
+      },
+      {
+        where: { id: endpoint.aors },
+        transaction,
+      }
+    );
+
+    // Update the Endpoint Identifier
+    await PJSIPEndpointIdentifier.update(
+      {
+        match: updates.host,
+      },
+      { where: { endpoint: trunkId }, transaction }
+    );
+    // Reload PJSIP configurations via AMI
+    await amiService.executeAction({
+      Action: "Command",
+      Command: "pjsip reload",
+    });
+
+    await transaction.commit();
+
+    // Update the PJSIP configuration File in the server
+    await updatePJSIPConfig({
+      name: trunkId,
+      username: updates.defaultUser,
+      password: updates.password,
+      host: updates.host,
+      context: updates.context,
+      codecs: updates.codecs,
+      transport: updates.transport,
+    });
+
+    // Fetch updated configurations
+    const [updatedEndpoint, updatedAuth, updatedAor] = await Promise.all([
+      PJSIPEndpoint.findOne({
+        where: { trunk_id: trunkId },
+        attributes: { include: ["enabled", "active"] },
+      }),
+      PJSIPAuth.findByPk(endpoint.auth),
+      PJSIPAor.findByPk(endpoint.aors),
+    ]);
+
+    res.json({
+      success: true,
+      message: "Trunk updated successfully",
+      trunk: {
+        endpoint: updatedEndpoint,
+        auth: updatedAuth,
+        aor: updatedAor,
+      },
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error updating trunk:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update trunk",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteTrunk = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { trunkId } = req.params;
+    console.log(`Attempting to delete trunk with ID: ${trunkId}`);
+
+    // Find the endpoint using either trunk_id or id (name)
+    const endpoint = await PJSIPEndpoint.findOne({
+      where: {
+        [Op.or]: [{ trunk_id: trunkId }, { id: trunkId }],
+      },
+      transaction,
+    });
+
+    if (!endpoint) {
+      console.log(`No endpoint found for trunkId: ${trunkId}`);
+      return res.status(404).json({
+        success: false,
+        message: "Trunk endpoint not found",
+      });
+    }
+
+    console.log(`Found endpoint:`, {
+      id: endpoint.id,
+      trunk_id: endpoint.trunk_id,
+      auth: endpoint.auth,
+      aors: endpoint.aors,
+    });
+
+    // Get the actual IDs from the endpoint
+    const endpointId = endpoint.id; // This is the actual endpoint ID (name)
+    const authId = endpoint.auth; // This will be the actual auth ID like "MyTrunk_auth"
+    const aorId = endpoint.aors; // This will be the actual aor ID like "MyTrunk_aor"
+
+    console.log(`Deleting trunk configurations:`, {
+      endpointId,
+      authId,
+      aorId,
+      trunkId,
+    });
+
+    // Validate that we have the required endpoint ID
+    if (!endpointId) {
+      throw new Error("Endpoint ID is required for deletion");
+    }
+
+    // Delete all PJSIP configurations in parallel
+    const deletePromises = [];
+
+    // Only delete auth if it exists
+    if (authId) {
+      deletePromises.push(
+        PJSIPAuth.destroy({
+          where: { id: authId },
+          transaction,
+        })
+      );
+    }
+
+    // Only delete aor if it exists
+    if (aorId) {
+      deletePromises.push(
+        PJSIPAor.destroy({
+          where: { id: aorId },
+          transaction,
+        })
+      );
+    }
+
+    // Always delete endpoint and identifier
+    deletePromises.push(
+      PJSIPEndpoint.destroy({
+        where: { id: endpointId },
+        transaction,
+      }),
+      PJSIPEndpointIdentifier.destroy({
+        where: { endpoint: endpointId },
+        transaction,
+      })
+    );
+
+    await Promise.all(deletePromises);
+
+    // Remove configurations from pjsip.conf
+    try {
+      await updatePJSIPConfig({
+        name: endpointId, // Use the endpoint's actual ID
+        delete: true,
+      });
+      console.log(
+        `Successfully removed PJSIP configurations for: ${endpointId}`
+      );
+    } catch (configError) {
+      console.warn(
+        `Failed to remove PJSIP configurations for ${endpointId}:`,
+        configError.message
+      );
+      // Continue with deletion even if config removal fails
+    }
+
+    // Reload PJSIP
+    try {
+      await amiService.executeAction({
+        Action: "Command",
+        Command: "pjsip reload",
+      });
+      console.log("PJSIP reload successful");
+    } catch (reloadError) {
+      console.warn("Failed to reload PJSIP:", reloadError.message);
+      // Continue with deletion even if reload fails
+    }
+
+    await transaction.commit();
+
+    res.json({
+      success: true,
+      message: "Trunk and all related configurations deleted successfully",
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Error deleting trunk:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete trunk",
+      error: error.message,
+    });
+  }
+};
+
+export const getTrunks = async (req, res) => {
+  try {
+    const trunks = await PJSIPEndpoint.findAll({
+      attributes: [
+        "id",
+        "trunk_id",
+        "transport",
+        "endpoint_type",
+        "enabled",
+        "active",
+        "context",
+        "disallow",
+        "allow",
+        "auth",
+        "aors",
+        "from_user",
+        "from_domain",
+        "outbound_proxy",
+        "direct_media",
+        "rtp_symmetric",
+        "force_rport",
+        "rewrite_contact",
+      ],
+      where: { endpoint_type: "trunk" },
+      include: [
+        {
+          model: PJSIPAor,
+          as: "aorConfig",
+          required: false,
+          attributes: [
+            "id",
+            "contact",
+            "qualify_frequency",
+            "support_path",
+            "default_expiration",
+            "remove_existing",
+            "max_contacts",
+            // Note: removed user_id as it doesn't exist in the database
+          ],
+        },
+        {
+          model: PJSIPAuth,
+          as: "authConfig",
+          required: false,
+          attributes: ["id", "auth_type", "password", "username"],
+        },
+      ],
+    });
+
+    const formattedTrunks = trunks.map((trunk) => ({
+      trunkId: trunk.trunk_id,
+      name: trunk.id,
+      endpoint: {
+        ...trunk.get(),
+        registration: trunk.registration ? trunk.registration.get() : null,
+      },
+      aor: trunk.aorConfig || null,
+      auth: trunk.authConfig || null,
+    }));
+
+    res.json({
+      success: true,
+      trunks: formattedTrunks,
+    });
+  } catch (error) {
+    console.error("Error fetching trunks:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch trunks",
+      error: error.message,
+    });
+  }
+};
+
+export const getTrunkById = async (req, res) => {
+  try {
+    const { trunkId } = req.params;
+
+    // Find the trunk endpoint by trunk_id
+    const endpoint = await PJSIPEndpoint.findOne({
+      where: {
+        trunk_id: trunkId,
+        endpoint_type: "trunk",
+      },
+      include: [
+        {
+          model: PJSIPAor,
+          as: "aorConfig",
+          required: false,
+        },
+        {
+          model: PJSIPAuth,
+          as: "authConfig",
+          required: false,
+        },
+      ],
+    });
+
+    if (!endpoint) {
+      return res.status(404).json({
+        success: false,
+        message: "Trunk not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      trunk: {
+        name: trunkId,
+        endpoint: endpoint.get(),
+        auth: endpoint.authConfig,
+        aor: endpoint.aorConfig,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching trunk:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch trunk",
+      error: error.message,
+    });
+  }
+};
+
+export const checkTrunkBalance = async (req, res) => {
+  try {
+    const { trunkId } = req.params;
+
+    // Find the trunk endpoint
+    const endpoint = await PJSIPEndpoint.findOne({
+      where: { trunk_id: trunkId },
+    });
+
+    if (!endpoint) {
+      return res.status(404).json({
+        success: false,
+        message: "Trunk not found",
+      });
+    }
+
+    if (!endpoint.account_number) {
+      return res.status(400).json({
+        success: false,
+        message: "No account number configured for this trunk",
+      });
+    }
+
+    // Check balance with provider
+    const balanceResult = await checkBalance(endpoint.account_number);
+
+    if (balanceResult.success) {
+      // Update the trunk with new balance information
+      await endpoint.update({
+        current_balance: balanceResult.balance.amount,
+        balance_currency: balanceResult.balance.currency,
+        balance_last_updated: balanceResult.balance.lastUpdated,
+        balance_error: null,
+      });
+
+      res.json({
+        success: true,
+        balance: balanceResult.balance,
+        message: "Balance updated successfully",
+      });
+    } else {
+      // Update error information
+      await endpoint.update({
+        balance_error: balanceResult.error || balanceResult.message,
+        balance_last_updated: new Date(),
+      });
+
+      res.status(400).json({
+        success: false,
+        message: "Failed to check balance",
+        error: balanceResult.error || balanceResult.message,
+      });
+    }
+  } catch (error) {
+    console.error("Error checking trunk balance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check balance",
+      error: error.message,
+    });
+  }
+};
+
+export const updateTrunkBalanceInfo = async (req, res) => {
+  try {
+    const { trunkId } = req.params;
+    const { account_number, phone_number } = req.body;
+
+    // Find the trunk endpoint
+    const endpoint = await PJSIPEndpoint.findOne({
+      where: { trunk_id: trunkId },
+    });
+
+    if (!endpoint) {
+      return res.status(404).json({
+        success: false,
+        message: "Trunk not found",
+      });
+    }
+
+    // Update balance information
+    await endpoint.update({
+      account_number,
+      phone_number,
+    });
+
+    res.json({
+      success: true,
+      message: "Trunk balance information updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating trunk balance info:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update balance information",
+      error: error.message,
+    });
+  }
+};
+
+export const getTrunkBalance = async (req, res) => {
+  try {
+    const { trunkId } = req.params;
+
+    // Find the trunk endpoint
+    const endpoint = await PJSIPEndpoint.findOne({
+      where: { trunk_id: trunkId },
+    });
+
+    if (!endpoint) {
+      return res.status(404).json({
+        success: false,
+        message: "Trunk not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      balance: {
+        amount: endpoint.current_balance || 0,
+        currency: endpoint.balance_currency || "USD",
+        lastUpdated: endpoint.balance_last_updated,
+        error: endpoint.balance_error,
+        accountNumber: endpoint.account_number,
+        phoneNumber: endpoint.phone_number,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting trunk balance:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get balance",
+      error: error.message,
+    });
+  }
+};

@@ -10,7 +10,7 @@ import { store } from "./store";
 import "./styles/App.css";
 
 // Auth Components
-import Login from "./pages/Login";
+import LoginHospitality from "./pages/LoginHospitality";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
@@ -21,7 +21,6 @@ import Reservations from "./pages/Reservations";
 import Orders from "./pages/Orders";
 import Inventory from "./pages/Inventory";
 import Guests from "./pages/Guests";
-import Events from "./pages/Events";
 import MenuManagement from "./pages/MenuManagement";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
@@ -30,6 +29,10 @@ import AccessControl from "./components/auth/AccessControl";
 import Outlets from "./pages/Outlets";
 import OutletDetail from "./pages/OutletDetail";
 import Tables from "./pages/Tables";
+import Staff from "./pages/Staff";
+import ShiftManagement from "./pages/ShiftManagement";
+import SupportTickets from "./pages/SupportTickets";
+import EventManagement from "./pages/EventManagement";
 
 // Layout Components
 import UnifiedLayout from "./components/layout/UnifiedLayout";
@@ -50,7 +53,8 @@ const AppContent = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token && !isAuthenticated) {
+    if (token) {
+      // Always hydrate user from backend when a token exists
       dispatch(getCurrentUser());
     }
   }, [dispatch]);
@@ -62,7 +66,11 @@ const AppContent = () => {
         <Route
           path={ROUTES.LOGIN.path}
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <LoginHospitality />
+            )
           }
         />
         <Route
@@ -254,6 +262,57 @@ const AppContent = () => {
         />
 
         <Route
+          path={ROUTES.STAFF.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.STAFF}>
+              <UnifiedLayout
+                title={ROUTES.STAFF.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Staff Management" },
+                ]}
+              >
+                <Staff />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path={ROUTES.SHIFTS.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.SHIFTS}>
+              <UnifiedLayout
+                title={ROUTES.SHIFTS.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Shift Management" },
+                ]}
+              >
+                <ShiftManagement />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path={ROUTES.TICKETS.path}
+          element={
+            <ProtectedRoute routeConfig={ROUTES.TICKETS}>
+              <UnifiedLayout
+                title={ROUTES.TICKETS.title}
+                breadcrumbs={[
+                  { label: "Dashboard", link: "/dashboard" },
+                  { label: "Support Tickets" },
+                ]}
+              >
+                <SupportTickets />
+              </UnifiedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path={ROUTES.EVENTS.path}
           element={
             <ProtectedRoute routeConfig={ROUTES.EVENTS}>
@@ -264,7 +323,7 @@ const AppContent = () => {
                   { label: "Events & Promotions" },
                 ]}
               >
-                <Events />
+                <EventManagement />
               </UnifiedLayout>
             </ProtectedRoute>
           }

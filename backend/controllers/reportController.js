@@ -13,6 +13,61 @@ import {
   Guest,
 } from "../models/index.js";
 
+// Helper function to get previous period filter for trend calculations
+const getPreviousPeriodFilter = (period, now) => {
+  switch (period) {
+    case "today":
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        [Op.gte]: new Date(
+          yesterday.getFullYear(),
+          yesterday.getMonth(),
+          yesterday.getDate()
+        ),
+        [Op.lt]: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+      };
+    case "week":
+      const lastWeekStart = new Date(now);
+      lastWeekStart.setDate(now.getDate() - now.getDay() - 7);
+      lastWeekStart.setHours(0, 0, 0, 0);
+      const lastWeekEnd = new Date(now);
+      lastWeekEnd.setDate(now.getDate() - now.getDay());
+      lastWeekEnd.setHours(0, 0, 0, 0);
+      return {
+        [Op.gte]: lastWeekStart,
+        [Op.lt]: lastWeekEnd,
+      };
+    case "month":
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return {
+        [Op.gte]: lastMonth,
+        [Op.lt]: thisMonth,
+      };
+    case "year":
+      const lastYear = new Date(now.getFullYear() - 1, 0, 1);
+      const thisYear = new Date(now.getFullYear(), 0, 1);
+      return {
+        [Op.gte]: lastYear,
+        [Op.lt]: thisYear,
+      };
+    default:
+      return {};
+  }
+};
+
+// Helper function to calculate trend percentage
+const calculateTrend = (current, previous) => {
+  if (!previous || previous === 0) return null;
+  const change = ((current - previous) / previous) * 100;
+  return {
+    direction: change >= 0 ? "up" : "down",
+    percentage: Math.abs(change).toFixed(1),
+    value: `${change >= 0 ? "+" : ""}${change.toFixed(1)}%`,
+  };
+};
+
 export const getDashboardStats = async (req, res) => {
   try {
     const { period = "week" } = req.query;
@@ -56,6 +111,10 @@ export const getDashboardStats = async (req, res) => {
       topMenuItems,
       recentOrders,
       lowStockItems,
+      // Previous period data for trends
+      prevTotalOrders,
+      prevTotalRevenue,
+      prevTotalReservations,
     ] = await Promise.all([
       Order.count({
         where: { outletId: userOutletId, createdAt: dateFilter },
@@ -154,12 +213,49 @@ export const getDashboardStats = async (req, res) => {
         },
         limit: 5,
       }),
+      // Previous period data for trends
+      Order.count({
+        where: {
+          outletId: userOutletId,
+          createdAt: getPreviousPeriodFilter(period, now),
+        },
+      }),
+      Payment.findOne({
+        where: {
+          outletId: userOutletId,
+          createdAt: getPreviousPeriodFilter(period, now),
+        },
+        attributes: [
+          [
+            Payment.sequelize.fn("SUM", Payment.sequelize.col("amount")),
+            "total",
+          ],
+        ],
+        raw: true,
+      }),
+      Reservation.count({
+        where: {
+          outletId: userOutletId,
+          reservationDate: getPreviousPeriodFilter(period, now),
+        },
+      }),
     ]);
+
+    // Calculate trends
+    const currentRevenue = parseFloat(totalRevenue?.total) || 0;
+    const previousRevenue = parseFloat(prevTotalRevenue?.total) || 0;
+
+    const ordersTrend = calculateTrend(totalOrders, prevTotalOrders);
+    const revenueTrend = calculateTrend(currentRevenue, previousRevenue);
+    const reservationsTrend = calculateTrend(
+      totalReservations,
+      prevTotalReservations
+    );
 
     res.json({
       stats: {
         totalOrders,
-        totalRevenue: parseFloat(totalRevenue?.total) || 0,
+        totalRevenue: currentRevenue,
         totalReservations,
         totalEvents,
         totalStaff,
@@ -173,6 +269,13 @@ export const getDashboardStats = async (req, res) => {
         })),
         recentOrders,
         lowStockItems,
+        // Trend data
+        ordersTrend: ordersTrend?.direction,
+        ordersTrendValue: ordersTrend?.value,
+        revenueTrend: revenueTrend?.direction,
+        revenueTrendValue: revenueTrend?.value,
+        reservationsTrend: reservationsTrend?.direction,
+        reservationsTrendValue: reservationsTrend?.value,
       },
     });
   } catch (error) {
@@ -218,7 +321,7 @@ export const getRevenueReport = async (req, res) => {
         [
           Payment.sequelize.fn(
             "DATE_FORMAT",
-            Payment.sequelize.col("createdAt"),
+            Payment.sequelize.col("created_at"),
             groupFormat
           ),
           "period",
@@ -233,7 +336,7 @@ export const getRevenueReport = async (req, res) => {
       group: [
         Payment.sequelize.fn(
           "DATE_FORMAT",
-          Payment.sequelize.col("createdAt"),
+          Payment.sequelize.col("created_at"),
           groupFormat
         ),
       ],
@@ -241,7 +344,7 @@ export const getRevenueReport = async (req, res) => {
         [
           Payment.sequelize.fn(
             "DATE_FORMAT",
-            Payment.sequelize.col("createdAt"),
+            Payment.sequelize.col("created_at"),
             groupFormat
           ),
           "ASC",
@@ -440,7 +543,7 @@ export const getInventoryReport = async (req, res) => {
         [
           Inventory.sequelize.fn(
             "SUM",
-            Inventory.sequelize.literal("currentStock * unitCost")
+            Inventory.sequelize.literal("current_stock * unit_cost")
           ),
           "totalValue",
         ],
@@ -520,7 +623,7 @@ export const getStaffReport = async (req, res) => {
         "department",
         [Staff.sequelize.fn("COUNT", Staff.sequelize.col("id")), "count"],
         [
-          Staff.sequelize.fn("AVG", Staff.sequelize.col("performanceRating")),
+          Staff.sequelize.fn("AVG", Staff.sequelize.col("performance_rating")),
           "avgPerformance",
         ],
       ],
@@ -606,7 +709,7 @@ export const getEventReport = async (req, res) => {
           "totalRevenue",
         ],
         [
-          Event.sequelize.fn("AVG", Event.sequelize.col("actualAttendance")),
+          Event.sequelize.fn("AVG", Event.sequelize.col("actual_attendance")),
           "avgAttendance",
         ],
       ],
@@ -666,12 +769,12 @@ export const getCustomerReport = async (req, res) => {
         "phone",
         "dateOfBirth",
         "createdAt",
-        "lastVisit",
-        "totalVisits",
+        "lastVisitAt",
+        "visitCount",
         "totalSpent",
         "preferences",
       ],
-      order: [["totalSpent", "DESC"]],
+      order: [["total_spent", "DESC"]],
     });
 
     const topCustomers = await Guest.findAll({
@@ -681,10 +784,10 @@ export const getCustomerReport = async (req, res) => {
         "firstName",
         "lastName",
         "email",
-        "totalVisits",
+        "visitCount",
         "totalSpent",
       ],
-      order: [["totalSpent", "DESC"]],
+      order: [["total_spent", "DESC"]],
       limit: 10,
     });
 
@@ -696,15 +799,15 @@ export const getCustomerReport = async (req, res) => {
           "totalCustomers",
         ],
         [
-          Guest.sequelize.fn("AVG", Guest.sequelize.col("totalVisits")),
+          Guest.sequelize.fn("AVG", Guest.sequelize.col("visit_count")),
           "avgVisits",
         ],
         [
-          Guest.sequelize.fn("AVG", Guest.sequelize.col("totalSpent")),
+          Guest.sequelize.fn("AVG", Guest.sequelize.col("total_spent")),
           "avgSpent",
         ],
         [
-          Guest.sequelize.fn("SUM", Guest.sequelize.col("totalSpent")),
+          Guest.sequelize.fn("SUM", Guest.sequelize.col("total_spent")),
           "totalRevenue",
         ],
       ],

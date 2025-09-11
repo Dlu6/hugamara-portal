@@ -149,6 +149,20 @@ export const fetchMenuItems = createAsyncThunk(
   }
 );
 
+export const fetchOrderStats = createAsyncThunk(
+  "orders/fetchOrderStats",
+  async (filters, { rejectWithValue }) => {
+    try {
+      const response = await ordersAPI.get("/stats", { params: filters });
+      return response?.data?.stats || response?.data || {};
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to fetch order stats"
+      );
+    }
+  }
+);
+
 const initialState = {
   orders: [],
   selectedOrder: null,
@@ -156,7 +170,9 @@ const initialState = {
   reservations: [],
   guests: [],
   menuItems: [],
+  stats: {},
   loading: false,
+  statsLoading: false,
   error: null,
   formData: {
     orderType: "dine_in",
@@ -362,6 +378,19 @@ const ordersSlice = createSlice({
       .addCase(fetchMenuItems.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      // Fetch order stats
+      .addCase(fetchOrderStats.pending, (state) => {
+        state.statsLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchOrderStats.fulfilled, (state, action) => {
+        state.statsLoading = false;
+        state.stats = action.payload || {};
+      })
+      .addCase(fetchOrderStats.rejected, (state, action) => {
+        state.statsLoading = false;
+        state.error = action.payload;
       });
   },
 });
@@ -385,7 +414,9 @@ export const selectTables = (state) => state.orders.tables;
 export const selectReservations = (state) => state.orders.reservations;
 export const selectGuests = (state) => state.orders.guests;
 export const selectMenuItems = (state) => state.orders.menuItems;
+export const selectOrderStats = (state) => state.orders.stats;
 export const selectOrdersLoading = (state) => state.orders.loading;
+export const selectOrdersStatsLoading = (state) => state.orders.statsLoading;
 export const selectOrdersError = (state) => state.orders.error;
 export const selectOrdersFormData = (state) => state.orders.formData;
 export const selectOrdersFormErrors = (state) => state.orders.formErrors;

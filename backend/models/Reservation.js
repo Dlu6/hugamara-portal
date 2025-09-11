@@ -27,7 +27,15 @@ const Reservation = sequelize.define(
         key: "id",
       },
     },
-    // guestId removed to simplify associations
+    guestId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: "guest_id",
+      references: {
+        model: "guests",
+        key: "id",
+      },
+    },
     reservationNumber: {
       type: DataTypes.STRING(20),
       allowNull: false,

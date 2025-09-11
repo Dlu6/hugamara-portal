@@ -36,11 +36,13 @@ const guestValidation = [
     .isMobilePhone("any")
     .withMessage("Must be a valid phone number"),
   body("dateOfBirth")
-    .optional()
-    .isISO8601()
+    .optional({ nullable: true })
+    .custom((val) =>
+      val === "" || val === null ? true : !isNaN(Date.parse(val))
+    )
     .withMessage("Must be a valid date"),
   body("gender")
-    .optional()
+    .optional({ nullable: true })
     .isIn(["male", "female", "other"])
     .withMessage("Gender must be male, female, or other"),
   body("loyaltyTier")

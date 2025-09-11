@@ -1,4 +1,8 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  createAsyncThunk,
+  createSelector,
+} from "@reduxjs/toolkit";
 import eventsService from "../../services/eventsService";
 
 // Async Thunks
@@ -617,40 +621,41 @@ export const selectAttendanceModal = (state) => state.events.attendanceModal;
 export const selectAttendanceData = (state) => state.events.attendanceData;
 export const selectEventsFilters = (state) => state.events.filters;
 
-export const selectFilteredEvents = (state) => {
-  const events = state.events.events;
-  const filters = state.events.filters;
+// Memoized selector for filtered events
+export const selectFilteredEvents = createSelector(
+  [selectEvents, selectEventsFilters],
+  (events, filters) => {
+    return events.filter((event) => {
+      // Search filter
+      if (filters.search) {
+        const search = filters.search.toLowerCase();
+        const matchesSearch =
+          event.title?.toLowerCase().includes(search) ||
+          event.description?.toLowerCase().includes(search) ||
+          event.eventType?.toLowerCase().includes(search);
+        if (!matchesSearch) return false;
+      }
 
-  return events.filter((event) => {
-    // Search filter
-    if (filters.search) {
-      const search = filters.search.toLowerCase();
-      const matchesSearch =
-        event.title?.toLowerCase().includes(search) ||
-        event.description?.toLowerCase().includes(search) ||
-        event.eventType?.toLowerCase().includes(search);
-      if (!matchesSearch) return false;
-    }
+      // Event type filter
+      if (filters.eventType && event.eventType !== filters.eventType) {
+        return false;
+      }
 
-    // Event type filter
-    if (filters.eventType && event.eventType !== filters.eventType) {
-      return false;
-    }
+      // Status filter
+      if (filters.status && event.status !== filters.status) {
+        return false;
+      }
 
-    // Status filter
-    if (filters.status && event.status !== filters.status) {
-      return false;
-    }
+      // Date filter
+      if (filters.dateFrom) {
+        const eventDate = new Date(event.startDate);
+        const filterDate = new Date(filters.dateFrom);
+        if (eventDate < filterDate) return false;
+      }
 
-    // Date filter
-    if (filters.dateFrom) {
-      const eventDate = new Date(event.startDate);
-      const filterDate = new Date(filters.dateFrom);
-      if (eventDate < filterDate) return false;
-    }
-
-    return true;
-  });
-};
+      return true;
+    });
+  }
+);
 
 export default eventsSlice.reducer;
