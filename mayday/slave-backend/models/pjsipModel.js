@@ -424,37 +424,6 @@ export const PJSIPContact = sequelize.define(
   }
 );
 
-export const PJSIPIdentify = sequelize.define(
-  "ps_endpoint_id_ips",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
-    endpoint: {
-      type: DataTypes.STRING(40),
-      allowNull: false,
-      references: {
-        model: "users",
-        key: "extension",
-      },
-    },
-    match_header: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    ip_match: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-  },
-  {
-    tableName: "ps_endpoint_id_ips",
-    timestamps: false,
-  }
-);
-
 export const PJSIPTransport = sequelize.define(
   "ps_transports",
   {
