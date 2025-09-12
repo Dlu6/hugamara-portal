@@ -901,3 +901,16 @@ export async function deletePJSIPTrunk(endpointId, transaction) {
     throw error;
   }
 }
+
+// Associations to link PJSIP models back to the Endpoint
+PJSIPEndpoint.belongsTo(PJSIPAor, {
+  foreignKey: "aors",
+  targetKey: "id",
+  as: "aorConfig",
+});
+
+PJSIPEndpoint.belongsTo(PJSIPAuth, {
+  foreignKey: "auth",
+  targetKey: "id",
+  as: "authConfig",
+});

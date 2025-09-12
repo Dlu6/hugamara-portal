@@ -104,34 +104,38 @@ module.exports = {
       name: "hugamara-backend",
       script: "./backend/server.js",
       cwd: "/home/admin/hugamara-portal",
-      instances: 1,
-      exec_mode: "fork",
       env: {
         NODE_ENV: "production",
         PORT: 5000,
         DB_HOST: "127.0.0.1",
-        DB_PORT: 3306,
-        DB_NAME: "hugamara_db",
         DB_USER: "hugamara_user",
         DB_PASSWORD: "Pasword@256",
-        DB_SSL: "false"
-      },
-      error_file: "/home/admin/logs/hugamara-backend-error.log",
-      out_file: "/home/admin/logs/hugamara-backend-out.log",
-      log_file: "/home/admin/logs/hugamara-backend-combined.log",
-      time: true,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "1G"
+        DB_NAME: "hugamara_db"
+      }
+    },
+    {
+      name: "mayday-callcenter-backend",
+      script: "./mayday/slave-backend/server.js",
+      cwd: "/home/admin/hugamara-portal",
+      env: {
+        NODE_ENV: "production",
+        PORT: 5001,
+        DB_HOST: "127.0.0.1",
+        DB_USER: "hugamara_user",
+        DB_PASSWORD: "Pasword@256",
+        DB_NAME: "asterisk",
+        JWT_SECRET: "Mayday-Produjwt-secret-key-1759"
+      }
     }
   ]
 };
 EOF
 
 mkdir -p /home/admin/logs
-pm2 start /home/admin/hugamara-portal/ecosystem.config.js --only hugamara-backend
-pm2 save
-pm2 startup systemd -u admin --hp /home/admin
+# Use `sudo -u admin` to run as the correct user
+sudo -u admin pm2 start /home/admin/hugamara-portal/ecosystem.config.js
+sudo -u admin pm2 save
+sudo pm2 startup systemd -u admin --hp /home/admin
 ```
 
 ### 4) Nginx (React SPA + API proxy)
@@ -151,35 +155,27 @@ server {
   ssl_certificate /etc/letsencrypt/live/cs.hugamara.com/fullchain.pem;
   ssl_certificate_key /etc/letsencrypt/live/cs.hugamara.com/privkey.pem;
   ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
   ssl_prefer_server_ciphers off;
 
-  # Gzip
-  gzip on;
-  gzip_vary on;
-  gzip_min_length 1024;
-  gzip_proxied expired no-cache no-store private no_last_modified no_etag auth;
-  gzip_types text/plain text/css text/xml text/javascript application/javascript application/json;
-
-  # Frontend (CRA build)
-  root /home/admin/hugamara-portal/client/build;
-  index index.html index.htm;
-
-  location / {
-    try_files $uri $uri/ /index.html;
+  # --- API PROXIES ---
+  location ^~ /api/ {
+    proxy_pass http://localhost:5000;
+    # proxy headers...
+  }
+  location ^~ /mayday-api/ {
+    proxy_pass http://localhost:5001/api/;
+    # proxy headers...
   }
 
-  # API proxy
-  location /api/ {
-    proxy_pass http://localhost:5000;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection 'upgrade';
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_read_timeout 300s;
-    proxy_connect_timeout 75s;
+  # --- FRONTEND ---
+  location /callcenter/ {
+    alias /home/admin/hugamara-portal/mayday/mayday-client-dashboard/build/;
+    try_files $uri $uri/ /callcenter/index.html;
+  }
+  location / {
+    root /home/admin/hugamara-portal/client/build;
+    try_files $uri $uri/ /index.html;
   }
 }
 EOF
@@ -202,12 +198,19 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### 6) Frontend build (production)
 
-Build with API base `/api` so the browser uses the same origin:
+Build both frontends with the correct environment variables.
 
 ```bash
+# Build Hospitality Frontend
 cd /home/admin/hugamara-portal/client
 npm ci
-REACT_APP_API_URL=/api REACT_APP_ENV=production npm run build
+REACT_APP_CALL_CENTER_URL=/callcenter/login npm run build
+
+# Build Call Center Frontend
+cd /home/admin/hugamara-portal/mayday/mayday-client-dashboard
+npm ci
+PUBLIC_URL=/callcenter npm run build
+
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
@@ -225,12 +228,10 @@ curl -sS -X POST https://cs.hugamara.com/api/auth/login \
 
 ### Troubleshooting
 
-- Unknown column errors (e.g. `is_active`, `first_name`): ensure tables use snake_case as defined in models (`underscored: true`). Alter columns or recreate tables accordingly.
-- ER_NO_SUCH_TABLE: create tables as above or temporarily run with `DB_SYNC=true` in PM2 env for a one-time `sequelize.sync({ alter: true })`, then set back to `false`.
-- MySQL SSL error “Server does not support secure connection”: set `DB_SSL=false` in PM2 env and ensure `backend/config/database*.{js,cjs}` respect it.
-- ECONNREFUSED ::1:3306: set `DB_HOST=127.0.0.1` (avoid IPv6 localhost).
-- 404 GET `/api/auth/login` in Network tab: harmless stray GET; only POST `/api/auth/login` is implemented.
-- No redirect after login: rebuild frontend with `REACT_APP_API_URL=/api` and ensure Nginx proxies `/api` to `localhost:5000`.
+- **PM2 running as wrong user (`root` vs `admin`):** Stop all PM2 instances (`pm2 kill`, `sudo -u admin pm2 kill`) and restart correctly with `sudo -u admin pm2 start ...`.
+- **Backend not listening on port:** Ensure `server.js` uses `process.env.PORT` which is set in `ecosystem.config.js`.
+- **Call center redirect fails:** Rebuild the main `client` frontend with the `REACT_APP_CALL_CENTER_URL` variable set.
+- **Call center assets (JS/CSS) fail to load (404):** Rebuild the `mayday-client-dashboard` frontend with the `PUBLIC_URL` variable set.
 
 ### Useful PM2 commands
 
