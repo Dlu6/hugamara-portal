@@ -99,7 +99,7 @@ export const syncDatabase = async () => {
       PJSIPAor,
       PJSIPContact,
       PJSIPTransport,
-      PJSIPEndpointIdentifier,
+      PJSIPIdentify,
     } = await import("../models/pjsipModel.js");
     const { VoiceQueue } = await import("../models/voiceQueueModel.js");
     const QueueMember = (await import("../models/queueMemberModel.js")).default;
@@ -145,7 +145,7 @@ export const syncDatabase = async () => {
       // Dependent PJSIP tables
       await PJSIPEndpoint.sync({ force: false, transaction: tx });
       await PJSIPContact.sync({ force: false, transaction: tx });
-      await PJSIPEndpointIdentifier.sync({ force: false, transaction: tx });
+      await PJSIPIdentify.sync({ force: false, transaction: tx });
 
       // Queues
       await VoiceQueue.sync({ force: false, transaction: tx });
