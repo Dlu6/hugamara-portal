@@ -52,7 +52,7 @@ module.exports = {
         // REDIS_PASSWORD: "RedLotuskm@1759",
 
         // AMI Configuration
-        AMI_HOST: "cs.hugamara.com",
+        AMI_HOST: "127.0.0.1",
         AMI_PORT: "5038",
         ASTERISK_AMI_USERNAME: "mayday_ami_user",
         AMI_PASSWORD: "Maydayami@256",
