@@ -40,6 +40,12 @@ module.exports = {
         DB_PASSWORD: "Pasword@256",
         DB_SSL: "false",
 
+        // SLAVE SERVER CONFIGURATION (THIS SERVER)
+        SLAVE_SERVER_URL: "https://cs.hugamara.com",
+        SLAVE_SERVER_API_URL: "https://cs.hugamara.com/mayday-api",
+        SLAVE_WEBSOCKET_URL: "wss://cs.hugamara.com",
+        SLAVE_SERVER_DOMAIN: "cs.hugamara.com",
+
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",
         REDIS_PORT: "6379",
@@ -107,9 +113,6 @@ module.exports = {
         SESSION_HEARTBEAT_FAILURE_THRESHOLD: "90000",
         REDIS_SESSION_TTL: "1800000",
         REDIS_SESSION_CLEANUP_INTERVAL: "300000",
-
-        // Server Configuration
-        SLAVE_SERVER_DOMAIN: "cs.hugamara.com",
 
         // External APIs
         LIPACHAT_API_KEY: "lipachat_api_key",
