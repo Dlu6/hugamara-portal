@@ -39,36 +39,71 @@ export const getFeatureCountKey = (licenseId, feature) => {
  */
 export const hasActiveSession = async (userId, feature) => {
   try {
+    console.log("🔍 [hasActiveSession] Checking for active session:", {
+      userId,
+      feature,
+      timestamp: new Date().toISOString(),
+    });
+
     if (!redisClient?.isReady) {
       console.warn(
-        "[RedisSession] Redis not available, falling back to database"
+        "⚠️ [hasActiveSession] Redis not available, falling back to database"
       );
       return await hasActiveSessionDB(userId, feature);
     }
 
     const key = getUserSessionsKey(userId, feature);
+    console.log("🔑 [hasActiveSession] User sessions key:", key);
+
     const sessionIds = await redisClient.sMembers(key);
+    console.log(
+      "📋 [hasActiveSession] Session IDs from Redis set:",
+      sessionIds
+    );
 
     if (sessionIds.length === 0) {
+      console.log("ℹ️ [hasActiveSession] No session IDs found in Redis set");
       return { hasSession: false, sessionId: null };
     }
 
     // Check if any of the sessions are still valid
+    console.log("🔍 [hasActiveSession] Checking validity of session IDs...");
     for (const sessionId of sessionIds) {
       const sessionKey = getSessionKey(sessionId);
+      console.log("🔑 [hasActiveSession] Checking session key:", sessionKey);
+
       const exists = await redisClient.exists(sessionKey);
+      console.log("✅ [hasActiveSession] Session exists check result:", exists);
+
       if (exists) {
+        console.log(
+          "🎯 [hasActiveSession] Found valid active session:",
+          sessionId
+        );
         return { hasSession: true, sessionId };
       } else {
+        console.log(
+          "🗑️ [hasActiveSession] Removing expired session from set:",
+          sessionId
+        );
         // Remove expired session from set
         await redisClient.sRem(key, sessionId);
       }
     }
 
+    console.log(
+      "ℹ️ [hasActiveSession] No valid sessions found after checking all IDs"
+    );
     return { hasSession: false, sessionId: null };
   } catch (error) {
-    console.error("[RedisSession] Error checking active session:", error);
+    console.error("❌ [hasActiveSession] Error checking active session:", {
+      error: error.message,
+      stack: error.stack,
+      userId,
+      feature,
+    });
     // Fallback to database
+    console.log("🔄 [hasActiveSession] Falling back to database check...");
     return await hasActiveSessionDB(userId, feature);
   }
 };
@@ -78,6 +113,15 @@ export const hasActiveSession = async (userId, feature) => {
  */
 export const hasActiveSessionDB = async (userId, feature) => {
   try {
+    console.log(
+      "🗄️ [hasActiveSessionDB] Checking database for active session:",
+      {
+        userId,
+        feature,
+        timestamp: new Date().toISOString(),
+      }
+    );
+
     const activeSession = await ClientSession.findOne({
       where: {
         user_id: userId,
@@ -90,12 +134,36 @@ export const hasActiveSessionDB = async (userId, feature) => {
       order: [["created_at", "DESC"]],
     });
 
-    return {
+    console.log("📊 [hasActiveSessionDB] Database query result:", {
+      foundSession: !!activeSession,
+      sessionId: activeSession?.session_token || null,
+      sessionData: activeSession
+        ? {
+            id: activeSession.id,
+            session_token: activeSession.session_token,
+            user_id: activeSession.user_id,
+            feature: activeSession.feature,
+            status: activeSession.status,
+            created_at: activeSession.created_at,
+            expires_at: activeSession.expires_at,
+          }
+        : null,
+    });
+
+    const result = {
       hasSession: !!activeSession,
       sessionId: activeSession?.session_token || null,
     };
+
+    console.log("📤 [hasActiveSessionDB] Returning result:", result);
+    return result;
   } catch (error) {
-    console.error("[RedisSession] Database fallback error:", error);
+    console.error("❌ [hasActiveSessionDB] Database fallback error:", {
+      error: error.message,
+      stack: error.stack,
+      userId,
+      feature,
+    });
     return { hasSession: false, sessionId: null };
   }
 };
@@ -244,40 +312,84 @@ export const updateHeartbeat = async (sessionId) => {
  */
 export const endSession = async (sessionId, userId, feature) => {
   try {
+    console.log("🚀 [endSession] Starting session cleanup:", {
+      sessionId,
+      userId,
+      feature,
+      timestamp: new Date().toISOString(),
+    });
+
     let licenseId = null;
 
     // Get license ID from Redis first
     if (redisClient?.isReady) {
+      console.log("🔍 [endSession] Redis is ready, checking session data...");
       const sessionKey = getSessionKey(sessionId);
+      console.log("🔑 [endSession] Session key:", sessionKey);
+
       const sessionData = await redisClient.hGetAll(sessionKey);
+      console.log("📊 [endSession] Session data from Redis:", sessionData);
+
       licenseId = sessionData.licenseId;
+      console.log("🏷️ [endSession] License ID from session data:", licenseId);
 
       if (licenseId) {
         const userSessionsKey = getUserSessionsKey(userId, feature);
         const featureCountKey = getFeatureCountKey(licenseId, feature);
 
+        console.log("🔑 [endSession] Redis keys:", {
+          userSessionsKey,
+          featureCountKey,
+        });
+
         // Use pipeline for atomic cleanup
+        console.log("⚡ [endSession] Executing Redis pipeline for cleanup...");
         const pipeline = redisClient.multi();
         pipeline.del(sessionKey);
         pipeline.sRem(userSessionsKey, sessionId);
         pipeline.decr(featureCountKey);
-        await pipeline.exec();
+
+        const pipelineResults = await pipeline.exec();
+        console.log(
+          "📋 [endSession] Pipeline execution results:",
+          pipelineResults
+        );
 
         console.log(
-          `[RedisSession] Session cleaned up from Redis: ${sessionId}`
+          `✅ [endSession] Session cleaned up from Redis: ${sessionId}`
+        );
+      } else {
+        console.log(
+          "⚠️ [endSession] No license ID found in session data, skipping Redis cleanup"
         );
       }
+    } else {
+      console.log("⚠️ [endSession] Redis not ready, skipping Redis cleanup");
     }
 
     // Always cleanup database
+    console.log("🗄️ [endSession] Cleaning up database session...");
     await endSessionDB(sessionId);
+    console.log("✅ [endSession] Database cleanup completed");
 
-    return {
+    const result = {
       success: true,
       message: "Session ended successfully",
     };
+
+    console.log(
+      "🎉 [endSession] Session cleanup completed successfully:",
+      result
+    );
+    return result;
   } catch (error) {
-    console.error("[RedisSession] Error ending session:", error);
+    console.error("❌ [endSession] Error ending session:", {
+      error: error.message,
+      stack: error.stack,
+      sessionId,
+      userId,
+      feature,
+    });
     throw new Error(`Failed to end session: ${error.message}`);
   }
 };
@@ -327,23 +439,43 @@ export const endSessionById = async (sessionId) => {
  * End session in database
  */
 export const endSessionDB = async (sessionId) => {
-  const result = await ClientSession.update(
-    {
-      status: "expired",
-      ended_at: new Date(),
-    },
-    {
-      where: {
-        session_token: sessionId,
-        status: "active",
-      },
-    }
-  );
+  try {
+    console.log("🗄️ [endSessionDB] Starting database session cleanup:", {
+      sessionId,
+      timestamp: new Date().toISOString(),
+    });
 
-  console.log(
-    `[RedisSession] Session marked as expired in database: ${sessionId}`
-  );
-  return result;
+    const result = await ClientSession.update(
+      {
+        status: "expired",
+        ended_at: new Date(),
+      },
+      {
+        where: {
+          session_token: sessionId,
+          status: "active",
+        },
+      }
+    );
+
+    console.log("📊 [endSessionDB] Database update result:", {
+      sessionId,
+      affectedRows: result[0],
+      result,
+    });
+
+    console.log(
+      `✅ [endSessionDB] Session marked as expired in database: ${sessionId}`
+    );
+    return result;
+  } catch (error) {
+    console.error("❌ [endSessionDB] Error updating database session:", {
+      error: error.message,
+      stack: error.stack,
+      sessionId,
+    });
+    throw error;
+  }
 };
 
 /**
