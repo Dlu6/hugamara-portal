@@ -7,6 +7,35 @@ import {
 import VoiceExtension from "../models/voiceExtensionModel.js";
 // import { updateDialplanConfig } from "../utils/asteriskConfigWriter.js";
 
+// Sanitize application payloads to ensure consistent Dial expressions
+const sanitizeOutboundApplications = (applications = []) => {
+  return (applications || []).map((app) => {
+    if (app && app.type === "OutboundDial") {
+      const settings = { ...(app.settings || {}) };
+      let exten =
+        typeof settings.exten === "string" ? settings.exten.trim() : "";
+
+      // Normalize to ${EXTEN} when empty or when caret artifacts were sent
+      if (!exten || exten === "^" || exten === "∧") {
+        exten = "${EXTEN}";
+      }
+
+      // Remove any accidental escaping like \${EXTEN}
+      if (/^\\\$\{EXTEN\}$/.test(exten)) {
+        exten = "${EXTEN}";
+      }
+
+      // Ensure required fields exist
+      settings.exten = exten;
+      settings.prefix = settings.prefix || "";
+      settings.trunkId = settings.trunkId || settings.trunk || "";
+
+      return { ...app, settings };
+    }
+    return app;
+  });
+};
+
 // Helper function to generate voice extensions from applications
 const generateExtensionsFromApp = (app, routeId, route, appIndex) => {
   const priority = 3 + appIndex; // Change priority to start at 3 and increment by 1
@@ -47,7 +76,11 @@ export const createOutboundRoute = async (req, res) => {
 
   try {
     const routeData = req.body;
-    const { applications, voiceExtensions, ...mainRouteData } = routeData;
+    // Sanitize application payload for continuity (${EXTEN})
+    const sanitizedApplications = sanitizeOutboundApplications(
+      routeData.applications || []
+    );
+    const { voiceExtensions, ...mainRouteData } = routeData;
 
     // Save the route to the database
     const route = await OutboundRoute.create(mainRouteData, { transaction });
@@ -104,10 +137,10 @@ export const createOutboundRoute = async (req, res) => {
     }
 
     // Create applications and their generated voice extensions
-    if (applications && applications.length > 0) {
+    if (sanitizedApplications && sanitizedApplications.length > 0) {
       // Create the applications
       const createdApps = await OutboundRouteApplication.bulkCreate(
-        applications.map((app, index) => ({
+        sanitizedApplications.map((app, index) => ({
           outboundRouteId: route.id,
           type: app.type,
           priority: index + 1,
@@ -314,9 +347,11 @@ export const updateOutboundRoute = async (req, res) => {
       });
 
       if (applications && applications.length > 0) {
+        const sanitizedApplications =
+          sanitizeOutboundApplications(applications);
         // Create new applications
         const createdApps = await OutboundRouteApplication.bulkCreate(
-          applications.map((app, index) => ({
+          sanitizedApplications.map((app, index) => ({
             outboundRouteId: routeId,
             type: app.type,
             priority: index + 1,
