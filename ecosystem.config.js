@@ -45,6 +45,9 @@ module.exports = {
         SLAVE_SERVER_API_URL: "https://cs.hugamara.com/mayday-api",
         SLAVE_WEBSOCKET_URL: "wss://cs.hugamara.com",
         SLAVE_SERVER_DOMAIN: "cs.hugamara.com",
+        // WebRTC/SIP hostnames for WSS registration
+        PUBLIC_IP: "cs.hugamara.com",
+        ASTERISK_HOST: "cs.hugamara.com",
 
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",

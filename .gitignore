@@ -117,3 +117,6 @@ docker-compose.override.yml
 
 # Mayday provisioning backend (excluded from commits)
 mayday/provisioning_backend/
+
+# Chrome softphone extension should live in its own repo
+mayday/chrome-softphone-extension/

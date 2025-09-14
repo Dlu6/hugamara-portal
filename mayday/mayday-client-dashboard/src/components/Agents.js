@@ -106,6 +106,7 @@ const AgentsComponent = () => {
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionsAgent, setSessionsAgent] = useState(null);
+  const [endingSessions, setEndingSessions] = useState(false);
 
   const navigate = useNavigate();
 
@@ -206,7 +207,6 @@ const AgentsComponent = () => {
     setSessionsOpen(true);
     setSessionsLoading(true);
     try {
-      // Get current license WebRTC sessions and filter by agent user id if present
       const { data } = await licenseService.getCurrentWebRTCSessions();
       const list = Array.isArray(data?.data?.active_users)
         ? data.data.active_users
@@ -216,7 +216,10 @@ const AgentsComponent = () => {
         : list;
       setActiveSessions(filtered);
     } catch (e) {
-      enqueueSnackbar("Failed to load active sessions", { variant: "error" });
+      enqueueSnackbar(
+        e?.response?.data?.message || "Failed to load active sessions",
+        { variant: "error" }
+      );
     } finally {
       setSessionsLoading(false);
     }
@@ -225,19 +228,32 @@ const AgentsComponent = () => {
 
   const handleEndSessionsForAgent = async () => {
     if (!sessionsAgent) return;
+    setEndingSessions(true);
     try {
       await licenseService.cleanupUserSessions(
         sessionsAgent.id,
         "webrtc_extension"
       );
+      // Refetch sessions after cleanup to confirm result
+      try {
+        const { data } = await licenseService.getCurrentWebRTCSessions();
+        const list = Array.isArray(data?.data?.active_users)
+          ? data.data.active_users
+          : [];
+        const filtered = list.filter(
+          (s) => String(s.user_id) === String(sessionsAgent.id)
+        );
+        setActiveSessions(filtered);
+      } catch (_) {}
+
       enqueueSnackbar("Sessions ended for user", { variant: "success" });
-      // Refresh list
-      setActiveSessions([]);
       setSessionsOpen(false);
     } catch (e) {
       enqueueSnackbar(e?.response?.data?.message || "Failed to end sessions", {
         variant: "error",
       });
+    } finally {
+      setEndingSessions(false);
     }
   };
 
@@ -542,9 +558,9 @@ const AgentsComponent = () => {
             variant="contained"
             color="error"
             onClick={handleEndSessionsForAgent}
-            disabled={sessionsLoading}
+            disabled={sessionsLoading || endingSessions}
           >
-            End All Sessions
+            {endingSessions ? "Ending..." : "End All Sessions"}
           </Button>
         </DialogActions>
       </Dialog>
