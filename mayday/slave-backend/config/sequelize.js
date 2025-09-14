@@ -189,8 +189,15 @@ export const syncDatabase = async () => {
       throw err;
     }
   } catch (error) {
-    console.error("Error connecting to database:", error);
-    throw error;
+    console.error("Error synchronizing database:", error);
+    // Sync with alter: true to apply changes without dropping tables
+    try {
+      await sequelize.sync({ alter: true });
+      console.log("Database synchronized with alter: true");
+    } catch (alterError) {
+      console.error("Error synchronizing with alter:", alterError);
+      throw alterError; // Re-throw the error to indicate failure
+    }
   }
 };
 

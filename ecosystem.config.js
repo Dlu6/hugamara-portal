@@ -16,9 +16,9 @@ module.exports = {
         DB_PASSWORD: "Pasword@256",
         DB_SSL: "false",
       },
-      error_file: "/home/admin/logs/hugamara-backend-error.log",
-      out_file: "/home/admin/logs/hugamara-backend-out.log",
-      log_file: "/home/admin/logs/hugamara-backend-combined.log",
+      error_file: "./logs/hugamara-backend-error.log",
+      out_file: "./logs/hugamara-backend-out.log",
+      log_file: "./logs/hugamara-backend-combined.log",
       time: true,
       autorestart: true,
       watch: false,
@@ -40,13 +40,19 @@ module.exports = {
         DB_PASSWORD: "Pasword@256",
         DB_SSL: "false",
 
+        // SLAVE SERVER CONFIGURATION (THIS SERVER)
+        SLAVE_SERVER_URL: "https://cs.hugamara.com",
+        SLAVE_SERVER_API_URL: "https://cs.hugamara.com/mayday-api",
+        SLAVE_WEBSOCKET_URL: "wss://cs.hugamara.com",
+        SLAVE_SERVER_DOMAIN: "cs.hugamara.com",
+
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",
         REDIS_PORT: "6379",
         // REDIS_PASSWORD: "RedLotuskm@1759",
 
         // AMI Configuration
-        AMI_HOST: "cs.hugamara.com",
+        AMI_HOST: "127.0.0.1",
         AMI_PORT: "5038",
         ASTERISK_AMI_USERNAME: "mayday_ami_user",
         AMI_PASSWORD: "Maydayami@256",
@@ -108,16 +114,13 @@ module.exports = {
         REDIS_SESSION_TTL: "1800000",
         REDIS_SESSION_CLEANUP_INTERVAL: "300000",
 
-        // Server Configuration
-        SLAVE_SERVER_DOMAIN: "cs.hugamara.com",
-
         // External APIs
         LIPACHAT_API_KEY: "lipachat_api_key",
         LIPACHAT_PHONE_NUMBER: "lipachat_phone",
       },
-      error_file: "/home/admin/logs/mayday-backend-error.log",
-      out_file: "/home/admin/logs/mayday-backend-out.log",
-      log_file: "/home/admin/logs/mayday-backend-combined.log",
+      error_file: "./logs/mayday-backend-error.log",
+      out_file: "./logs/mayday-backend-out.log",
+      log_file: "./logs/mayday-backend-combined.log",
       time: true,
       autorestart: true,
       watch: false,

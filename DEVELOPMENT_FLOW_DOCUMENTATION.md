@@ -255,29 +255,57 @@ This section outlines the definitive steps to deploy both applications to a prod
 
 ### 1. Backend Setup with PM2
 
-- **User:** All PM2 commands **must** be run as the `admin` user, as the project files reside in `/home/admin`. Use `sudo -u admin pm2 ...`.
+- **User:** All PM2 commands **must** be run as the dedicated `mayday` user. This is a security best practice.
 - **Configuration:** The backends are managed by `/home/admin/hugamara-portal/ecosystem.config.js`.
   - `hugamara-backend` runs on port `5000`.
   - `mayday-callcenter-backend` runs on port `5001`.
+  - Log files are written to a relative `./logs` directory within the project folder.
 
-**Key Commands on VM:**
+**Key Commands on VM (One-Time Setup):**
 
 ```bash
-# Stop any existing PM2 instances (run for both root and admin to be safe)
-pm2 kill
+# 1. Stop all existing PM2 processes for all users
+sudo pm2 kill
 sudo -u admin pm2 kill
 
-# Start the applications correctly as the admin user
-cd /home/admin/hugamara-portal
-sudo -u admin pm2 start ecosystem.config.js
+# 2. Create the dedicated 'mayday' user (if it doesn't exist)
+# Note: This user may already exist. If so, this command will safely fail.
+sudo useradd -m -s /bin/bash mayday
 
-# Save the process list to automatically restart on reboot
-sudo -u admin pm2 save
+# 3. Give the 'mayday' user ownership of the project files
+sudo chown -R mayday:mayday /home/admin/hugamara-portal
+
+# 4. Start applications as the 'mayday' user
+sudo -u mayday -H bash -c "cd /home/admin/hugamara-portal && pm2 start ecosystem.config.js --update-env"
+
+# 5. Save the process list to automatically restart on reboot
+sudo -u mayday -H bash -c "pm2 save"
 ```
 
-### 2. Frontend Build Process
+### 2. Updating the Application
 
-It is critical to build both frontends on the VM with the correct environment variables.
+When pulling new code from GitHub, you may need to forcefully overwrite local changes on the server.
+
+```bash
+# 1. Connect to the VM and navigate to the project directory
+cd /home/admin/hugamara-portal
+
+# 2. Force-pull the latest changes from the 'development' branch
+sudo git fetch origin
+sudo git reset --hard origin/development
+
+# 3. Ensure permissions are still correct
+sudo chown -R mayday:mayday /home/admin/hugamara-portal
+
+# 4. Rebuild frontends (see section below)
+
+# 5. Restart the backends with the new code
+sudo -u mayday pm2 restart all --update-env
+```
+
+### 3. Frontend Build Process
+
+It is critical to build both frontends on the VM with the correct environment variables. Run these commands as `root` or `admin` since `npm` may require elevated permissions for installation.
 
 **A. Build Hospitality Frontend:**
 
@@ -299,7 +327,7 @@ npm ci
 PUBLIC_URL=/callcenter npm run build
 ```
 
-### 3. Final Nginx Configuration
+### 4. Final Nginx Configuration
 
 The complete and correct configuration for `/etc/nginx/sites-available/hugamara`. This version is confirmed to work.
 
@@ -368,7 +396,7 @@ server {
 
 - **Symptom:** Call Center login fails with **404** or **500** error.
 
-  - **Cause 1:** PM2 is running as `root` instead of `admin`. **Fix:** Stop all PM2 instances and restart using `sudo -u admin pm2 start`.
+  - **Cause 1:** PM2 is running as `root` or `admin` instead of `mayday`. **Fix:** Stop all PM2 instances and restart using `sudo -u mayday pm2 start`.
   - **Cause 2:** Call center backend is not listening on its port (e.g., 5001). **Fix:** Corrected `server.js` to use `process.env.PORT` instead of the undefined `process.env.BACKEND_PORT`.
   - **Cause 3:** Nginx proxy rule is incorrect. **Fix:** Ensure `location ^~ /mayday-api/` uses `proxy_pass http://localhost:5001/api/;` to correctly map the URL.
 
@@ -377,14 +405,40 @@ server {
   - **Cause:** The main hospitality frontend was built without the correct `REACT_APP_CALL_CENTER_URL`. **Fix:** Rebuild the `client` app with the variable set, e.g., `... npm run build`.
 
 - **Symptom:** Nginx fails to reload with an `invalid parameter "immutable"` error.
+
   - **Cause:** The server's Nginx version is older. **Fix:** Change `add_header Cache-Control "public, immutable";` to `add_header Cache-Control "public";`.
+
+- **Symptom:** PM2 fails to start with `EACCES: permission denied` on log files.
+
+  - **Cause:** The `ecosystem.config.js` on the server has incorrect absolute log paths, and the `mayday` user doesn't have permission to write to them. **Fix:** Force-pull from git (`git reset --hard`) to get the updated config with relative `./logs` paths, then ensure `mayday` owns the project directory.
+
+- **Symptom:** Creating a Trunk fails with database errors like `Unknown column 'match'` or `a foreign key constraint fails`.
+
+  - **Cause:** The `asterisk` database schema for PJSIP tables is incorrect or outdated.
+  - **Fix:** Connect to the `asterisk` database and manually run SQL commands to fix the `ps_endpoint_id_ips` table.
+
+    ```sql
+    -- Add missing columns
+    ALTER TABLE ps_endpoint_id_ips ADD COLUMN `match` VARCHAR(255) NULL;
+    ALTER TABLE ps_endpoint_id_ips ADD COLUMN srv_lookups VARCHAR(3) NULL;
+    ALTER TABLE ps_endpoint_id_ips ADD COLUMN match_request_uri VARCHAR(3) NULL;
+
+    -- Fix incorrect columns
+    ALTER TABLE ps_endpoint_id_ips MODIFY COLUMN ip_match VARCHAR(80) NULL;
+    ALTER TABLE ps_endpoint_id_ips MODIFY COLUMN id VARCHAR(80) NOT NULL;
+
+    -- Fix incorrect foreign key relationship
+    ALTER TABLE ps_endpoint_id_ips DROP FOREIGN KEY ps_endpoint_id_ips_ibfk_1;
+    ALTER TABLE ps_endpoint_id_ips ADD CONSTRAINT fk_endpoint_id FOREIGN KEY (endpoint) REFERENCES ps_endpoints(id) ON DELETE CASCADE ON UPDATE CASCADE;
+    ```
 
 ## Security Considerations
 
-1. **JWT Configuration**: Uses RS256 for license tokens, HS256 for user tokens
-2. **CORS**: Properly configured for development and production
-3. **Environment Separation**: Development and production configs are separate
-4. **Port Security**: Development ports are not exposed in production
+1. **Dedicated User**: Applications run under a non-privileged `mayday` user.
+2. **JWT Configuration**: Uses RS256 for license tokens, HS256 for user tokens.
+3. **CORS**: Properly configured for development and production.
+4. **Environment Separation**: Development and production configs are separate.
+5. **Port Security**: Development ports are not exposed in production.
 
 ## Next Steps
 

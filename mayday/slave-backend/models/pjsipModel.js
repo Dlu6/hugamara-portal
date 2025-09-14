@@ -40,7 +40,7 @@ export const PJSIPEndpoint = sequelize.define(
       comment: "Transport configuration name (e.g., transport-udp)",
     },
     aors: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.STRING(200),
       allowNull: true,
       references: {
         model: "ps_aors",
@@ -76,7 +76,7 @@ export const PJSIPEndpoint = sequelize.define(
       allowNull: false,
     },
     force_rport: {
-      type: DataTypes.ENUM("yes", "no"), // Helps with NAT traversal issues by forcing Asterisk to use the same port for both SIP and RTP.
+      type: DataTypes.ENUM("yes", "no"),
       defaultValue: "yes",
       allowNull: false,
     },
@@ -593,13 +593,6 @@ export const PJSIPEndpointIdentifier = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
-    // user_id: {
-    //   type: DataTypes.UUID,
-    //   references: {
-    //     model: "users",
-    //     key: "id",
-    //   },
-    // },
     match_request_uri: {
       type: DataTypes.ENUM("yes", "no"),
       defaultValue: "no",
@@ -840,7 +833,7 @@ PJSIPAuth.hasOne(PJSIPEndpoint, {
 });
 
 // Add association
-PJSIPEndpoint.hasMany(PJSIPIdentify, {
+PJSIPEndpoint.hasMany(PJSIPEndpointIdentifier, {
   foreignKey: "endpoint",
   sourceKey: "id",
   as: "identifies",
