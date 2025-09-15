@@ -25,8 +25,6 @@ dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const ASTERISK_HOST = process.env.ASTERISK_HOST;
-console.log("ASTERISK_HOST🔥🔥🔥:", ASTERISK_HOST);
-console.log("ASTERISK_HOST PROCESS env🔥🔥🔥:", process.env);
 const ASTERISK_SIP_PORT = process.env.ASTERISK_SIP_PORT;
 const NODE_ENV = process.env.NODE_ENV;
 const WS_URI_SECURE = process.env.WS_URI_SECURE;
@@ -67,6 +65,8 @@ export const superUserLogin = async (req, res) => {
 };
 
 export const registerAgent = async (req, res) => {
+  console.log("ASTERISK_HOST PROCESS env🔥🔥🔥:", process.env);
+
   const { email, password, isSoftphone, name } = req.body;
 
   const sqlTransaction = await sequelize.transaction();
