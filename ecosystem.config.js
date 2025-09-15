@@ -58,6 +58,7 @@ module.exports = {
         AMI_HOST: "127.0.0.1",
         AMI_PORT: "5038",
         ASTERISK_AMI_USERNAME: "mayday_ami_user",
+        ASTERISK_HOST: "cs.hugamara.com",
         AMI_PASSWORD: "Maydayami@256",
 
         // Security
