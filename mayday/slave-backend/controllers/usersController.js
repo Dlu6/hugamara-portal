@@ -21,14 +21,22 @@ import createLicenseService from "../services/licenseService.js";
 
 const licenseService = createLicenseService();
 
+// Load env without overriding already set values
 dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const ASTERISK_HOST = process.env.ASTERISK_HOST;
-const ASTERISK_SIP_PORT = process.env.ASTERISK_SIP_PORT;
 const NODE_ENV = process.env.NODE_ENV;
 const WS_URI_SECURE = process.env.WS_URI_SECURE;
 const STUN_SERVER01 = process.env.STUN_SERVER01;
+
+// Resolve runtime env values reliably (handles PM2 env and .env fallbacks)
+const getEnv = (key, fallback = undefined) =>
+  typeof process !== "undefined" && process.env && process.env[key]
+    ? process.env[key]
+    : fallback;
+const getAsteriskHost = () =>
+  getEnv("ASTERISK_HOST", getEnv("SLAVE_SERVER_DOMAIN", "cs.hugamara.com"));
+const getSipPort = () => getEnv("ASTERISK_SIP_PORT", "5060");
 export const superUserLogin = async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -197,7 +205,7 @@ export const registerAgent = async (req, res) => {
           auth_type: "userpass",
           password: user.ps_auth?.password || password || "defaultPassword",
           username: user.extension,
-          realm: ASTERISK_HOST,
+          realm: getAsteriskHost(),
         },
         { transaction: sqlTransaction }
       ),
@@ -212,7 +220,7 @@ export const registerAgent = async (req, res) => {
           authenticate_qualify: "yes",
           maximum_expiration: 7200,
           minimum_expiration: 60,
-          outbound_proxy: `sip:${ASTERISK_HOST}:${ASTERISK_SIP_PORT}`,
+          outbound_proxy: `sip:${getAsteriskHost()}:${getSipPort()}`,
           rewrite_contact: "yes",
         },
         { transaction: sqlTransaction }
@@ -313,7 +321,7 @@ export const registerAgent = async (req, res) => {
             type: user.ps_endpoint?.type,
             extension: user.extension,
             password: password || user.extension, // Use original password for SIP auth
-            server: ASTERISK_HOST,
+            server: getAsteriskHost(),
             transport: ["webRTC", "chrome_softphone"].includes(user.typology)
               ? "wss"
               : "udp",
@@ -354,7 +362,7 @@ export const registerAgent = async (req, res) => {
             // WebSocket server configuration
             ws_servers: [
               {
-                uri: `wss://${ASTERISK_HOST}:8089/ws`,
+                uri: `wss://${getAsteriskHost()}:8089/ws`,
                 sip_transport: "wss",
                 protocols: ["sip"],
               },
