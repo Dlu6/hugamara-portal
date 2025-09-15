@@ -57,13 +57,21 @@ The Mayday Call Center system consists of two main components:
    cp mayday/mayday-client-dashboard/env.example mayday/mayday-client-dashboard/.env
    ```
 
-3. **Start the call center system:**
+3. **Configure trunk provider settings:**
+
+   ```bash
+   # Add to mayday/slave-backend/.env
+   echo "TRUNK_PROVIDER_AUTH_HEADER=MDMyMDAwMDAwODoxMy4yMzQuMTguMg==" >> mayday/slave-backend/.env
+   echo "TRUNK_PROVIDER_VALIDATE_URL=https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php" >> mayday/slave-backend/.env
+   ```
+
+4. **Start the call center system:**
 
    ```bash
    npm run callcenter
    ```
 
-4. **Access the application:**
+5. **Access the application:**
    - **Call Center Dashboard**: http://localhost:3002
    - **Login Credentials**:
      - Username: `admin`
@@ -174,6 +182,8 @@ Main Hugamara System          Mayday Call Center
 - **Multi-tenant Support**: Support for multiple organizations
 - **Redis Session Management**: Persistent session storage and cleanup
 - **Development Mode**: Automatic fallback license creation for development
+- **Chrome Extension**: Multi-tenant softphone extension with dynamic configuration
+- **Trunk Provider Integration**: External API integration for call validation
 
 ## 🛠️ Development
 
@@ -225,6 +235,86 @@ sudo ./mayday/slave-backend/scripts/setup-asterisk-config.sh
 - AMI access restricted to specific IP ranges
 - HTTPS support for production deployments
 - CORS configuration for cross-origin requests
+
+### External Integrations
+
+#### Trunk Provider Integration
+
+The call center system integrates with external trunk providers for call validation and account management:
+
+**Configuration:**
+
+- **Auth Header**: Base64 encoded credentials for API authentication
+- **Validate URL**: Endpoint for account balance and validation checks
+- **Environment Variables**: Configured in both development (.env) and production (ecosystem.config.js)
+
+**Usage Example:**
+
+```bash
+curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Basic MDMyMDAwMDAwODoxMy4yMzQuMTguMg==' \
+--data-urlencode 'account=0320000008' \
+--data-urlencode 'BALANCE=BALANCE'
+```
+
+**Environment Configuration:**
+
+- **Development**: Set in `mayday/slave-backend/.env`
+- **Production**: Set in `ecosystem.config.js` for PM2 management
+
+**API Integration:**
+
+```javascript
+// In your backend code
+const authHeader = process.env.TRUNK_PROVIDER_AUTH_HEADER;
+const validateUrl = process.env.TRUNK_PROVIDER_VALIDATE_URL;
+
+const response = await fetch(validateUrl, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded",
+    Authorization: `Basic ${authHeader}`,
+  },
+  body: new URLSearchParams({
+    account: "0320000008",
+    BALANCE: "BALANCE",
+  }),
+});
+```
+
+#### Chrome Extension Multi-Tenant Configuration
+
+The Chrome extension supports dynamic multi-tenant configuration:
+
+**Features:**
+
+- **Dynamic URL Detection**: Automatically detects current domain and generates appropriate API endpoints
+- **Tenant-Specific API Paths**: Uses `/mayday-api` for Hugamara domains, `/api` for others
+- **CORS-Friendly**: Each tenant uses their own domain, eliminating cross-origin issues
+- **No Hardcoded URLs**: All endpoints are generated dynamically based on current origin
+
+**Configuration Priority:**
+
+1. Stored host URL (from Chrome storage)
+2. Current origin (detected from window.location)
+3. Environment variables
+4. Dynamic fallback based on current origin
+
+**Usage:**
+
+```javascript
+// The extension automatically detects the current domain
+// For https://cs.hugamara.com → uses /mayday-api endpoints
+// For https://client1.example.com → uses /api endpoints
+
+// Health check example:
+const endpoints = await config.getDynamicEndpoints();
+const response = await fetch(endpoints.users.systemHealth, {
+  method: "GET",
+  signal: AbortSignal.timeout(5000),
+});
+```
 
 ## 🚀 Deployment
 

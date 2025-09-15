@@ -911,6 +911,10 @@ DB_PORT=3306
 JWT_SECRET=your-secret-key-here
 PORT=8000
 FRONTEND_URL=http://localhost:3000
+
+# Trunk Provider Configuration
+TRUNK_PROVIDER_AUTH_HEADER=MDMyMDAwMDAwODoxMy4yMzQuMTguMg==
+TRUNK_PROVIDER_VALIDATE_URL=https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php
 ```
 
 ### Frontend (.env)
@@ -953,6 +957,33 @@ The system comes with pre-seeded test users:
 
 - Client runs on `http://localhost:3000`
 - Auth test page: `http://localhost:3000/auth-test`
+
+## External Integrations
+
+### Trunk Provider Integration
+
+The system integrates with external trunk providers for call validation and management:
+
+**Configuration:**
+
+- **Auth Header**: Base64 encoded credentials for API authentication
+- **Validate URL**: Endpoint for account balance and validation checks
+- **Environment Variables**: Configured in both development (.env) and production (ecosystem.config.js)
+
+**Usage Example:**
+
+```bash
+curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Authorization: Basic MDMyMDAwMDAwODoxMy4yMzQuMTguMg==' \
+--data-urlencode 'account=0320000008' \
+--data-urlencode 'BALANCE=BALANCE'
+```
+
+**Environment Configuration:**
+
+- **Development**: Set in `backend/.env`
+- **Production**: Set in `ecosystem.config.js` for PM2 management
 
 ## Features
 
