@@ -664,56 +664,108 @@ export const cleanupUserSessions = async (req, res) => {
   try {
     const { userId, feature } = req.params;
 
+    console.log("🚀 [cleanupUserSessions] Starting manual session cleanup:", {
+      userId,
+      feature,
+      timestamp: new Date().toISOString(),
+      requestHeaders: req.headers,
+    });
+
     // Check for existing sessions
+    console.log("🔍 [cleanupUserSessions] Checking for active sessions...");
     const sessionCheck = await redisSessionService.hasActiveSession(
       userId,
       feature
     );
 
+    console.log("📊 [cleanupUserSessions] Session check result:", {
+      hasSession: sessionCheck.hasSession,
+      sessionId: sessionCheck.sessionId,
+      sessionData: sessionCheck.sessionData,
+    });
+
     if (sessionCheck.hasSession) {
+      console.log(
+        "🎯 [cleanupUserSessions] Found active session, proceeding with cleanup:",
+        {
+          sessionId: sessionCheck.sessionId,
+          userId,
+          feature,
+        }
+      );
+
       // End the existing session
+      console.log(
+        "🗑️ [cleanupUserSessions] Calling redisSessionService.endSession..."
+      );
       const endResult = await redisSessionService.endSession(
         sessionCheck.sessionId,
         userId,
         feature
       );
 
+      console.log("📋 [cleanupUserSessions] End session result:", endResult);
+
       if (endResult.success) {
         console.log(
-          `[Session] Successfully cleaned up session ${sessionCheck.sessionId} for user ${userId}`
+          `✅ [cleanupUserSessions] Successfully cleaned up session ${sessionCheck.sessionId} for user ${userId}`
         );
 
         // Notify master server about session termination
         try {
+          console.log(
+            "📡 [cleanupUserSessions] Notifying master server about session termination..."
+          );
           const license = await licenseService.getCurrentLicense();
           if (license) {
             const masterServerUrl =
               process.env.LICENSE_MGMT_API_URL || "http://localhost:8001/api";
+
+            console.log(
+              "🌐 [cleanupUserSessions] Master server URL:",
+              masterServerUrl
+            );
+
+            const notificationPayload = {
+              action: "session_ended",
+              licenseId: license.master_license_id || license.id,
+              userId: userId,
+              username: "manual_cleanup",
+              feature: feature,
+              sessionId: sessionCheck.sessionId,
+              timestamp: new Date().toISOString(),
+            };
+
+            console.log(
+              "📤 [cleanupUserSessions] Sending notification payload:",
+              notificationPayload
+            );
+
             await fetch(`${masterServerUrl}/licenses/session-activity`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 "X-Internal-API-Key": process.env.SECRET_INTERNAL_API_KEY,
               },
-              body: JSON.stringify({
-                action: "session_ended",
-                licenseId: license.master_license_id || license.id,
-                userId: userId,
-                username: "manual_cleanup",
-                feature: feature,
-                sessionId: sessionCheck.sessionId,
-                timestamp: new Date().toISOString(),
-              }),
+              body: JSON.stringify(notificationPayload),
             });
+
+            console.log(
+              "✅ [cleanupUserSessions] Master server notification sent successfully"
+            );
+          } else {
+            console.log(
+              "⚠️ [cleanupUserSessions] No license found, skipping master server notification"
+            );
           }
         } catch (masterError) {
           console.warn(
-            "⚠️ Failed to notify master server of manual cleanup:",
+            "⚠️ [cleanupUserSessions] Failed to notify master server of manual cleanup:",
             masterError
           );
         }
 
-        res.status(200).json({
+        const responseData = {
           success: true,
           message: `Session cleanup completed for user ${userId}`,
           data: {
@@ -722,17 +774,39 @@ export const cleanupUserSessions = async (req, res) => {
             feature,
             cleanedAt: new Date().toISOString(),
           },
-        });
+        };
+
+        console.log(
+          "📤 [cleanupUserSessions] Sending success response:",
+          responseData
+        );
+        res.status(200).json(responseData);
       } else {
-        console.error(`[Session] Failed to clean up session:`, endResult.error);
-        res.status(500).json({
+        console.error(
+          `❌ [cleanupUserSessions] Failed to clean up session:`,
+          endResult.error
+        );
+        const errorResponse = {
           success: false,
           message: "Failed to clean up session",
           error: endResult.error,
-        });
+        };
+        console.log(
+          "📤 [cleanupUserSessions] Sending error response:",
+          errorResponse
+        );
+        res.status(500).json(errorResponse);
       }
     } else {
-      res.status(200).json({
+      console.log(
+        "ℹ️ [cleanupUserSessions] No active session found for user:",
+        {
+          userId,
+          feature,
+        }
+      );
+
+      const responseData = {
         success: true,
         message: `No active session found for user ${userId}`,
         data: {
@@ -740,15 +814,33 @@ export const cleanupUserSessions = async (req, res) => {
           feature,
           cleanedAt: new Date().toISOString(),
         },
-      });
+      };
+
+      console.log(
+        "📤 [cleanupUserSessions] Sending no-session response:",
+        responseData
+      );
+      res.status(200).json(responseData);
     }
   } catch (error) {
-    console.error("❌ Error in manual session cleanup:", error);
-    res.status(500).json({
+    console.error("❌ [cleanupUserSessions] Error in manual session cleanup:", {
+      error: error.message,
+      stack: error.stack,
+      userId: req.params?.userId,
+      feature: req.params?.feature,
+    });
+
+    const errorResponse = {
       success: false,
       message: "Failed to clean up session",
       error: error.message,
-    });
+    };
+
+    console.log(
+      "📤 [cleanupUserSessions] Sending error response:",
+      errorResponse
+    );
+    res.status(500).json(errorResponse);
   }
 };
 
@@ -963,10 +1055,21 @@ export const getAllFeatures = async (req, res) => {
 // Get WebRTC sessions and active users for admin panel
 export const getWebRTCSessions = async (req, res) => {
   try {
+    console.log("🚀 [getWebRTCSessions] Starting WebRTC sessions fetch:", {
+      timestamp: new Date().toISOString(),
+      requestHeaders: req.headers,
+    });
+
     // Get current license to verify (slave server only has one license)
     const license = await licenseService.getCurrentLicense();
+    console.log("🏷️ [getWebRTCSessions] Current license:", {
+      id: license?.id,
+      organization_name: license?.organization_name,
+      webrtc_max_users: license?.webrtc_max_users,
+    });
 
     if (!license) {
+      console.log("❌ [getWebRTCSessions] No active license found");
       return res.status(404).json({
         success: false,
         message: "No active license found",
@@ -974,6 +1077,9 @@ export const getWebRTCSessions = async (req, res) => {
     }
 
     // Get active WebRTC sessions
+    console.log(
+      "🔍 [getWebRTCSessions] Fetching active WebRTC sessions from database..."
+    );
     const activeSessions = await ClientSession.findAll({
       where: {
         license_cache_id: license.id,
@@ -983,9 +1089,26 @@ export const getWebRTCSessions = async (req, res) => {
       order: [["created_at", "DESC"]],
     });
 
+    console.log("📊 [getWebRTCSessions] Active sessions found:", {
+      count: activeSessions.length,
+      sessions: activeSessions.map((s) => ({
+        id: s.id,
+        session_token: s.session_token,
+        user_id: s.user_id,
+        username: s.username || s.sip_username,
+        status: s.status,
+        created_at: s.created_at,
+        expires_at: s.expires_at,
+      })),
+    });
+
     // Get session history (last 24 hours)
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
+    console.log(
+      "📅 [getWebRTCSessions] Fetching session history since:",
+      yesterday.toISOString()
+    );
 
     const sessionHistory = await ClientSession.findAll({
       where: {
@@ -999,8 +1122,25 @@ export const getWebRTCSessions = async (req, res) => {
       limit: 50,
     });
 
+    console.log("📈 [getWebRTCSessions] Session history found:", {
+      count: sessionHistory.length,
+      sessions: sessionHistory.map((s) => ({
+        id: s.id,
+        user_id: s.user_id,
+        username: s.username || s.sip_username,
+        status: s.status,
+        created_at: s.created_at,
+        ended_at: s.ended_at,
+      })),
+    });
+
     // Calculate session durations and format data
     const formatSessionData = (sessions) => {
+      console.log(
+        "🔄 [getWebRTCSessions] Formatting session data for",
+        sessions.length,
+        "sessions"
+      );
       return sessions.map((session) => {
         const startTime = new Date(session.created_at);
         const endTime = session.ended_at
@@ -1032,12 +1172,22 @@ export const getWebRTCSessions = async (req, res) => {
       ),
     };
 
+    console.log("📤 [getWebRTCSessions] Final WebRTC data:", {
+      current_sessions: webRTCData.current_sessions,
+      max_sessions: webRTCData.max_sessions,
+      active_users_count: webRTCData.active_users.length,
+      session_history_count: webRTCData.session_history.length,
+    });
+
     res.status(200).json({
       success: true,
       data: webRTCData,
     });
   } catch (error) {
-    console.error("Error fetching WebRTC sessions:", error);
+    console.error("❌ [getWebRTCSessions] Error fetching WebRTC sessions:", {
+      error: error.message,
+      stack: error.stack,
+    });
     res.status(500).json({
       success: false,
       message: "Failed to fetch WebRTC sessions",

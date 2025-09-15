@@ -524,9 +524,15 @@ const OutboundRouteEdit = () => {
                               // Determine what to display in the Appdata column based on app type
                               let appdata = "";
                               if (app.type === "OutboundDial") {
-                                appdata = `PJSIP/${
-                                  app.settings?.prefix || ""
-                                }\\${app.settings?.exten || ""}@${
+                                // Show standard Asterisk pattern: PJSIP/<prefix>${EXTEN}@<trunk>
+                                // Fall back to the standard Asterisk variable when not provided
+                                const extenPart =
+                                  app.settings?.exten &&
+                                  String(app.settings.exten).trim() !== ""
+                                    ? app.settings.exten
+                                    : "${EXTEN}"; // eslint-disable-line no-template-curly-in-string
+                                const prefixPart = app.settings?.prefix || "";
+                                appdata = `PJSIP/${prefixPart}${extenPart}@${
                                   app.settings?.trunkId || ""
                                 }`;
                               } else if (app.type === "Custom") {

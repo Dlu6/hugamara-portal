@@ -45,6 +45,9 @@ module.exports = {
         SLAVE_SERVER_API_URL: "https://cs.hugamara.com/mayday-api",
         SLAVE_WEBSOCKET_URL: "wss://cs.hugamara.com",
         SLAVE_SERVER_DOMAIN: "cs.hugamara.com",
+        // WebRTC/SIP hostnames for WSS registration
+        PUBLIC_IP: "cs.hugamara.com",
+        ASTERISK_HOST: "cs.hugamara.com",
 
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",
@@ -117,6 +120,11 @@ module.exports = {
         // External APIs
         LIPACHAT_API_KEY: "lipachat_api_key",
         LIPACHAT_PHONE_NUMBER: "lipachat_phone",
+
+        // Trunk Provider Configuration
+        TRUNK_PROVIDER_AUTH_HEADER: "MDMyMDAwMDAwODoxMy4yMzQuMTguMg==",
+        TRUNK_PROVIDER_VALIDATE_URL:
+          "https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php",
       },
       error_file: "./logs/mayday-backend-error.log",
       out_file: "./logs/mayday-backend-out.log",

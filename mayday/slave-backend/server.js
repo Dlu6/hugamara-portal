@@ -127,10 +127,11 @@ const allowedOrigins = [
   `wss://${process.env.PUBLIC_IP}:${process.env.PORT}`,
   "http://localhost:3000",
   "http://localhost:3001",
+  "http://localhost:3002",
   "http://localhost:5173",
   "http://localhost:8004",
   "ws://localhost:8004",
-  `http://43.205.91.97:8004`,
+  `http://43.205.91.97:8004`, 
   `ws://43.205.91.97:8004`,
   // `https://cs.lusuku.shop`,
   // `wss://cs.lusuku.shop`,
@@ -158,25 +159,32 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow all origins in development, and allow requests with no origin (like mobile apps or curl requests)
-    if (process.env.NODE_ENV === "development" || !origin) {
+    // Allow requests with no origin (extensions, curl) and allow dev ORIGINS
+    if (!origin) {
       callback(null, true);
       return;
     }
 
-    // Check for exact match first
+    // Always allow our public domain and subdomains
+    const hugamaraPattern = /^https?:\/\/([\w-]+\.)*cs\.hugamara\.com(?::\d+)?$/i;
+    if (hugamaraPattern.test(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      callback(null, true);
+      return;
+    }
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
       return;
     }
 
-    // Check for wildcard patterns
     const isAllowed = allowedOrigins.some((allowedOrigin) => {
       if (allowedOrigin.includes("*")) {
-        // Convert wildcard pattern to regex
-        const pattern = allowedOrigin
-          .replace(/\./g, "\\.") // Escape dots
-          .replace(/\*/g, ".*"); // Convert * to .*
+        const pattern = allowedOrigin.replace(/\./g, "\\.").replace(/\*/g, ".*");
         const regex = new RegExp(`^${pattern}$`);
         return regex.test(origin);
       }

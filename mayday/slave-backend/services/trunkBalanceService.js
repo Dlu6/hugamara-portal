@@ -50,7 +50,7 @@ export const checkBalance = async (accountNumber) => {
 
 const parseBalanceResponse = (responseData) => {
   console.log("Parsing balance response:", responseData);
-  
+
   if (responseData.status === "ok" && responseData.balance?.message) {
     const balanceAmount = parseFloat(responseData.balance.message);
     return {

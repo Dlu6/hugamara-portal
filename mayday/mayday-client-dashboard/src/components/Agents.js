@@ -106,6 +106,7 @@ const AgentsComponent = () => {
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [activeSessions, setActiveSessions] = useState([]);
   const [sessionsAgent, setSessionsAgent] = useState(null);
+  const [endingSessions, setEndingSessions] = useState(false);
 
   const navigate = useNavigate();
 
@@ -202,42 +203,155 @@ const AgentsComponent = () => {
   };
 
   const openSessionsModal = async (agent) => {
+    console.log("🚀 [openSessionsModal] Opening sessions modal for agent:", {
+      agentId: agent?.id,
+      agentUsername: agent?.username,
+      agentFullName: agent?.fullName,
+    });
+
     setSessionsAgent(agent);
     setSessionsOpen(true);
     setSessionsLoading(true);
+
     try {
-      // Get current license WebRTC sessions and filter by agent user id if present
+      console.log("📡 [openSessionsModal] Fetching current WebRTC sessions...");
       const { data } = await licenseService.getCurrentWebRTCSessions();
+      console.log("📊 [openSessionsModal] Raw sessions data from API:", data);
+
       const list = Array.isArray(data?.data?.active_users)
         ? data.data.active_users
         : [];
+      console.log("📋 [openSessionsModal] Processed sessions list:", list);
+
       const filtered = agent?.id
         ? list.filter((s) => String(s.user_id) === String(agent.id))
         : list;
+
+      console.log("🎯 [openSessionsModal] Filtered sessions for agent:", {
+        agentId: agent?.id,
+        totalSessions: list.length,
+        filteredSessions: filtered.length,
+        sessions: filtered,
+      });
+
       setActiveSessions(filtered);
     } catch (e) {
-      enqueueSnackbar("Failed to load active sessions", { variant: "error" });
+      console.error("❌ [openSessionsModal] Error loading sessions:", {
+        error: e,
+        response: e?.response,
+        message: e?.response?.data?.message,
+      });
+
+      enqueueSnackbar(
+        e?.response?.data?.message || "Failed to load active sessions",
+        { variant: "error" }
+      );
     } finally {
+      console.log("🏁 [openSessionsModal] Sessions loading completed");
       setSessionsLoading(false);
     }
     handleMenuClose();
   };
 
   const handleEndSessionsForAgent = async () => {
-    if (!sessionsAgent) return;
+    if (!sessionsAgent) {
+      console.log(
+        "🔍 [handleEndSessionsForAgent] No sessionsAgent provided, returning early"
+      );
+      return;
+    }
+
+    console.log(
+      "🚀 [handleEndSessionsForAgent] Starting session cleanup for agent:",
+      {
+        sessionsAgent,
+        agentId: sessionsAgent.id,
+        agentUsername: sessionsAgent.username,
+        agentFullName: sessionsAgent.fullName,
+      }
+    );
+
+    setEndingSessions(true);
+
     try {
-      await licenseService.cleanupUserSessions(
+      console.log(
+        "📡 [handleEndSessionsForAgent] Calling licenseService.cleanupUserSessions with:",
+        {
+          userId: sessionsAgent.id,
+          feature: "webrtc_extension",
+        }
+      );
+
+      const cleanupResponse = await licenseService.cleanupUserSessions(
         sessionsAgent.id,
         "webrtc_extension"
       );
+
+      console.log(
+        "✅ [handleEndSessionsForAgent] Cleanup API response:",
+        cleanupResponse
+      );
+
+      // Refetch sessions after cleanup to confirm result
+      try {
+        console.log(
+          "🔄 [handleEndSessionsForAgent] Refetching sessions to verify cleanup..."
+        );
+        const { data } = await licenseService.getCurrentWebRTCSessions();
+        console.log(
+          "📊 [handleEndSessionsForAgent] Raw sessions data from API:",
+          data
+        );
+
+        const list = Array.isArray(data?.data?.active_users)
+          ? data.data.active_users
+          : [];
+        console.log(
+          "📋 [handleEndSessionsForAgent] Processed sessions list:",
+          list
+        );
+
+        const filtered = list.filter(
+          (s) => String(s.user_id) === String(sessionsAgent.id)
+        );
+        console.log(
+          "🎯 [handleEndSessionsForAgent] Filtered sessions for agent:",
+          {
+            agentId: sessionsAgent.id,
+            remainingSessions: filtered.length,
+            sessions: filtered,
+          }
+        );
+
+        setActiveSessions(filtered);
+      } catch (refetchError) {
+        console.error(
+          "❌ [handleEndSessionsForAgent] Error refetching sessions:",
+          refetchError
+        );
+      }
+
       enqueueSnackbar("Sessions ended for user", { variant: "success" });
-      // Refresh list
-      setActiveSessions([]);
       setSessionsOpen(false);
     } catch (e) {
+      console.error(
+        "❌ [handleEndSessionsForAgent] Error during session cleanup:",
+        {
+          error: e,
+          response: e?.response,
+          message: e?.response?.data?.message,
+          status: e?.response?.status,
+        }
+      );
+
       enqueueSnackbar(e?.response?.data?.message || "Failed to end sessions", {
         variant: "error",
       });
+    } finally {
+      console.log(
+        "🏁 [handleEndSessionsForAgent] Cleanup process completed, setting endingSessions to false"
+      );
+      setEndingSessions(false);
     }
   };
 
@@ -542,9 +656,9 @@ const AgentsComponent = () => {
             variant="contained"
             color="error"
             onClick={handleEndSessionsForAgent}
-            disabled={sessionsLoading}
+            disabled={sessionsLoading || endingSessions}
           >
-            End All Sessions
+            {endingSessions ? "Ending..." : "End All Sessions"}
           </Button>
         </DialogActions>
       </Dialog>
