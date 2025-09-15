@@ -120,6 +120,11 @@ module.exports = {
         // External APIs
         LIPACHAT_API_KEY: "lipachat_api_key",
         LIPACHAT_PHONE_NUMBER: "lipachat_phone",
+
+        // Trunk Provider Configuration
+        TRUNK_PROVIDER_AUTH_HEADER: "MDMyMDAwMDAwODoxMy4yMzQuMTguMg==",
+        TRUNK_PROVIDER_VALIDATE_URL:
+          "https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php",
       },
       error_file: "./logs/mayday-backend-error.log",
       out_file: "./logs/mayday-backend-out.log",
