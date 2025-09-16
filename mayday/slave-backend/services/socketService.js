@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import { io as Client } from "socket.io-client";
 import { generateFingerprint } from "../utils/serverFingerprinting.js";
 import amiService from "./amiService.js";
+import { PJSIPEndpoint } from "../models/pjsipModel.js";
 import createLicenseService from "./licenseService.js";
 import chalk from "chalk";
 
@@ -13,6 +14,8 @@ let io = null;
 let masterSocket = null;
 let serverFingerprint = null;
 const licenseService = createLicenseService();
+let trunkStatusIntervalId = null;
+const TRUNK_POLL_INTERVAL_MS = 15000;
 
 export const initialize = async (httpServer) => {
   try {
@@ -126,6 +129,84 @@ export const initialize = async (httpServer) => {
           });
         }
       });
+
+      // Start periodic trunk polling once the first client connects
+      if (!trunkStatusIntervalId) {
+        trunkStatusIntervalId = setInterval(async () => {
+          try {
+            const trunks = await PJSIPEndpoint.findAll({
+              attributes: ["id"],
+              where: { endpoint_type: "trunk" },
+            });
+
+            for (const t of trunks) {
+              const trunkName = t.id;
+              try {
+                const resp = await amiService.executeAction({
+                  Action: "Command",
+                  Command: `pjsip show endpoint ${trunkName}`,
+                });
+                const out = String(resp?.Output || "");
+                const contactLines = out
+                  .split("\n")
+                  .filter((l) => l.trim().toLowerCase().startsWith("contact:"));
+
+                let registered = false;
+                let statusText = "Unknown";
+                let latencyMs = null;
+                for (const line of contactLines) {
+                  const lower = line.toLowerCase();
+                  if (lower.includes("avail") || lower.includes("reachable")) {
+                    registered = true;
+                    statusText = "Available";
+                    const m = line.match(/(\d+\.?\d*)\s*$/);
+                    if (m) latencyMs = parseFloat(m[1]);
+                    break;
+                  }
+                  if (
+                    lower.includes("unavail") ||
+                    lower.includes("unreachable")
+                  ) {
+                    registered = false;
+                    statusText = "Unreachable";
+                  }
+                }
+
+                if (statusText === "Unknown" && out) {
+                  if (out.includes("Not in use") || out.includes("In use")) {
+                    statusText = "Reported";
+                  }
+                }
+
+                if (io) {
+                  io.emit("trunk:status_update", {
+                    endpoint: trunkName,
+                    registered,
+                    details: {
+                      status: statusText,
+                      latencyMs,
+                      lastUpdate: new Date().toISOString(),
+                    },
+                  });
+                }
+              } catch (e) {
+                if (io) {
+                  io.emit("trunk:status_update", {
+                    endpoint: trunkName,
+                    registered: false,
+                    details: {
+                      status: "Unknown",
+                      lastUpdate: new Date().toISOString(),
+                    },
+                  });
+                }
+              }
+            }
+          } catch (pollErr) {
+            // swallow and continue next tick
+          }
+        }, TRUNK_POLL_INTERVAL_MS);
+      }
 
       // Handle license authentication for Chrome extension
       socket.on("license:authenticate", async (data) => {
@@ -335,6 +416,10 @@ export const cleanup = () => {
   }
   if (io) {
     io.close();
+  }
+  if (trunkStatusIntervalId) {
+    clearInterval(trunkStatusIntervalId);
+    trunkStatusIntervalId = null;
   }
 };
 
