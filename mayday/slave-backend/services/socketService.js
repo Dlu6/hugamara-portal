@@ -2,6 +2,7 @@
 import { Server } from "socket.io";
 import { io as Client } from "socket.io-client";
 import { generateFingerprint } from "../utils/serverFingerprinting.js";
+import amiService from "./amiService.js";
 import createLicenseService from "./licenseService.js";
 import chalk from "chalk";
 
@@ -59,6 +60,71 @@ export const initialize = async (httpServer) => {
       // Handle ping/pong
       socket.on("ping", () => {
         socket.emit("pong");
+      });
+
+      // Handle trunk status requests from dashboards
+      socket.on("trunk:status", async (trunkName) => {
+        try {
+          if (!trunkName) return;
+          // Query AMI for endpoint details
+          const resp = await amiService.executeAction({
+            Action: "Command",
+            Command: `pjsip show endpoint ${trunkName}`,
+          });
+
+          let registered = false;
+          let statusText = "Unknown";
+          let latencyMs = null;
+
+          const out = String(resp?.Output || "");
+          // Look for Contact lines and status tokens like "Avail" or "Unavail"
+          const contactLines = out
+            .split("\n")
+            .filter((l) => l.trim().toLowerCase().startsWith("contact:"));
+
+          for (const line of contactLines) {
+            const lower = line.toLowerCase();
+            if (lower.includes("avail") || lower.includes("reachable")) {
+              registered = true;
+              statusText = "Available";
+              // Extract latency if present at the end of line
+              const m = line.match(/(\d+\.?\d*)\s*$/);
+              if (m) latencyMs = parseFloat(m[1]) * 1; // already ms or seconds in your sample; keep as number
+              break;
+            }
+            if (lower.includes("unavail") || lower.includes("unreachable")) {
+              registered = false;
+              statusText = "Unreachable";
+            }
+          }
+
+          // Fallback: if no Contact lines, check for "Not in use"/"In use" presence, still mark registered unknown
+          if (statusText === "Unknown" && out) {
+            if (out.includes("Not in use") || out.includes("In use")) {
+              statusText = "Reported";
+            }
+          }
+
+          socket.emit("trunk:status_update", {
+            endpoint: trunkName,
+            registered,
+            details: {
+              status: statusText,
+              latencyMs,
+              lastUpdate: new Date().toISOString(),
+            },
+          });
+        } catch (e) {
+          console.warn("[SocketService] trunk:status error:", e.message);
+          socket.emit("trunk:status_update", {
+            endpoint: trunkName,
+            registered: false,
+            details: {
+              status: "Unknown",
+              lastUpdate: new Date().toISOString(),
+            },
+          });
+        }
       });
 
       // Handle license authentication for Chrome extension
