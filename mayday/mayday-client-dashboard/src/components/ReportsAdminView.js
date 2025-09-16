@@ -177,30 +177,28 @@ const Reports = () => {
     setPreviewModalOpen(true);
 
     try {
-      const response = await fetch(
-        `/api/users/reports/preview?startDate=${dateRange.startDate.toISOString()}&endDate=${dateRange.endDate.toISOString()}&reportType=${selectedReportType}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "x-internal-api-key": process.env.REACT_APP_INTERNAL_API_KEY,
-          },
-        }
-      );
+      const response = await apiClient.get(`/users/reports/preview`, {
+        params: {
+          startDate: dateRange.startDate.toISOString(),
+          endDate: dateRange.endDate.toISOString(),
+          reportType: selectedReportType,
+        },
+        headers: {
+          "x-internal-api-key": process.env.REACT_APP_INTERNAL_API_KEY,
+        },
+      });
 
-      if (response.ok) {
-        const result = await response.json();
-        setPreviewData({
-          ...result.data,
-          summary: result.summary,
-          totalRecords: result.totalRecords,
-          previewRecords: result.previewRecords,
-        });
-      } else {
-        const errorData = await response.json();
-        setPreviewData({ error: errorData.message });
-      }
+      const result = response.data;
+      setPreviewData({
+        ...result.data,
+        summary: result.summary,
+        totalRecords: result.totalRecords,
+        previewRecords: result.previewRecords,
+      });
     } catch (error) {
-      setPreviewData({ error: "Failed to load preview data" });
+      setPreviewData({
+        error: error?.response?.data?.message || "Failed to load preview data",
+      });
     } finally {
       setPreviewLoading(false);
     }

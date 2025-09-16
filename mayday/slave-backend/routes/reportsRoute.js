@@ -18,6 +18,12 @@ import {
   exportReport,
   getAgentCallDetails,
   previewReport,
+  // Asterisk CDR based handlers (aliases for clarity)
+  getCallVolumeAsterisk,
+  getAgentPerformanceAsterisk,
+  getAgentCallDetailsAsterisk,
+  getQueueDistributionAsterisk,
+  getSLAComplianceAsterisk,
 } from "../controllers/reportsController.js";
 import { validateDateRange } from "../middleware/dateValidation.js";
 
@@ -65,6 +71,13 @@ router.get("/queue-distribution", getQueueDistribution);
 
 // SLA compliance data
 router.get("/sla-compliance", getSLACompliance);
+
+// ========= Explicit Asterisk CDR endpoints =========
+router.get("/call-volume-asterisk", getCallVolumeAsterisk);
+router.get("/performance-asterisk", getAgentPerformanceAsterisk);
+router.get("/agent-call-details-asterisk", getAgentCallDetailsAsterisk);
+router.get("/queue-distribution-asterisk", getQueueDistributionAsterisk);
+router.get("/sla-compliance-asterisk", getSLAComplianceAsterisk);
 
 // Export report data as CSV
 router.get("/export", exportReport);
