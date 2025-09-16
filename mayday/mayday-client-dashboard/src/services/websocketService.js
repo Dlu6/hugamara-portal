@@ -2,6 +2,7 @@
 import { io } from "socket.io-client";
 
 let socket = null;
+let heartbeatIntervalId = null;
 
 const isDevelopment = window.location.hostname === "localhost";
 
@@ -84,9 +85,13 @@ export const connectWebSocket = () => {
       }
     });
 
-    // Add heartbeat mechanism
-    setInterval(() => {
-      if (socket.connected) {
+    // Add heartbeat mechanism (guard when socket becomes null)
+    if (heartbeatIntervalId) {
+      clearInterval(heartbeatIntervalId);
+      heartbeatIntervalId = null;
+    }
+    heartbeatIntervalId = setInterval(() => {
+      if (socket?.connected) {
         socket.emit("ping");
       }
     }, 30000);
@@ -102,6 +107,10 @@ export const disconnectWebSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
+  }
+  if (heartbeatIntervalId) {
+    clearInterval(heartbeatIntervalId);
+    heartbeatIntervalId = null;
   }
 };
 
