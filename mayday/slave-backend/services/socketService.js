@@ -111,6 +111,7 @@ export const initialize = async (httpServer) => {
           socket.emit("trunk:status_update", {
             endpoint: trunkName,
             registered,
+            timestamp: new Date().toISOString(),
             details: {
               status: statusText,
               latencyMs,
@@ -182,6 +183,7 @@ export const initialize = async (httpServer) => {
                   io.emit("trunk:status_update", {
                     endpoint: trunkName,
                     registered,
+                    timestamp: new Date().toISOString(),
                     details: {
                       status: statusText,
                       latencyMs,
@@ -194,6 +196,7 @@ export const initialize = async (httpServer) => {
                   io.emit("trunk:status_update", {
                     endpoint: trunkName,
                     registered: false,
+                    timestamp: new Date().toISOString(),
                     details: {
                       status: "Unknown",
                       lastUpdate: new Date().toISOString(),
