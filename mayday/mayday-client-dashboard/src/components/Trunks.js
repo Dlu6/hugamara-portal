@@ -331,7 +331,7 @@ const Trunks = () => {
       headerName: "Status",
       flex: 1,
       renderCell: (params) => {
-        console.log("params.row.name>>", params.row.name);
+        console.log("params.row.name>>", params);
         const status = trunkStatuses[params.row.name];
         return (
           <Chip
