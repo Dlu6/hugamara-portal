@@ -1921,8 +1921,16 @@ const Reports = () => {
               </Box>
               <Typography variant="body2" color="text.secondary">
                 📅 Range:{" "}
-                {format(dataAvailabilityInfo.availableStartDate, "MMM dd")} -{" "}
-                {format(dataAvailabilityInfo.availableEndDate, "MMM dd, yyyy")}
+                {dataAvailabilityInfo.availableStartDate &&
+                dataAvailabilityInfo.availableEndDate
+                  ? `${format(
+                      dataAvailabilityInfo.availableStartDate,
+                      "MMM dd"
+                    )} - ${format(
+                      dataAvailabilityInfo.availableEndDate,
+                      "MMM dd, yyyy"
+                    )}`
+                  : "Unknown"}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 🔄 Last Updated: {format(dataRefreshTime, "MMM dd, HH:mm")}
