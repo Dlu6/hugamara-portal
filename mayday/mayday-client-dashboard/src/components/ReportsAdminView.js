@@ -206,6 +206,8 @@ const Reports = () => {
 
   const isDateRangeValid = useCallback(() => {
     const now = new Date();
+    // Normalize to end of today to avoid timezone edge cases
+    now.setHours(23, 59, 59, 999);
     return (
       dateRange.startDate &&
       dateRange.endDate &&
@@ -1919,9 +1921,21 @@ const Reports = () => {
                   label="Start Date"
                   value={dateRange.startDate}
                   onChange={(date) =>
-                    setDateRange((prev) => ({ ...prev, startDate: date }))
+                    setDateRange((prev) => {
+                      if (!date) return prev;
+                      const today = new Date();
+                      today.setHours(23, 59, 59, 999);
+                      const clamped = date > today ? today : date;
+                      // Ensure endDate is not before startDate
+                      const endDate =
+                        prev.endDate && prev.endDate < clamped
+                          ? clamped
+                          : prev.endDate;
+                      return { ...prev, startDate: clamped, endDate };
+                    })
                   }
                   maxDate={new Date()}
+                  disableFuture
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -1934,10 +1948,22 @@ const Reports = () => {
                   label="End Date"
                   value={dateRange.endDate}
                   onChange={(date) =>
-                    setDateRange((prev) => ({ ...prev, endDate: date }))
+                    setDateRange((prev) => {
+                      if (!date) return prev;
+                      const today = new Date();
+                      today.setHours(23, 59, 59, 999);
+                      const clamped = date > today ? today : date;
+                      // Ensure endDate is not before startDate
+                      const startDate =
+                        prev.startDate && clamped < prev.startDate
+                          ? prev.startDate
+                          : prev.startDate;
+                      return { ...prev, endDate: clamped, startDate };
+                    })
                   }
                   maxDate={new Date()}
                   minDate={dateRange.startDate}
+                  disableFuture
                   slotProps={{
                     textField: {
                       fullWidth: true,
