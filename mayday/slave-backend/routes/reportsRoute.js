@@ -85,4 +85,8 @@ router.get("/export", exportReport);
 // Preview report data
 router.get("/preview", previewReport);
 
+// Data availability
+import { getDataAvailability } from "../controllers/reportsController.js";
+router.get("/availability", getDataAvailability);
+
 export default router;

@@ -1511,6 +1511,34 @@ export const previewReport = async (req, res) => {
   }
 };
 
+// Data availability based on CDR table
+export const getDataAvailability = async (req, res) => {
+  try {
+    const agg = await CDR.findOne({
+      attributes: [
+        [sequelize.fn("MIN", sequelize.col("start")), "minStart"],
+        [sequelize.fn("MAX", sequelize.col("start")), "maxStart"],
+        [sequelize.fn("COUNT", sequelize.col("id")), "total"],
+      ],
+      raw: true,
+    });
+
+    const availableStartDate = agg?.minStart ? new Date(agg.minStart) : null;
+    const availableEndDate = agg?.maxStart ? new Date(agg.maxStart) : null;
+    const totalRecords = agg?.total ? parseInt(agg.total, 10) : 0;
+
+    return res.json({
+      availableStartDate,
+      availableEndDate,
+      totalRecords,
+      lastUpdated: availableEndDate,
+    });
+  } catch (error) {
+    console.error("Error fetching data availability:", error);
+    return res.status(500).json({ error: "Failed to fetch data availability" });
+  }
+};
+
 // Helper functions to reuse logic for export
 async function getCallVolumeData(startDate, endDate) {
   try {

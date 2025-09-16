@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchCallVolume,
@@ -141,30 +141,45 @@ const Reports = () => {
   });
   const [zohoTab, setZohoTab] = useState(0);
 
-  // Data availability information - wrapped in useMemo to prevent unnecessary re-renders
-  const dataAvailabilityInfo = useMemo(
-    () => ({
-      availableStartDate: new Date("2025-07-29"),
-      availableEndDate: new Date("2025-08-07"),
-      totalRecords: 399,
-      lastUpdated: new Date("2025-08-07"),
-    }),
-    []
-  );
+  // Data availability fetched from backend CDR aggregate
+  const [dataAvailabilityInfo, setDataAvailabilityInfo] = useState({
+    availableStartDate: null,
+    availableEndDate: null,
+    totalRecords: 0,
+    lastUpdated: null,
+  });
+
+  const loadAvailability = useCallback(async () => {
+    try {
+      const res = await apiClient.get(`/users/reports/availability`);
+      const d = res.data || {};
+      setDataAvailabilityInfo({
+        availableStartDate: d.availableStartDate
+          ? new Date(d.availableStartDate)
+          : null,
+        availableEndDate: d.availableEndDate
+          ? new Date(d.availableEndDate)
+          : null,
+        totalRecords: d.totalRecords || 0,
+        lastUpdated: d.lastUpdated ? new Date(d.lastUpdated) : null,
+      });
+    } catch (e) {
+      // Non-blocking if availability fails
+      setDataAvailabilityInfo((prev) => prev);
+    }
+  }, []);
 
   // Production-grade data refresh
   const [dataRefreshTime, setDataRefreshTime] = useState(new Date());
 
   const refreshDataAvailability = useCallback(async () => {
     try {
-      // In production, this would call an API to get current data availability
-      // For now, we'll simulate a refresh
+      await loadAvailability();
       setDataRefreshTime(new Date());
-      console.log("Data availability refreshed at:", new Date().toISOString());
     } catch (error) {
-      console.error("Failed to refresh data availability:", error);
+      // ignore
     }
-  }, []);
+  }, [loadAvailability]);
 
   const handlePreviewReport = async () => {
     const dateStatus = getDateRangeStatus();
@@ -218,6 +233,12 @@ const Reports = () => {
   }, [dateRange]);
 
   const isDateRangeInDataRange = useCallback(() => {
+    if (
+      !dataAvailabilityInfo.availableStartDate ||
+      !dataAvailabilityInfo.availableEndDate
+    ) {
+      return true;
+    }
     return (
       dateRange.startDate >= dataAvailabilityInfo.availableStartDate &&
       dateRange.endDate <= dataAvailabilityInfo.availableEndDate
@@ -228,19 +249,19 @@ const Reports = () => {
     if (!isDateRangeValid()) {
       return { valid: false, message: "Invalid date range", severity: "error" };
     }
-
-    if (!isDateRangeInDataRange()) {
+    // If availability is known and selection is outside, show a gentle notice on the button only
+    if (
+      dataAvailabilityInfo.availableStartDate &&
+      dataAvailabilityInfo.availableEndDate &&
+      !isDateRangeInDataRange()
+    ) {
       return {
-        valid: false,
-        message: `Data available from ${format(
-          dataAvailabilityInfo.availableStartDate,
-          "MMM dd, yyyy"
-        )} to ${format(dataAvailabilityInfo.availableEndDate, "MMM dd, yyyy")}`,
-        severity: "warning",
+        valid: true,
+        message: "Date range selected",
+        severity: "info",
       };
     }
-
-    return { valid: true, message: "Date range is valid", severity: "success" };
+    return { valid: true, message: "Date range selected", severity: "success" };
   }, [isDateRangeValid, isDateRangeInDataRange, dataAvailabilityInfo]);
 
   const getButtonText = () => {
@@ -268,6 +289,8 @@ const Reports = () => {
   };
 
   useEffect(() => {
+    // Load availability once
+    loadAvailability();
     if (!isDateRangeValid()) return;
 
     const params = {
@@ -294,7 +317,7 @@ const Reports = () => {
       default:
         break;
     }
-  }, [dispatch, dateRange, selectedView, isDateRangeValid]);
+  }, [dispatch, dateRange, selectedView, isDateRangeValid, loadAvailability]);
 
   // Zoho Integration Functions
   // Define helpers before using them in callbacks to satisfy lints
