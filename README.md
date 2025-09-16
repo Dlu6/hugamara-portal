@@ -22,6 +22,16 @@ hugamara/
 └── README.md            # This file
 ```
 
+## Asterisk Realtime + WebRTC + CDR
+
+For the call center stack (Asterisk 20):
+
+- Realtime dialplan via ODBC (`voice_extensions` with `exten` column)
+- WebRTC media using DTLS‑SRTP (`res_srtp.so` required)
+- CDR via Adaptive ODBC into `cdr` table (single source of truth)
+
+See: `docs/ASTERISK_REALTIME_CDR_AND_WEBRTC.md` for full setup and troubleshooting.
+
 ## Quick Start
 
 ### Prerequisites
