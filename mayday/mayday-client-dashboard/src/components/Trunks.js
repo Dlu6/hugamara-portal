@@ -331,10 +331,11 @@ const Trunks = () => {
       headerName: "Status",
       flex: 1,
       renderCell: (params) => {
+        console.log("params.row.name>>", params.row.name);
         const status = trunkStatuses[params.row.name];
         return (
           <Chip
-            label={status?.details?.status || "Unknown"}
+            label={status?.details?.status}
             color={status?.registered ? "success" : "error"}
             size="small"
             title={`Last updated: ${
