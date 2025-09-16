@@ -3,7 +3,7 @@ import { Server } from "socket.io";
 import { io as Client } from "socket.io-client";
 import { generateFingerprint } from "../utils/serverFingerprinting.js";
 import amiService from "./amiService.js";
-import { PJSIPEndpoint } from "../models/pjsipModel.js";
+import { PJSIPEndpoint, PJSIPContact } from "../models/pjsipModel.js";
 import createLicenseService from "./licenseService.js";
 import chalk from "chalk";
 
@@ -173,9 +173,31 @@ export const initialize = async (httpServer) => {
                   }
                 }
 
-                if (statusText === "Unknown" && out) {
-                  if (out.includes("Not in use") || out.includes("In use")) {
-                    statusText = "Reported";
+                // Fallback: if AMI parsing didn't yield a clear state, consult ps_contacts
+                if (!registered) {
+                  try {
+                    const contact = await PJSIPContact.findOne({
+                      attributes: ["status"],
+                      where: { endpoint: trunkName },
+                    });
+                    const dbStatus = String(
+                      contact?.status || ""
+                    ).toLowerCase();
+                    if (
+                      dbStatus.includes("avail") ||
+                      dbStatus.includes("reachable")
+                    ) {
+                      registered = true;
+                      statusText = "Available";
+                    } else if (
+                      dbStatus.includes("unavail") ||
+                      dbStatus.includes("unreachable")
+                    ) {
+                      registered = false;
+                      statusText = "Unreachable";
+                    }
+                  } catch (_) {
+                    // ignore DB fallback errors
                   }
                 }
 
