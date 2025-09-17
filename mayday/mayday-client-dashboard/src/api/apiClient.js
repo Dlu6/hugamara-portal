@@ -22,9 +22,13 @@ const apiClient = axios.create({
 
 // Add request interceptor for authentication
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const storedToken = localStorage.getItem("token");
+  if (storedToken) {
+    // Normalize token to avoid double "Bearer " prefixes
+    const normalizedToken = storedToken.startsWith("Bearer ")
+      ? storedToken.split(" ")[1]
+      : storedToken;
+    config.headers.Authorization = `Bearer ${normalizedToken}`;
   }
   return config;
 });

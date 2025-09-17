@@ -75,55 +75,33 @@ const Trunks = () => {
     socket.on("trunk:status_update", (status) => {
       // console.log("[Trunks] Received trunk status update:", status);
       if (status && status.endpoint) {
-        // Ignore stale updates: require a timestamp newer than what we have
-        setTrunkStatuses((prevStatuses) => {
-          const prev = prevStatuses[status.endpoint];
-          const prevTime = prev?.lastUpdate || prev?.timestamp;
-          const incomingTime = status.details?.lastUpdate || status.timestamp;
-          if (
-            prevTime &&
-            incomingTime &&
-            new Date(incomingTime) <= new Date(prevTime)
-          ) {
-            return prevStatuses;
-          }
-          return {
-            ...prevStatuses,
-            [status.endpoint]: {
-              ...status,
-              lastUpdate: status.details?.lastUpdate || status.timestamp,
-            },
-          };
-        });
+        // console.log("status>>", status);
+        setTrunkStatuses((prevStatuses) => ({
+          ...prevStatuses,
+          [status.endpoint]: {
+            ...status,
+            lastUpdate: status.timestamp,
+          },
+        }));
       }
     });
 
-    // Initial + periodic status check for all trunks
+    // Initial status check for all trunks
     const fetchTrunkStatus = async () => {
       try {
-        trunks.forEach((trunk) => {
-          if (trunk?.name) {
-            socket.emit("trunk:status", trunk.name);
-          }
-        });
+        const trunkPromises = trunks.map((trunk) =>
+          socket.emit("trunk:status", trunk.name)
+        );
+        await Promise.all(trunkPromises);
       } catch (error) {
         console.error("Error fetching trunk status:", error);
       }
     };
 
-    // Re-emit on socket connect to avoid race
-    const onConnect = () => fetchTrunkStatus();
-    socket.on("connect", onConnect);
-
     fetchTrunkStatus();
-
-    // Periodic re-emit to keep UI fresh even if server polling is delayed
-    const intervalId = setInterval(fetchTrunkStatus, 15000);
 
     return () => {
       socket.off("trunk:status_update");
-      socket.off("connect", onConnect);
-      clearInterval(intervalId);
     };
   }, [trunks]);
 
@@ -331,11 +309,10 @@ const Trunks = () => {
       headerName: "Status",
       flex: 1,
       renderCell: (params) => {
-        console.log("params.row.name>>", params);
         const status = trunkStatuses[params.row.name];
         return (
           <Chip
-            label={status?.details?.status}
+            label={status?.details?.status || "Unknown"}
             color={status?.registered ? "success" : "error"}
             size="small"
             title={`Last updated: ${
