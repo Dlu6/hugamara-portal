@@ -640,8 +640,8 @@ export const generatePJSIPConfig = (
     bundle: "yes",
     webrtc: "yes",
     outbound_auth: extension,
-    dtls_cert_file: "/etc/letsencrypt/live/mhuhelpline.com/fullchain.pem",
-    dtls_private_key: "/etc/letsencrypt/live/mhuhelpline.com/privkey.pem",
+    dtls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
+    dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
     dtls_auto_generate_cert: "no",
   };
 
@@ -657,8 +657,8 @@ export const generatePJSIPConfig = (
       bundle: "yes",
       webrtc: "yes",
       dtls_auto_generate_cert: "no",
-      tls_cert_file: "/etc/letsencrypt/live/mhuhelpline.com/fullchain.pem",
-      dtls_private_key: "/etc/letsencrypt/live/mhuhelpline.com/privkey.pem",
+      tls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
+      dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
     });
   }
 

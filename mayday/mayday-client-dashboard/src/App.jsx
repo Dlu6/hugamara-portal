@@ -49,6 +49,7 @@ import LicensedRoute from "./components/LicensedRoute.js";
 import SalesforceIntegration from "./components/SalesforceIntegration.jsx";
 import ZohoIntegration from "./components/ZohoIntegration.jsx";
 import OAuthCallback from "./components/OAuthCallback.jsx";
+import EmailManagement from "./components/EmailManagement.jsx";
 
 const App = () => {
   useWebSocket();
@@ -138,6 +139,7 @@ const App = () => {
                   }
                 />
                 <Route path="profile" element={<Profile />} />
+                <Route path="emails" element={<EmailManagement />} />
                 <Route path="support/about" element={<About />} />
                 <Route path="ivr/projects" element={<IVRProjects />} />
                 <Route path="ivr/projects/:id" element={<IVRBuilder />} />

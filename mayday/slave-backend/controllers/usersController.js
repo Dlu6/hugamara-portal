@@ -73,7 +73,7 @@ export const superUserLogin = async (req, res) => {
 };
 
 export const registerAgent = async (req, res) => {
-  console.log("ASTERISK_HOST PROCESS env🔥🔥🔥:", process.env);
+  // console.log("ASTERISK_HOST PROCESS env🔥🔥🔥:", process.env);
 
   const { email, password, isSoftphone, name } = req.body;
 
@@ -458,8 +458,8 @@ export const createPJSIPUser = async (req, res) => {
           transport: "transport-wss",
           webrtc: "yes",
           dtls_auto_generate_cert: "no",
-          //   dtls_cert_file: "/etc/letsencrypt/live/mhuhelpline.com/fullchain.pem",
-          //   dtls_private_key: "/etc/letsencrypt/live/mhuhelpline.com/privkey.pem",
+          //   dtls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
+          //   dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
           direct_media: "no",
           force_rport: "yes",
           ice_support: "yes",

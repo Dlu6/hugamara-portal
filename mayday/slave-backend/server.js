@@ -75,6 +75,7 @@ import setupDefaultIntervals from "./utils/setupDefaultIntervals.js";
 import cdrRoutes from "./routes/CdrRoute.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import recordingRoutes from "./routes/recordingRoutes.js";
+import emailRoutes from "./routes/emailRoutes.js";
 import { setupAssociations } from "./models/usersModel.js";
 import { setupIntegrationAssociations } from "./models/associations.js";
 import IntegrationModel from "./models/integrationModel.js";
@@ -86,6 +87,7 @@ import {
   // LicenseValidation,
   setupLicenseAssociations,
 } from "./models/licenseModel.js";
+import { EmailModel, setupEmailAssociations } from "./models/emailModel.js";
 import seedLicenseTypes from "./utils/seedLicenseTypes.js";
 import {
   startCacheCleanupService,
@@ -131,7 +133,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:8004",
   "ws://localhost:8004",
-  `http://43.205.91.97:8004`, 
+  `http://43.205.91.97:8004`,
   `ws://43.205.91.97:8004`,
   // `https://cs.lusuku.shop`,
   // `wss://cs.lusuku.shop`,
@@ -166,7 +168,8 @@ const corsOptions = {
     }
 
     // Always allow our public domain and subdomains
-    const hugamaraPattern = /^https?:\/\/([\w-]+\.)*cs\.hugamara\.com(?::\d+)?$/i;
+    const hugamaraPattern =
+      /^https?:\/\/([\w-]+\.)*cs\.hugamara\.com(?::\d+)?$/i;
     if (hugamaraPattern.test(origin)) {
       callback(null, true);
       return;
@@ -184,7 +187,9 @@ const corsOptions = {
 
     const isAllowed = allowedOrigins.some((allowedOrigin) => {
       if (allowedOrigin.includes("*")) {
-        const pattern = allowedOrigin.replace(/\./g, "\\.").replace(/\*/g, ".*");
+        const pattern = allowedOrigin
+          .replace(/\./g, "\\.")
+          .replace(/\*/g, ".*");
         const regex = new RegExp(`^${pattern}$`);
         return regex.test(origin);
       }
@@ -345,6 +350,7 @@ app.use("/api/call-costs", callCostRoutes);
 app.use("/api/balance-verification", balanceVerificationRoutes);
 app.use("/api/integrations", integrationRoutes);
 app.use("/api/agent-status", agentStatusRoutes);
+app.use("/api/emails", emailRoutes);
 
 // app.use("/api/sip", sipRoutes);
 
@@ -590,6 +596,15 @@ const initializeApp = async () => {
 
     // Set up License Associations
     setupLicenseAssociations(UserModel);
+
+    // Set up Email Associations
+    const Email = EmailModel(sequelize);
+    global.EmailModel = Email; // Make Email model available globally
+    setupEmailAssociations(Email, {
+      UserModel,
+      CustomerModel: null,
+      TicketModel: null,
+    });
 
     // Initialize admin user first (this should always succeed)
     await initializeAdmin();
