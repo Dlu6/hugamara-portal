@@ -21,6 +21,11 @@ cd "$ROOT_DIR"
 
 info "Project root: $ROOT_DIR"
 
+# Frontend build-time variables for React builds
+: "${REACT_APP_CALL_CENTER_URL:=https://cs.hugamara.com/callcenter/}"
+export REACT_APP_CALL_CENTER_URL
+info "REACT_APP_CALL_CENTER_URL=$REACT_APP_CALL_CENTER_URL"
+
 # 1) Install/refresh dependencies where needed
 info "Installing backend dependencies (production)"
 if [ -f "$ROOT_DIR/backend/package.json" ]; then
