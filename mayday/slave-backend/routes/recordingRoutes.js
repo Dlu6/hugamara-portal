@@ -115,7 +115,7 @@ router.get("/list/:year/:month/:day", async (req, res) => {
 
           return {
             filename: file,
-            path: `/api/recordings/play/${year}/${month}/${day}/${file}`,
+            path: `/recordings/${year}/${month}/${day}/${file}`,
             downloadUrl: `/api/recordings/download/${year}/${month}/${day}/${file}`,
             size: fileStat.size,
             created: fileStat.birthtime || fileStat.ctime,
