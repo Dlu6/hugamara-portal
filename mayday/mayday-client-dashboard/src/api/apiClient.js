@@ -6,7 +6,7 @@ const BASE_URL = process.env.REACT_APP_API_URL;
 
 const getBaseUrl = () => {
   if (process.env.NODE_ENV === "production") {
-    return "/mayday-api"; // Correct base URL
+    return "/mayday"; // Match Nginx location /mayday/
   }
   return BASE_URL;
 };

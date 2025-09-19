@@ -27,7 +27,7 @@ const LoginMayday = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const { login, loading } = useAuth(); // Get loading state from useAuth
+  const { login, loading, isAuthenticated } = useAuth(); // include auth state
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
   const [useLocalApp, setUseLocalApp] = useState(false); // Keep electron logic for now
@@ -86,6 +86,13 @@ const LoginMayday = () => {
       setPassword("");
     }
   };
+
+  // If already authenticated, skip login screen
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   return (
     <Grid
