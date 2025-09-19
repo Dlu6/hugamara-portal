@@ -78,14 +78,6 @@ else
   pm2 start ecosystem.config.js --only mayday-callcenter-backend || true
 fi
 
-# Ensure callcenter frontend dev server is running for Nginx proxy
-if pm2 describe mayday-callcenter-frontend >/dev/null 2>&1; then
-  pm2 restart mayday-callcenter-frontend
-else
-  warn "PM2 app 'mayday-callcenter-frontend' not found; starting via ecosystem"
-  pm2 start ecosystem.config.js --only mayday-callcenter-frontend || true
-fi
-
 pm2 save || true
 
 ok "Deployment complete. Use 'pm2 status' and 'pm2 logs' to verify."

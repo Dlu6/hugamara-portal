@@ -137,27 +137,6 @@ module.exports = {
       watch: false,
       max_memory_restart: "1G",
     },
-    {
-      name: "mayday-callcenter-frontend",
-      script: "npm",
-      args: "start",
-      cwd: "/home/admin/hugamara-portal/mayday/mayday-client-dashboard",
-      env: {
-        PORT: 3001,
-        HOST: "127.0.0.1",
-        DANGEROUSLY_DISABLE_HOST_CHECK: "true",
-        BROWSER: "none",
-      },
-      instances: 1,
-      exec_mode: "fork",
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "512M",
-      time: true,
-      error_file: "./logs/mayday-frontend-error.log",
-      out_file: "./logs/mayday-frontend-out.log",
-      log_file: "./logs/mayday-frontend-combined.log",
-    },
     // Removed the mayday-callcenter-frontend since nginx will serve static files
   ],
 };
