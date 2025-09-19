@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Mayday Dashboard",
+  "short_name": "Mayday",
+  "name": "Mayday Call Center Dashboard",
   "icons": [
     {
       "src": "favicon.ico",
@@ -18,8 +18,8 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/callcenter/",
   "display": "standalone",
-  "theme_color": "#000000",
+  "theme_color": "#046577",
   "background_color": "#ffffff"
 }
