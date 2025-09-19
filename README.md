@@ -1191,116 +1191,41 @@ DOMAIN=hugamara.com
 
 ### Callcenter Frontend (.env)
 
-```env
-REACT_APP_API_URL=http://localhost:8004/api
-REACT_APP_ENV=development
-REACT_APP_VERSION=1.0.0
+The callcenter frontend requires a specific API URL to function correctly behind the Nginx reverse proxy. In `mayday/mayday-client-dashboard/.env.production`, ensure the URL is set to include the `/api` prefix, which the backend router expects:
+
+```
+REACT_APP_API_URL=/mayday-api/api
 ```
 
-## Test Data
+## Production Process Management (PM2)
 
-The system comes with pre-seeded test users:
+In the production VM environment, process management is handled by PM2. It is critical to understand how PM2 is configured to work with this project to ensure stability and ease of debugging.
 
-**Admin User:**
+### Architecture Overview
 
-- Email: `admin@hugamara.com`
-- Password: `password123`
-- Outlet: Server Room (HQ)
-- Role: org_admin
+- **Backends Only:** PM2 is used exclusively to run the two backend Node.js applications: `hugamara-backend` and `mayday-callcenter-backend`.
+- **Nginx for Frontends:** The frontend applications (Hospitality and Call Center) are **not** run by PM2. They are static builds (`build` directory) served directly and efficiently by Nginx.
+- **Configuration:** The processes that PM2 starts are defined in `ecosystem.config.js`. The deployment script (`deploy-vm.sh`) reads this file to start or restart the applications.
 
-**Outlet Managers:**
+### Running as `root` User
 
-- `villa.manager@hugamara.com` / `password123` - The Villa Ug
-- `luna.manager@hugamara.com` / `password123` - Luna
-- `cueva.manager@hugamara.com` / `password123` - La Cueva
-- `patio.manager@hugamara.com` / `password123` - Patio Bella
-- `maze.manager@hugamara.com` / `password123` - Maze
-- `mazebistro.manager@hugamara.com` / `password123` - The Maze Bistro
-
-## Development
-
-### Backend Development
-
-- API runs on `http://localhost:8000`
-- Health check: `http://localhost:8000/health`
-- API docs: `http://localhost:8000/api`
-
-### Frontend Development
-
-- Client runs on `http://localhost:3000`
-- Auth test page: `http://localhost:3000/auth-test`
-
-## External Integrations
-
-### Trunk Provider Integration
-
-The system integrates with external trunk providers for call validation and management:
-
-**Configuration:**
-
-- **Auth Header**: Base64 encoded credentials for API authentication
-- **Validate URL**: Endpoint for account balance and validation checks
-- **Environment Variables**: Configured in both development (.env) and production (ecosystem.config.js)
-
-**Usage Example:**
+Due to persistent file permission issues on the EC2 instance, the deployment script (`npm run deploy`) must be run with `sudo`.
 
 ```bash
-curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php' \
---header 'Content-Type: application/x-www-form-urlencoded' \
---header 'Authorization: Basic MDMyMDAwMDAwODoxMy4yMzQuMTguMg==' \
---data-urlencode 'account=0320000008' \
---data-urlencode 'BALANCE=BALANCE'
+sudo npm run deploy
 ```
 
-**Environment Configuration:**
+This has a critical side-effect: **PM2 and its managed processes are run by the `root` user.**
 
-- **Development**: Set in `backend/.env`
-- **Production**: Set in `ecosystem.config.js` for PM2 management
+This means that to interact with PM2 on the server, you **must** use `sudo`.
 
-### Production Environment Variables (PM2)
+- **Check Status:** `sudo pm2 status`
+- **View Logs:** `sudo pm2 logs`
+- **Restart a process:** `sudo pm2 restart hugamara-backend`
 
-For production on the VM, environment variables are managed via PM2's `ecosystem.config.js` (not .env). The backend services are managed by PM2, and Nginx serves the frontend applications and acts as a reverse proxy.
+If you run `pm2 status` without `sudo`, you will be interacting with the `admin` user's (empty) PM2 process list, which can be confusing. The `root` user owns the active processes.
 
-The `mayday-callcenter-backend` app should include at minimum:
-
-```js
-env: {
-  NODE_ENV: "production",
-  PORT: 5001,
-  BACKEND_PORT: 5001, // used by status endpoints/logs
-  // Database
-  DB_HOST: "127.0.0.1",
-  DB_PORT: 3306,
-  DB_NAME: "asterisk",
-  DB_USER: "hugamara_user",
-  DB_PASSWORD: "<secure>",
-  DB_SSL: "false",
-  // Recordings base directory (Asterisk monitor path)
-  RECORDING_BASE_DIR: "/var/spool/asterisk/monitor",
-  // Redis
-  REDIS_HOST: "127.0.0.1",
-  REDIS_PORT: "6379",
-  // AMI
-  AMI_HOST: "127.0.0.1",
-  AMI_PORT: "5038",
-  ASTERISK_AMI_USERNAME: "mayday_ami_user",
-  AMI_PASSWORD: "<secure>",
-  // Security
-  JWT_SECRET: "<secure>",
-  SESSION_SECRET: "<secure>",
-  // Public endpoints
-  SLAVE_SERVER_URL: "https://cs.hugamara.com",
-  SLAVE_SERVER_API_URL: "https://cs.hugamara.com/mayday-api",
-  SLAVE_WEBSOCKET_URL: "wss://cs.hugamara.com",
-  SLAVE_SERVER_DOMAIN: "cs.hugamara.com"
-}
-```
-
-Notes:
-
-- Use `.env` only for local development. On the VM, update `ecosystem.config.js` and restart the relevant PM2 process (e.g., `pm2 restart mayday-callcenter-backend`).
-- The call center frontend is no longer managed by PM2. It is a static build served directly by Nginx.
-- `RECORDING_BASE_DIR` must match the actual Asterisk monitor path for recordings listing/streaming to work.
+While running as `root` is not ideal from a security perspective, it is the current stable solution for this environment. A future task should be to investigate and resolve the underlying filesystem permissions so the deployment can be run by the non-privileged `admin` user.
 
 ## Features
 
