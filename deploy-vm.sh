@@ -39,10 +39,14 @@ fi
 
 # 2) Build frontends (always safe, skips if unchanged)
 info "Building hospitality client"
-(cd client && npm install --no-audit --no-fund && npm run build)
+(cd client \
+  && npm install --no-audit --no-fund \
+  && GENERATE_SOURCEMAP=false NODE_OPTIONS="--max_old_space_size=2048" npm run build)
 
-info "Building callcenter dashboard"
-(cd mayday/mayday-client-dashboard && npm install --no-audit --no-fund && npm run build)
+info "Building callcenter dashboard (optimized for low-memory VMs)"
+(cd mayday/mayday-client-dashboard \
+  && npm install --no-audit --no-fund \
+  && CI=false GENERATE_SOURCEMAP=false NODE_OPTIONS="--max_old_space_size=3072" npm run build)
 
 ok "Frontend builds completed"
 
