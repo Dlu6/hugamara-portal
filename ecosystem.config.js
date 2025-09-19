@@ -33,12 +33,15 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: 5001, // Changed from 3002 to 5001
+        BACKEND_PORT: 5001, // Explicit for status endpoints and logs
         DB_HOST: "127.0.0.1",
         DB_PORT: 3306,
         DB_NAME: "asterisk",
         DB_USER: "hugamara_user",
         DB_PASSWORD: "Pasword@256",
         DB_SSL: "false",
+        // Recording files base directory (Asterisk monitor path)
+        RECORDING_BASE_DIR: "/var/spool/asterisk/monitor",
 
         // SLAVE SERVER CONFIGURATION (THIS SERVER)
         SLAVE_SERVER_URL: "https://cs.hugamara.com",

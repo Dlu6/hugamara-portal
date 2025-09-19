@@ -2437,31 +2437,9 @@ export const sipCallService = {
       const apiProtocol =
         process.env.NODE_ENV === "development" ? "http" : "https";
 
-      const response = await fetch(
-        `${apiProtocol}://${apiHost}/api/cdr/call-events`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${storageService.getAuthToken() || ""}`,
-          },
-          body: JSON.stringify({
-            callId: callData.callId,
-            extension: callData.extension,
-            remoteNumber: callData.remoteNumber,
-            direction: callData.direction,
-            timestamp: new Date().toISOString(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        console.warn("Failed to register call with AMI:", response.statusText);
-        return false;
-      }
-
-      console.log("Call registered with AMI for monitoring");
+      // Endpoint not implemented on backend; skip registration to avoid 404 noise
       return true;
+      // If needed in the future, implement /api/cdr/call-events and restore the POST above
     } catch (error) {
       console.warn("Error registering call with AMI:", error.message);
       return false;

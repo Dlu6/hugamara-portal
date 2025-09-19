@@ -1175,6 +1175,10 @@ JWT_SECRET=your-secret-key-here
 PORT=8004
 FRONTEND_URL=http://localhost:3001
 
+# Asterisk recordings base directory (used by /api/recordings/*)
+# In development you can point to a local folder; in production this is set via PM2 ecosystem
+RECORDING_BASE_DIR=/var/spool/asterisk/monitor
+
 # SMTP Configuration for Email Management
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -1252,6 +1256,47 @@ curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.ph
 
 - **Development**: Set in `backend/.env`
 - **Production**: Set in `ecosystem.config.js` for PM2 management
+
+### Production Environment Variables (PM2)
+
+For production on the VM, environment variables are managed via PM2's `ecosystem.config.js` (not .env). The `mayday-callcenter-backend` app should include at minimum:
+
+```js
+env: {
+  NODE_ENV: "production",
+  PORT: 5001,
+  BACKEND_PORT: 5001, // used by status endpoints/logs
+  // Database
+  DB_HOST: "127.0.0.1",
+  DB_PORT: 3306,
+  DB_NAME: "asterisk",
+  DB_USER: "hugamara_user",
+  DB_PASSWORD: "<secure>",
+  DB_SSL: "false",
+  // Recordings base directory (Asterisk monitor path)
+  RECORDING_BASE_DIR: "/var/spool/asterisk/monitor",
+  // Redis
+  REDIS_HOST: "127.0.0.1",
+  REDIS_PORT: "6379",
+  // AMI
+  AMI_HOST: "127.0.0.1",
+  AMI_PORT: "5038",
+  ASTERISK_AMI_USERNAME: "mayday_ami_user",
+  AMI_PASSWORD: "<secure>",
+  // Security
+  JWT_SECRET: "<secure>",
+  SESSION_SECRET: "<secure>",
+  // Public endpoints
+  SLAVE_SERVER_URL: "https://cs.hugamara.com",
+  SLAVE_SERVER_API_URL: "https://cs.hugamara.com/mayday-api",
+  SLAVE_WEBSOCKET_URL: "wss://cs.hugamara.com",
+  SLAVE_SERVER_DOMAIN: "cs.hugamara.com"
+}
+```
+
+Notes:
+- Use `.env` only for local development. On the VM, update `ecosystem.config.js` and restart with `pm2 restart mayday-callcenter-backend`.
+- `RECORDING_BASE_DIR` must match the actual Asterisk monitor path for recordings listing/streaming to work.
 
 ## Features
 

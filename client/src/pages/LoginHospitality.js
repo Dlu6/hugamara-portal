@@ -26,9 +26,14 @@ const Login = () => {
   const [outlets, setOutlets] = useState([]);
   const [loadingOutlets, setLoadingOutlets] = useState(true);
   const [failedLogoIds, setFailedLogoIds] = useState({});
-  const [callCenterUrl, setCallCenterUrl] = useState(
-    process.env.REACT_APP_CALL_CENTER_URL || "http://localhost:3002"
-  ); // Default call center URL
+  const defaultProdCallCenterUrl =
+    process.env.REACT_APP_CALL_CENTER_URL ||
+    "http://localhost:3002/callcenter/login";
+  const defaultCallCenterUrl =
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:3002/callcenter/login"
+      : defaultProdCallCenterUrl;
+  const [callCenterUrl, setCallCenterUrl] = useState(defaultCallCenterUrl); // Default call center URL
 
   const dispatch = useDispatch();
   const navigate = useNavigate();

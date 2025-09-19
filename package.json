@@ -26,7 +26,8 @@
     "callcenter:install": "cd mayday/provisioning_backend && npm install && cd ../slave-backend && npm install && cd ../mayday-client-dashboard && npm install",
     "callcenter:provisioning": "cd mayday/provisioning_backend && npm run start",
     "callcenter:backend": "cd mayday/slave-backend && npm run start",
-    "callcenter:frontend": "cd mayday/mayday-client-dashboard && PORT=3002 npm start"
+    "callcenter:frontend": "cd mayday/mayday-client-dashboard && PORT=3002 npm start",
+    "deploy": "bash ./deploy-vm.sh"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
