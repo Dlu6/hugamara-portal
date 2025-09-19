@@ -13,3 +13,20 @@ TO START BOTH HUGAMARA HOSPITALITY SYSTEM AND CALL CENTER
 ~ Open two terminals
 **_ In one, run cd "/Users/Mydhe Files/Hugamara" && npm run callcenter || Starts callcenter backend, client + provisioning server
 _** In another, run "npm run server_client_hugamara"
+
+DEPLOYING TO THE VM IN PRODUCTION
+we connect using;
+~ matovumedhi@Dlus-MacBook-Pro Downloads % pwd
+/Users/matovumedhi/Downloads
+matovumedhi@Dlus-MacBook-Pro Downloads % ssh -i "hugamara.pem" admin@ec2-13-234-18-2.ap-south-1.compute.amazonaws.com
+
+~ sudo -i
+~ Simple deploy (build frontends and restart PM2):
+cd /home/admin/hugamara-portal && git pull && npm run deploy
+
+Notes:
+~ npm run deploy will: - install prod deps for backends - build hospitality client and callcenter dashboard - validate/reload nginx if config present - restart PM2 apps: hugamara-backend and mayday-callcenter-backend
+~ Check processes/logs - pm2 status - pm2 logs
+~ nginx is running from /etc/nginx/sites-available/hugamara
+~ ecosystem.config.js is where production environment variables are saved (not .env). Only the frontend dashboards use .env (REACT*APP*\*)
+~ If needed, you can run the script directly: bash ./deploy-vm.sh

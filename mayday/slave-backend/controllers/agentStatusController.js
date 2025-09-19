@@ -12,6 +12,7 @@ import agentStatusService from "../services/agentStatusService.js";
 export const getAgentStatus = async (req, res) => {
   try {
     const status = await agentStatusService.getCurrentStatus();
+    // console.log("status🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥", status);
 
     res.json({
       success: true,

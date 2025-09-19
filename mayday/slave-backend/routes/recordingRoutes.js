@@ -307,21 +307,43 @@ router.post("/rate/:year/:month/:day/:filename", async (req, res) => {
 // Get available dates with recordings
 router.get("/dates", async (req, res) => {
   try {
+    // If base dir doesn't exist, return empty dataset gracefully
+    try {
+      await stat(RECORDING_BASE_DIR);
+    } catch (e) {
+      return res.json({ success: true, dates: [] });
+    }
+
     const years = await readdir(RECORDING_BASE_DIR);
 
     const dates = [];
 
     for (const year of years.filter((y) => /^\d{4}$/.test(y))) {
       const yearPath = path.join(RECORDING_BASE_DIR, year);
-      const months = await readdir(yearPath);
+      let months = [];
+      try {
+        months = await readdir(yearPath);
+      } catch (_) {
+        continue;
+      }
 
       for (const month of months.filter((m) => /^\d{2}$/.test(m))) {
         const monthPath = path.join(yearPath, month);
-        const days = await readdir(monthPath);
+        let days = [];
+        try {
+          days = await readdir(monthPath);
+        } catch (_) {
+          continue;
+        }
 
         for (const day of days.filter((d) => /^\d{2}$/.test(d))) {
           const dayPath = path.join(monthPath, day);
-          const files = await readdir(dayPath);
+          let files = [];
+          try {
+            files = await readdir(dayPath);
+          } catch (_) {
+            continue;
+          }
 
           if (files.some((file) => file.endsWith(".wav"))) {
             dates.push(`${year}-${month}-${day}`);

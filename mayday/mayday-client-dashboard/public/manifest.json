@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Mayday Dashboard",
+  "short_name": "Mayday",
+  "name": "Mayday Call Center Dashboard",
   "icons": [
     {
       "src": "favicon.ico",

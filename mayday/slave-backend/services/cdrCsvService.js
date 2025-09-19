@@ -13,6 +13,38 @@ import { parse } from "csv-parse/sync";
 const DEFAULT_CDR_CSV_PATH = "/var/log/asterisk/cdr-csv/Master.csv";
 
 /**
+ * Map a raw CSV row (array) to a normalized CDR-like object using the typical
+ * Asterisk cdr-csv order. Extra columns are ignored gracefully.
+ * Default order (18 columns):
+ * 0 accountcode, 1 src, 2 dst, 3 dcontext, 4 clid, 5 channel, 6 dstchannel,
+ * 7 lastapp, 8 lastdata, 9 start, 10 answer, 11 end, 12 duration, 13 billsec,
+ * 14 disposition, 15 amaflags, 16 uniqueid, 17 userfield
+ */
+function mapRowToRecord(row) {
+  const safe = (i) => (i >= 0 && i < row.length ? row[i] : "");
+  return {
+    accountcode: safe(0),
+    src: safe(1),
+    dst: safe(2),
+    dcontext: safe(3),
+    clid: safe(4),
+    channel: safe(5),
+    dstchannel: safe(6),
+    lastapp: safe(7),
+    lastdata: safe(8),
+    start: safe(9),
+    answer: safe(10),
+    end: safe(11),
+    duration: safe(12),
+    billsec: safe(13),
+    disposition: safe(14),
+    amaflags: safe(15),
+    uniqueid: safe(16),
+    userfield: safe(17),
+  };
+}
+
+/**
  * Read and parse the entire CSV file (usually only a day's worth) and return
  * recent call records for the given extension.
  * @param {string} extension - agent extension (e.g., "1001")
@@ -22,42 +54,25 @@ const DEFAULT_CDR_CSV_PATH = "/var/log/asterisk/cdr-csv/Master.csv";
 export async function getCallHistoryFromCsv(extension, limit = 50) {
   const filePath = process.env.CDR_CSV_PATH || DEFAULT_CDR_CSV_PATH;
 
-  // Ensure file exists
   if (!fs.existsSync(filePath)) {
     throw new Error(`CDR CSV file not found at ${filePath}`);
   }
 
-  // Read the file (it is rotated daily so usually not huge)
   const content = await fs.promises.readFile(filePath, "utf8");
 
-  // Parse
-  const records = parse(content, {
-    columns: [
-      "accountcode",
-      "src",
-      "dst",
-      "dcontext",
-      "clid",
-      "channel",
-      "dstchannel",
-      "lastapp",
-      "lastdata",
-      "start",
-      "answer",
-      "end",
-      "duration",
-      "billsec",
-      "disposition",
-      "amaflags",
-      "uniqueid",
-      "userfield",
-    ],
+  // Parse without fixed columns to support variants
+  const rows = parse(content, {
     relax_quotes: true,
     skip_empty_lines: true,
   });
 
+  // Map rows to records using standard index mapping; skip malformed rows
+  const parsedRecords = rows
+    .filter((r) => Array.isArray(r) && r.length >= 15) // basic sanity
+    .map((r) => mapRowToRecord(r));
+
   // Filter by agent extension
-  const filtered = records.filter((r) => {
+  const filtered = parsedRecords.filter((r) => {
     return (
       r.src === extension ||
       r.dst === extension ||
@@ -84,36 +99,25 @@ function formatCsvRecord(record, extension) {
     durationFormatted = `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Determine type (inbound / outbound)
   const outbound = record.src === extension;
   const type = outbound ? "outbound" : "inbound";
 
-  // Determine status
   let status = "completed";
   if (record.disposition === "NO ANSWER") status = "missed";
   else if (["FAILED", "BUSY"].includes(record.disposition)) status = "failed";
   else if (record.disposition === "NORMAL" && billsecNum === 0)
     status = "missed";
 
-  // Extract phone number with similar fallback chain
+  // Extract phone number with fallback chain
   let phoneNumber;
   if (outbound) {
     phoneNumber =
-      firstNonEmpty(
-        record.dst,
-        record.dnid, // not present in CSV but kept for symmetry
-        digits(record.lastdata),
-        digits(record.clid)
-      ) || "Unknown";
+      firstNonEmpty(record.dst, digits(record.lastdata), digits(record.clid)) ||
+      "Unknown";
   } else {
     phoneNumber =
-      firstNonEmpty(
-        record.userfield,
-        record.src,
-        record.connectedlinenum, // not present in CSV
-        digits(record.callerid),
-        digits(record.clid)
-      ) || "Unknown";
+      firstNonEmpty(record.userfield, record.src, digits(record.clid)) ||
+      "Unknown";
   }
 
   return {
@@ -129,4 +133,5 @@ function formatCsvRecord(record, extension) {
 }
 
 const digits = (str) => (str || "").match(/\d+/)?.[0] || null;
-const firstNonEmpty = (...vals) => vals.find((v) => v && v.trim() !== "");
+const firstNonEmpty = (...vals) =>
+  vals.find((v) => v && String(v).trim() !== "");

@@ -6,21 +6,79 @@ A comprehensive hospitality management dashboard for Hugamara's 6 outlets, built
 
 ```
 hugamara/
-├── client/                 # Frontend React application
+├── client/                 # Frontend React application (Hospitality Management)
 │   ├── public/            # Static assets
 │   ├── src/               # React source code
 │   ├── package.json       # Frontend dependencies
 │   ├── .env               # Frontend environment variables
 │   └── .env.example       # Frontend environment template
-├── backend/               # Backend Node.js API
+├── backend/               # Backend Node.js API (Hospitality Management)
 │   ├── controllers/       # API controllers
 │   ├── models/           # Database models
 │   ├── routes/           # API routes
 │   ├── package.json      # Backend dependencies
 │   └── .env              # Backend environment variables
+├── mayday/                # Callcenter Management System
+│   ├── mayday-client-dashboard/  # Callcenter Frontend (React + Material-UI)
+│   │   ├── src/
+│   │   │   ├── components/    # React components
+│   │   │   ├── services/      # API services
+│   │   │   ├── store/         # Redux store
+│   │   │   └── pages/         # Page components
+│   │   └── package.json
+│   └── slave-backend/     # Callcenter Backend (Node.js + Express)
+│       ├── controllers/   # API controllers
+│       ├── models/        # Database models (Sequelize)
+│       ├── routes/        # API routes
+│       ├── services/      # Business logic services
+│       ├── migrations/    # Database migrations
+│       └── .env          # Backend environment variables
 ├── package.json          # Root package.json (orchestration)
 └── README.md            # This file
 ```
+
+## Callcenter Management System
+
+The system includes a comprehensive callcenter management dashboard built with React and Material-UI, and a desktop Electron softphone used by agents.
+
+### Email Management Module
+
+- **SMTP Configuration**: Complete SMTP server setup with Gmail, Outlook, and custom server support
+- **User Configuration**: Default sender settings, email signatures, and auto-reply functionality
+- **Security Policies**: Attachment restrictions, file type filtering, spam protection, and virus scanning
+- **Connection Testing**: Built-in SMTP connection testing and validation
+- **Professional UI**: Material-UI based interface with tabbed configuration sections
+
+### Electron Softphone (Appbar)
+
+- Electron + React desktop client with sections for Dialer, Agent Directory, Agent Status, Reports, WhatsApp, and Email
+- Uses SIP.js for WebRTC registration/calls and centralized reconnection/health monitoring
+- Dev start: `cd mayday/electron-softphone && npm run electron:dev`
+
+STUN/ICE configuration:
+
+- In development: uses Google public STUN fallbacks only (no backend dependency)
+- In production: tries `https://hugamara.com/api/users/network-config/stun` once; if unavailable, falls back to Google STUN
+
+Agent online notification:
+
+- Previous builds attempted POST `/api/users/agent-online` after login; this endpoint does not exist
+- The call has been removed from `mayday/electron-softphone/src/components/Login.jsx`
+
+### Key Features
+
+- **Multi-tenant Support**: Separate from hospitality management system
+- **Real-time Configuration**: Live SMTP testing and validation
+- **Security Controls**: Comprehensive email security and content policies
+- **User Management**: Role-based access control for email operations
+- **Database Integration**: Full Sequelize ORM integration with MySQL
+
+### Access
+
+- **Frontend**: `http://localhost:3001/callcenter` (Material-UI dashboard)
+- **Backend API**: `http://localhost:8004/api` (Callcenter backend)
+- **Email Management**: Navigate to "Email Management" in the callcenter dashboard
+- **Electron Softphone (dev)**: `cd mayday/electron-softphone && npm run electron:dev`
 
 ## Asterisk Realtime + WebRTC + CDR
 
@@ -83,6 +141,71 @@ npm run client:install
 ```bash
 # Setup database and seed data
 npm run db:setup
+```
+
+### 5. Callcenter System Setup
+
+```bash
+# Install callcenter dependencies
+cd mayday/slave-backend
+npm install
+
+cd ../mayday-client-dashboard
+npm install
+
+# Setup callcenter database (creates emails table)
+cd ../slave-backend
+node -e "
+import { Sequelize } from 'sequelize';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env' });
+const sequelize = new Sequelize(process.env.DB_NAME || 'asterisk', process.env.DB_USER || 'root', process.env.DB_PASSWORD || '', { host: process.env.DB_HOST || 'localhost', port: process.env.DB_PORT || 3306, dialect: 'mysql', logging: false });
+(async () => {
+  await sequelize.authenticate();
+  await sequelize.query(\`CREATE TABLE IF NOT EXISTS emails (
+    id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    messageId VARCHAR(255) UNIQUE,
+    threadId CHAR(36),
+    inReplyTo VARCHAR(255),
+    \`references\` JSON,
+    \`from\` VARCHAR(255) NOT NULL,
+    \`to\` JSON NOT NULL,
+    cc JSON,
+    bcc JSON,
+    subject VARCHAR(255) NOT NULL,
+    body LONGTEXT NOT NULL,
+    htmlBody LONGTEXT,
+    status ENUM('draft', 'sent', 'delivered', 'failed', 'bounced', 'opened', 'replied') DEFAULT 'draft',
+    priority ENUM('low', 'normal', 'high', 'urgent') DEFAULT 'normal',
+    attachments JSON DEFAULT (JSON_ARRAY()),
+    metadata JSON DEFAULT (JSON_OBJECT()),
+    userId CHAR(36) NOT NULL,
+    agentId CHAR(36),
+    customerId CHAR(36),
+    ticketId CHAR(36),
+    isRead BOOLEAN DEFAULT FALSE,
+    isStarred BOOLEAN DEFAULT FALSE,
+    isArchived BOOLEAN DEFAULT FALSE,
+    isDeleted BOOLEAN DEFAULT FALSE,
+    sentAt DATETIME,
+    receivedAt DATETIME,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deletedAt DATETIME,
+    INDEX idx_emails_userId (userId),
+    INDEX idx_emails_agentId (agentId),
+    INDEX idx_emails_status (status),
+    INDEX idx_emails_priority (priority),
+    INDEX idx_emails_threadId (threadId),
+    INDEX idx_emails_messageId (messageId),
+    INDEX idx_emails_isDeleted (isDeleted),
+    INDEX idx_emails_createdAt (createdAt),
+    INDEX idx_emails_from (\`from\`)
+  )\`);
+  console.log('✅ Emails table created successfully!');
+  await sequelize.close();
+})().catch(e => { console.error('❌ Error:', e.message); process.exit(1); });
+"
 ```
 
 #### Manual Database Migrations
@@ -801,6 +924,100 @@ mysql -u root -p hugamara_dev -e "ALTER TABLE table_name ADD COLUMN column_name 
 mysql -u root -p hugamara_dev < backend/create-missing-tables.sql
 ```
 
+#### 6. Email Management System Issues
+
+**Problem**: "Table 'asterisk.emails' doesn't exist" error in callcenter system.
+
+**Solution**:
+
+```bash
+# Create the emails table
+cd mayday/slave-backend
+node -e "
+import { Sequelize } from 'sequelize';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env' });
+const sequelize = new Sequelize(process.env.DB_NAME || 'asterisk', process.env.DB_USER || 'root', process.env.DB_PASSWORD || '', { host: process.env.DB_HOST || 'localhost', port: process.env.DB_PORT || 3306, dialect: 'mysql', logging: false });
+(async () => {
+  await sequelize.authenticate();
+  await sequelize.query(\`CREATE TABLE IF NOT EXISTS emails (
+    id CHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    messageId VARCHAR(255) UNIQUE,
+    threadId CHAR(36),
+    inReplyTo VARCHAR(255),
+    \`references\` JSON,
+    \`from\` VARCHAR(255) NOT NULL,
+    \`to\` JSON NOT NULL,
+    cc JSON,
+    bcc JSON,
+    subject VARCHAR(255) NOT NULL,
+    body LONGTEXT NOT NULL,
+    htmlBody LONGTEXT,
+    status ENUM('draft', 'sent', 'delivered', 'failed', 'bounced', 'opened', 'replied') DEFAULT 'draft',
+    priority ENUM('low', 'normal', 'high', 'urgent') DEFAULT 'normal',
+    attachments JSON DEFAULT (JSON_ARRAY()),
+    metadata JSON DEFAULT (JSON_OBJECT()),
+    userId CHAR(36) NOT NULL,
+    agentId CHAR(36),
+    customerId CHAR(36),
+    ticketId CHAR(36),
+    isRead BOOLEAN DEFAULT FALSE,
+    isStarred BOOLEAN DEFAULT FALSE,
+    isArchived BOOLEAN DEFAULT FALSE,
+    isDeleted BOOLEAN DEFAULT FALSE,
+    sentAt DATETIME,
+    receivedAt DATETIME,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deletedAt DATETIME,
+    INDEX idx_emails_userId (userId),
+    INDEX idx_emails_agentId (agentId),
+    INDEX idx_emails_status (status),
+    INDEX idx_emails_priority (priority),
+    INDEX idx_emails_threadId (threadId),
+    INDEX idx_emails_messageId (messageId),
+    INDEX idx_emails_isDeleted (isDeleted),
+    INDEX idx_emails_createdAt (createdAt),
+    INDEX idx_emails_from (\`from\`)
+  )\`);
+  console.log('✅ Emails table created successfully!');
+  await sequelize.close();
+})().catch(e => { console.error('❌ Error:', e.message); process.exit(1); });
+"
+```
+
+**Problem**: SMTP connection test fails.
+
+**Solution**:
+
+1. **Check SMTP credentials** in `mayday/slave-backend/.env`:
+
+   ```env
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_SECURE=false
+   SMTP_USER=your-email@gmail.com
+   SMTP_PASS=your-app-password
+   SMTP_FROM=your-email@gmail.com
+   ```
+
+2. **For Gmail**: Enable 2-factor authentication and generate an App Password
+3. **Test connection** using the built-in test feature in the Email Management UI
+
+**Problem**: Email Management not accessible in callcenter dashboard.
+
+**Solution**:
+
+1. **Check if callcenter is running**:
+
+   ```bash
+   cd mayday/slave-backend && npm start
+   cd mayday/mayday-client-dashboard && npm start
+   ```
+
+2. **Access the dashboard**: Navigate to `http://localhost:3001/callcenter`
+3. **Check navigation**: Look for "Email Management" in the sidebar menu
+
 ### Debugging Checklist
 
 When encountering issues, follow this systematic approach:
@@ -836,11 +1053,15 @@ cd backend && npm run dev
 cd client && npm start
 ```
 
-### 5. Start Development Servers
+### 6. Start Development Servers
 
 ```bash
-# Start both backend and frontend
+# Start hospitality management system
 npm run server_client
+
+# Start callcenter system (in separate terminals)
+cd mayday/slave-backend && npm start
+cd mayday/mayday-client-dashboard && npm start
 ```
 
 ## Available Scripts
@@ -851,6 +1072,12 @@ npm run server_client
 - `npm run server` - Start only the backend server
 - `npm run start` - Start only the frontend client
 - `npm run build` - Build the frontend for production
+
+### Callcenter System
+
+- `npm run callcenter` - Start callcenter backend server (port 8004)
+- `npm run callcenter:client` - Start callcenter frontend (port 3001)
+- `npm run callcenter:dev` - Start callcenter backend in development mode
 
 ### Backend
 
@@ -935,6 +1162,41 @@ REACT_APP_ENV=development
 REACT_APP_VERSION=1.0.0
 ```
 
+### Callcenter Backend (.env)
+
+```env
+NODE_ENV=development
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=asterisk
+DB_HOST=127.0.0.1
+DB_PORT=3306
+JWT_SECRET=your-secret-key-here
+PORT=8004
+FRONTEND_URL=http://localhost:3001
+
+# Asterisk recordings base directory (used by /api/recordings/*)
+# In development you can point to a local folder; in production this is set via PM2 ecosystem
+RECORDING_BASE_DIR=/var/spool/asterisk/monitor
+
+# SMTP Configuration for Email Management
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=your-email@gmail.com
+DOMAIN=hugamara.com
+```
+
+### Callcenter Frontend (.env)
+
+```env
+REACT_APP_API_URL=http://localhost:8004/api
+REACT_APP_ENV=development
+REACT_APP_VERSION=1.0.0
+```
+
 ## Test Data
 
 The system comes with pre-seeded test users:
@@ -995,6 +1257,51 @@ curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.ph
 - **Development**: Set in `backend/.env`
 - **Production**: Set in `ecosystem.config.js` for PM2 management
 
+### Production Environment Variables (PM2)
+
+For production on the VM, environment variables are managed via PM2's `ecosystem.config.js` (not .env). The backend services are managed by PM2, and Nginx serves the frontend applications and acts as a reverse proxy.
+
+The `mayday-callcenter-backend` app should include at minimum:
+
+```js
+env: {
+  NODE_ENV: "production",
+  PORT: 5001,
+  BACKEND_PORT: 5001, // used by status endpoints/logs
+  // Database
+  DB_HOST: "127.0.0.1",
+  DB_PORT: 3306,
+  DB_NAME: "asterisk",
+  DB_USER: "hugamara_user",
+  DB_PASSWORD: "<secure>",
+  DB_SSL: "false",
+  // Recordings base directory (Asterisk monitor path)
+  RECORDING_BASE_DIR: "/var/spool/asterisk/monitor",
+  // Redis
+  REDIS_HOST: "127.0.0.1",
+  REDIS_PORT: "6379",
+  // AMI
+  AMI_HOST: "127.0.0.1",
+  AMI_PORT: "5038",
+  ASTERISK_AMI_USERNAME: "mayday_ami_user",
+  AMI_PASSWORD: "<secure>",
+  // Security
+  JWT_SECRET: "<secure>",
+  SESSION_SECRET: "<secure>",
+  // Public endpoints
+  SLAVE_SERVER_URL: "https://cs.hugamara.com",
+  SLAVE_SERVER_API_URL: "https://cs.hugamara.com/mayday-api",
+  SLAVE_WEBSOCKET_URL: "wss://cs.hugamara.com",
+  SLAVE_SERVER_DOMAIN: "cs.hugamara.com"
+}
+```
+
+Notes:
+
+- Use `.env` only for local development. On the VM, update `ecosystem.config.js` and restart the relevant PM2 process (e.g., `pm2 restart mayday-callcenter-backend`).
+- The call center frontend is no longer managed by PM2. It is a static build served directly by Nginx.
+- `RECORDING_BASE_DIR` must match the actual Asterisk monitor path for recordings listing/streaming to work.
+
 ## Features
 
 ### ✅ Completed
@@ -1008,7 +1315,8 @@ curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.ph
 
 - **User Interface**
 
-  - Modern responsive UI with Tailwind CSS
+  - Modern responsive UI with Tailwind CSS (Hospitality Management)
+  - Material-UI based interface (Callcenter Management)
   - Mobile-optimized sidebar with slide-out navigation
   - Dark theme support with shadows and no gradients
   - Function-based React components using ES6
@@ -1027,12 +1335,26 @@ curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.ph
     - System statistics
     - Backup and restore functionality
 
+- **Callcenter Management System**
+
+  - **Email Management**: Complete email system with SMTP configuration
+    - SMTP server setup (Gmail, Outlook, custom servers)
+    - User configuration (signatures, auto-reply, sender settings)
+    - Security policies (attachments, file types, spam filtering)
+    - Connection testing and validation
+    - Professional Material-UI interface
+  - **Multi-tenant Architecture**: Separate from hospitality management
+  - **Real-time Configuration**: Live SMTP testing and validation
+  - **Database Integration**: Full Sequelize ORM with MySQL
+
 - **Technical Features**
   - Redux state management with async thunks
   - RESTful API with Express.js
   - MySQL database with Sequelize ORM
   - Real-time updates with Socket.IO
   - Comprehensive error handling and validation
+  - Material-UI components (Callcenter)
+  - Nodemailer integration for email functionality
 
 ### 🚧 In Progress
 
@@ -1044,7 +1366,18 @@ curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.ph
 
 ## Recent Updates
 
-### Mobile Optimization (Latest)
+### Email Management System (Latest)
+
+- **Complete Email System**: Added comprehensive email management to callcenter dashboard
+- **SMTP Configuration**: Full SMTP server setup with Gmail, Outlook, and custom server support
+- **Professional UI**: Material-UI based interface with tabbed configuration sections
+- **Security Features**: Attachment restrictions, file type filtering, spam protection, and virus scanning
+- **Connection Testing**: Built-in SMTP connection testing and validation
+- **Database Integration**: Full Sequelize ORM integration with dedicated emails table
+- **Multi-tenant Architecture**: Separate from hospitality management system
+- **Real-time Configuration**: Live SMTP testing and validation with user feedback
+
+### Mobile Optimization
 
 - **Responsive Sidebar**: Implemented mobile-first sidebar design with slide-out navigation
 - **Touch-Friendly Interface**: Optimized all components for mobile devices

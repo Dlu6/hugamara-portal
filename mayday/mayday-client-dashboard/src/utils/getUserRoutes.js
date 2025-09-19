@@ -75,6 +75,7 @@ const getUserRoutes = (user) => {
           // { name: "Metrics", path: "/analytics/metrics" },
         ],
       },
+
       {
         name: "Integrations",
         path: "/integrations",
@@ -119,6 +120,7 @@ const getUserRoutes = (user) => {
           // Add more submenus as needed (e.g., /networks/devices, etc.)
         ],
       },
+      { name: "Email Management", path: "/emails" },
       {
         name: "Documentation",
         // path: "https://cs.lusuku.shop/docs/",

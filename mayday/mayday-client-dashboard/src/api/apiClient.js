@@ -5,10 +5,18 @@ const BASE_URL = process.env.REACT_APP_API_URL;
 // console.log("🔥🔥🔥🔥API_BASE_URL", BASE_URL);
 
 const getBaseUrl = () => {
-  if (process.env.NODE_ENV === "production") {
-    return "/mayday-api"; // Correct base URL
+  // Always prefer explicit env
+  if (BASE_URL) return BASE_URL;
+  // If served under /callcenter, our API is proxied at /mayday
+  if (
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/callcenter")
+  ) {
+    return "/mayday";
   }
-  return BASE_URL;
+  // Default by environment
+  if (process.env.NODE_ENV === "production") return "/mayday";
+  return "/mayday"; // sensible fallback to work with nginx proxy in dev/prod
 };
 
 const apiClient = axios.create({
@@ -22,9 +30,13 @@ const apiClient = axios.create({
 
 // Add request interceptor for authentication
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const storedToken = localStorage.getItem("token");
+  if (storedToken) {
+    // Normalize token to avoid double "Bearer " prefixes
+    const normalizedToken = storedToken.startsWith("Bearer ")
+      ? storedToken.split(" ")[1]
+      : storedToken;
+    config.headers.Authorization = `Bearer ${normalizedToken}`;
   }
   return config;
 });

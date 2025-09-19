@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import apiClient from "../../api/apiClient.js";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Box,
@@ -270,6 +271,14 @@ const Recordings = () => {
   const [activePlayerSrc, setActivePlayerSrc] = useState(null);
   const [activePlayerTitle, setActivePlayerTitle] = useState("");
 
+  const toAbsoluteApiUrl = (p) => {
+    if (!p) return p;
+    if (/^https?:\/\//i.test(p)) return p;
+    const base = apiClient?.defaults?.baseURL || "";
+    if (p.startsWith("/") && base) return `${base}${p}`;
+    return p;
+  };
+
   // Fetch available recording dates on component mount
   useEffect(() => {
     dispatch(fetchRecordingDates());
@@ -300,7 +309,7 @@ const Recordings = () => {
 
   // Play/pause audio with the new player
   const handlePlayRecording = (recording) => {
-    if (activePlayerSrc === recording.path) {
+    if (activePlayerSrc === toAbsoluteApiUrl(recording.path)) {
       // Optionally, if player is already open for this track, clicking again could pause it
       // or simply do nothing / rely on player's own controls.
       // For now, clicking again will re-set it, effectively restarting if player isn't smart.
@@ -309,7 +318,7 @@ const Recordings = () => {
       // setActivePlayerTitle("");
       // return;
     }
-    setActivePlayerSrc(recording.path);
+    setActivePlayerSrc(toAbsoluteApiUrl(recording.path));
     setActivePlayerTitle(recording.filename);
   };
 
@@ -321,7 +330,7 @@ const Recordings = () => {
   // Download recording
   const downloadRecording = (downloadUrl, filename) => {
     const link = document.createElement("a");
-    link.href = downloadUrl;
+    link.href = toAbsoluteApiUrl(downloadUrl);
     link.download = filename;
     link.click();
   };

@@ -26,6 +26,7 @@ import AnalyticsIcon from "@mui/icons-material/Assessment";
 import IntegrationIcon from "@mui/icons-material/IntegrationInstructions";
 import UsersIcon from "@mui/icons-material/SupportAgent";
 import VoiceIcon from "@mui/icons-material/DialerSip";
+import EmailIcon from "@mui/icons-material/Email";
 import { Outlet } from "react-router-dom";
 import ExpandMore from "@mui/icons-material/NavigateNext";
 import ExpandLess from "@mui/icons-material/ExpandMore";
@@ -142,6 +143,7 @@ const Layout = () => {
     Analytics: <AnalyticsIcon sx={{ color: "white" }} />,
     Integrations: <IntegrationIcon sx={{ color: "white" }} />,
     Staff: <UsersIcon sx={{ color: "white" }} />,
+    "Email Management": <EmailIcon sx={{ color: "white" }} />,
   };
 
   const drawerWidth = 240;
