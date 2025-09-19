@@ -1259,7 +1259,9 @@ curl --location 'https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.ph
 
 ### Production Environment Variables (PM2)
 
-For production on the VM, environment variables are managed via PM2's `ecosystem.config.js` (not .env). The `mayday-callcenter-backend` app should include at minimum:
+For production on the VM, environment variables are managed via PM2's `ecosystem.config.js` (not .env). The backend services are managed by PM2, and Nginx serves the frontend applications and acts as a reverse proxy.
+
+The `mayday-callcenter-backend` app should include at minimum:
 
 ```js
 env: {
@@ -1295,7 +1297,9 @@ env: {
 ```
 
 Notes:
-- Use `.env` only for local development. On the VM, update `ecosystem.config.js` and restart with `pm2 restart mayday-callcenter-backend`.
+
+- Use `.env` only for local development. On the VM, update `ecosystem.config.js` and restart the relevant PM2 process (e.g., `pm2 restart mayday-callcenter-backend`).
+- The call center frontend is no longer managed by PM2. It is a static build served directly by Nginx.
 - `RECORDING_BASE_DIR` must match the actual Asterisk monitor path for recordings listing/streaming to work.
 
 ## Features
