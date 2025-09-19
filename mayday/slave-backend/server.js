@@ -355,38 +355,17 @@ app.use("/api/emails", emailRoutes);
 // app.use("/api/sip", sipRoutes);
 
 // Move static file serving after API routes
-const staticMiddleware = express.static(
-  path.join(__dirname, "../Reach-mi-dashboard/build")
+// Serve React build files from mayday-client-dashboard
+app.use(
+  express.static(path.join(__dirname, "../mayday-client-dashboard/build"))
 );
 
-// Then static file serving
-if (process.env.NODE_ENV === "production") {
-  // Serve static files first
-  app.use(staticMiddleware);
-
-  // Handle React app routes - use a safer pattern for catch-all route
-  app.use((req, res, next) => {
-    // Skip API routes
-    if (req.path.startsWith("/api/")) {
-      return next();
-    }
-
-    // Skip static files with extensions (except .html)
-    if (req.path.includes(".") && !req.path.endsWith(".html")) {
-      return next();
-    }
-
-    // Serve React app for all other routes
-    try {
-      res.sendFile(
-        path.join(__dirname, "../Reach-mi-dashboard/build/index.html")
-      );
-    } catch (error) {
-      console.error("Error serving React app:", error);
-      res.status(404).send("Page not found");
-    }
-  });
-}
+// Fallback to index.html for client-side routing
+app.get("*", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "../mayday-client-dashboard/build/index.html")
+  );
+});
 
 // Admin initialization function
 async function initializeAdmin() {
