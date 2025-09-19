@@ -1227,6 +1227,15 @@ If you run `pm2 status` without `sudo`, you will be interacting with the `admin`
 
 While running as `root` is not ideal from a security perspective, it is the current stable solution for this environment. A future task should be to investigate and resolve the underlying filesystem permissions so the deployment can be run by the non-privileged `admin` user.
 
+### Asterisk Call Recordings
+
+Call recordings are stored on the server in `/var/spool/asterisk/monitor/`. For performance and efficiency, these audio files are served directly by Nginx, not by the Node.js backend.
+
+- **Backend Role:** The `mayday-callcenter-backend` scans the recordings directory and provides a list of available files to the frontend via its API.
+- **Nginx Role:** A specific `location /recordings/` block in the `nginx-hugamara.conf` file creates an alias to the recordings directory. When the frontend requests an audio file from a `/recordings/...` URL, Nginx serves the file directly.
+
+This architecture avoids putting unnecessary load on the backend application for serving static media files.
+
 ## Features
 
 ### ✅ Completed
