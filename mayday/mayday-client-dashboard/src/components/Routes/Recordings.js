@@ -271,11 +271,11 @@ const Recordings = () => {
   const [activePlayerSrc, setActivePlayerSrc] = useState(null);
   const [activePlayerTitle, setActivePlayerTitle] = useState("");
 
-  const toAbsoluteApiUrl = (p) => {
+  const toAbsoluteUrl = (p) => {
     if (!p) return p;
+    // If it's already a full URL, return it
     if (/^https?:\/\//i.test(p)) return p;
-    const base = apiClient?.defaults?.baseURL || "";
-    if (p.startsWith("/") && base) return `${base}${p}`;
+    // Otherwise, treat it as a root-relative path
     return p;
   };
 
@@ -309,7 +309,7 @@ const Recordings = () => {
 
   // Play/pause audio with the new player
   const handlePlayRecording = (recording) => {
-    if (activePlayerSrc === toAbsoluteApiUrl(recording.path)) {
+    if (activePlayerSrc === toAbsoluteUrl(recording.path)) {
       // Optionally, if player is already open for this track, clicking again could pause it
       // or simply do nothing / rely on player's own controls.
       // For now, clicking again will re-set it, effectively restarting if player isn't smart.
@@ -318,7 +318,7 @@ const Recordings = () => {
       // setActivePlayerTitle("");
       // return;
     }
-    setActivePlayerSrc(toAbsoluteApiUrl(recording.path));
+    setActivePlayerSrc(toAbsoluteUrl(recording.path));
     setActivePlayerTitle(recording.filename);
   };
 
@@ -330,7 +330,7 @@ const Recordings = () => {
   // Download recording
   const downloadRecording = (downloadUrl, filename) => {
     const link = document.createElement("a");
-    link.href = toAbsoluteApiUrl(downloadUrl);
+    link.href = toAbsoluteUrl(downloadUrl);
     link.download = filename;
     link.click();
   };
