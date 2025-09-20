@@ -7,13 +7,15 @@ let reconnectTimer = null;
 const MAX_BACKOFF_MS = 30000;
 
 const getApiBase = () => {
-  const url = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
-  try {
-    const u = new URL(url);
-    return `${u.protocol}//${u.hostname}:${u.port || 8000}`;
-  } catch {
-    return "http://localhost:8000";
+  // In production, the WebSocket should connect to the same host as the web page,
+  // but using the wss:// protocol. No port should be specified, so it defaults to 443.
+  if (process.env.NODE_ENV === "production") {
+    return `${window.location.protocol.replace("http", "ws")}//${
+      window.location.host
+    }`;
   }
+  // Fallback for local development
+  return process.env.REACT_APP_API_URL || "http://localhost:5000";
 };
 
 export const getSocket = () => socket;
@@ -24,6 +26,8 @@ export const connectSocket = (token, { outletId } = {}) => {
   const base = getApiBase();
   const opts = {
     transports: ["websocket"],
+    // For production, the path needs to be specified because the frontend is not at the root
+    path: "/socket.io/",
     autoConnect: true,
     reconnection: true,
     reconnectionAttempts: Infinity,

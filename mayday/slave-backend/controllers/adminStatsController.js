@@ -27,6 +27,7 @@ export const getCallStats = async (req, res) => {
       where: {
         start: { [Op.gte]: todayStart },
         disposition: "ANSWERED",
+        billsec: { [Op.gt]: 0 }, // Only count calls with a billable duration
       },
     });
 

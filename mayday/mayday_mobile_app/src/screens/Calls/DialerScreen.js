@@ -6,31 +6,37 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { useSelector, useDispatch } from "react-redux";
-import { startCall } from "../../store/slices/callSlice";
-import { makeCall, getUA } from "../../services/sipClient";
+import { useSelector } from "react-redux";
+import { makeCall } from "../../services/sipClient";
 
 export default function DialerScreen({ navigation }) {
   const [number, setNumber] = useState("");
-  const { registered } = useSelector((s) => s.sip);
-  const dispatch = useDispatch();
+  const { registered, connecting } = useSelector((s) => s.sip);
 
   const call = () => {
     if (!registered || !number) return;
-    dispatch(startCall(number));
-    const session = makeCall(number);
-    if (session) navigation.navigate("Call", { number });
+    // The useSIP hook will now handle dispatching the call action and navigating
+    makeCall(number);
   };
 
   const append = (digit) => setNumber((prev) => `${prev}${digit}`);
   const backspace = () => setNumber((prev) => prev.slice(0, -1));
   const clearAll = () => setNumber("");
 
+  let statusText = registered ? "Registered" : "Not Registered";
+  let statusColor = registered ? "#22C55E" : "#9CA3AF";
+  if (connecting) {
+    statusText = "Registering…";
+    statusColor = "#F59E0B";
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        Dialer {registered ? "• Registered" : "• Not Registered"}
-      </Text>
+      <Text style={styles.title}>Dialer</Text>
+      <View style={styles.statusRow}>
+        <View style={[styles.dot, { backgroundColor: statusColor }]} />
+        <Text style={styles.statusText}>{statusText}</Text>
+      </View>
 
       <View style={styles.numberDisplayWrap}>
         <TextInput
@@ -93,27 +99,45 @@ export default function DialerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0A0A0A", padding: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: "#0A0A0A",
+    padding: 24,
+    paddingTop: 32,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 22,
     fontWeight: "600",
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
     marginBottom: 16,
   },
+  dot: { width: 10, height: 10, borderRadius: 10 },
+  statusText: { color: "#FFFFFF", fontWeight: "600" },
   numberDisplayWrap: {
     backgroundColor: "#111827",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#1F2937",
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
-  numberDisplay: { color: "#FFFFFF", fontSize: 22, paddingVertical: 8 },
+  numberDisplay: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    paddingVertical: 10,
+    textAlignVertical: "center",
+  },
   editRow: { flexDirection: "row", justifyContent: "flex-end" },
   editBtn: {
     paddingVertical: 6,
@@ -130,12 +154,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     columnGap: 12,
     rowGap: 12,
+    marginTop: 8,
   },
   key: {
     width: "30%",
     aspectRatio: 1,
     backgroundColor: "#0F172A",
-    borderRadius: 16,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -145,13 +170,18 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
   },
-  keyText: { color: "#FFFFFF", fontSize: 22, fontWeight: "700" },
+  keyText: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "800",
+    textAlign: "center",
+  },
   callBtn: {
     backgroundColor: "#0B9246",
     padding: 16,
     borderRadius: 14,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 22,
     shadowColor: "#000",
     shadowOpacity: 0.35,
     shadowRadius: 10,

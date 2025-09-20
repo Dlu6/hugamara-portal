@@ -1,8 +1,19 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { answerCall, hangupCall } from "../../services/sipClient";
 
 export default function IncomingCallScreen({ navigation, route }) {
   const caller = route?.params?.caller || "Unknown";
+
+  const handleAnswer = () => {
+    answerCall();
+    navigation.replace("Call", { number: caller });
+  };
+
+  const handleDecline = () => {
+    hangupCall();
+    navigation.goBack();
+  };
 
   return (
     <View style={styles.container}>
@@ -10,13 +21,13 @@ export default function IncomingCallScreen({ navigation, route }) {
       <Text style={styles.sub}>{caller}</Text>
       <View style={styles.row}>
         <TouchableOpacity
-          onPress={() => navigation.replace("Call", { number: caller })}
+          onPress={handleAnswer}
           style={[styles.btn, styles.answer]}
         >
           <Text style={styles.btnText}>Answer</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={handleDecline}
           style={[styles.btn, styles.reject]}
         >
           <Text style={styles.btnText}>Decline</Text>

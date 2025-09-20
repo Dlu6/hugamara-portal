@@ -1,18 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { useSelector } from "react-redux";
-import {
-  hangupCurrent,
-  toggleMute,
-  toggleHold,
-  toggleSpeaker,
-} from "../../store/slices/callSlice";
-import { getUA } from "../../services/sipClient";
+import { useSelector, useDispatch } from "react-redux";
+import { endCall } from "../../store/slices/callSlice";
+import { hangupCall, toggleHold, toggleMute } from "../../services/sipClient";
 
 export default function CallScreen({ navigation, route }) {
+  const dispatch = useDispatch();
   const number = route?.params?.number || "Unknown";
-  const [muted, setMuted] = useState(false);
-  const [onHold, setOnHold] = useState(false);
+  const { isMuted, isOnHold } = useSelector((s) => s.call.active) || {};
+
   const [speaker, setSpeaker] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const timerRef = useRef();
@@ -21,6 +17,14 @@ export default function CallScreen({ navigation, route }) {
     timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(timerRef.current);
   }, []);
+
+  const handleHangup = () => {
+    hangupCall();
+    dispatch(endCall());
+    navigation.replace("Main", { screen: "Dialer" });
+  };
+
+  // TODO: Connect speaker function to an audio management service
 
   const format = (s) => {
     const m = Math.floor(s / 60)
@@ -37,14 +41,11 @@ export default function CallScreen({ navigation, route }) {
       <Text style={styles.timer}>{format(seconds)}</Text>
 
       <View style={styles.grid}>
-        <TouchableOpacity onPress={() => setMuted(!muted)} style={styles.tile}>
-          <Text style={styles.tileText}>{muted ? "Unmute" : "Mute"}</Text>
+        <TouchableOpacity onPress={toggleMute} style={styles.tile}>
+          <Text style={styles.tileText}>{isMuted ? "Unmute" : "Mute"}</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setOnHold(!onHold)}
-          style={styles.tile}
-        >
-          <Text style={styles.tileText}>{onHold ? "Resume" : "Hold"}</Text>
+        <TouchableOpacity onPress={toggleHold} style={styles.tile}>
+          <Text style={styles.tileText}>{isOnHold ? "Resume" : "Hold"}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setSpeaker(!speaker)}
@@ -55,17 +56,16 @@ export default function CallScreen({ navigation, route }) {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => navigation.navigate("Dialer")}
+          onPress={() => {
+            /* TODO: Implement Keypad modal */
+          }}
           style={styles.tile}
         >
           <Text style={styles.tileText}>Keypad</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        onPress={() => navigation.replace("Dialer")}
-        style={styles.hangupBig}
-      >
+      <TouchableOpacity onPress={handleHangup} style={styles.hangupBig}>
         <Text style={styles.hangupText}>Hang Up</Text>
       </TouchableOpacity>
     </View>

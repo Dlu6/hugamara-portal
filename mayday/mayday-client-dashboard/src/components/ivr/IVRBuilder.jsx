@@ -65,6 +65,9 @@ const SNAP_THRESHOLD = 10; // Distance in pixels to trigger snapping
 const SCROLL_THRESHOLD = 100; // Distance from edge to trigger scrolling
 const SCROLL_SPEED = 10; // Pixels to scroll per frame
 const SCROLL_INTERVAL = 16; // Milliseconds between scroll updates (60fps)
+const BLOCK_WIDTH = 160;
+const BLOCK_HEIGHT = 40;
+const CONNECT_SNAP_DISTANCE = 18; // px radius to snap connectors to nearest port
 
 // Function to encrypt data using AES
 // const encryptData = async (data, key) => {
@@ -149,6 +152,7 @@ const IVRBuilder = () => {
     isPublished: false,
     publishedAt: null,
   });
+  const [hoverTarget, setHoverTarget] = useState(null); // nearest connection point while connecting
 
   // Get available sip accounts from Redux store
   const { agents = [] } = useSelector(
@@ -318,12 +322,27 @@ const IVRBuilder = () => {
     if (connectionInProgress) {
       const rect = canvasRef.current.getBoundingClientRect();
       const scale = zoom / 100;
+      const currentX =
+        (e.clientX - rect.left + canvasRef.current.scrollLeft) / scale;
+      const currentY =
+        (e.clientY - rect.top + canvasRef.current.scrollTop) / scale;
+
       setConnectionInProgress((prev) => ({
         ...prev,
-        currentX:
-          (e.clientX - rect.left + canvasRef.current.scrollLeft) / scale,
-        currentY: (e.clientY - rect.top + canvasRef.current.scrollTop) / scale,
+        currentX,
+        currentY,
       }));
+
+      // Find nearest compatible connection point for magnetic snapping
+      const desiredTargetType =
+        connectionInProgress.sourceType === "output" ? "input" : "output";
+      const nearest = findNearestConnectionPoint(
+        currentX,
+        currentY,
+        desiredTargetType,
+        connectionInProgress.sourceBlockId
+      );
+      setHoverTarget(nearest);
     }
   };
 
@@ -382,6 +401,7 @@ const IVRBuilder = () => {
     }
 
     setConnectionInProgress(null);
+    setHoverTarget(null);
   };
 
   const isValidConnection = (connection) => {
@@ -412,6 +432,54 @@ const IVRBuilder = () => {
     }
 
     return true;
+  };
+
+  // Compute all available connection points of a given type with absolute centers
+  const getAllConnectionPoints = (pointType) => {
+    const points = [];
+    for (const block of blocks) {
+      const blockType = BLOCK_TYPES.find((t) => t.id === block.type);
+      if (!blockType) continue;
+      const count =
+        pointType === "input"
+          ? blockType.connections.inputs
+          : blockType.connections.outputs;
+      for (let i = 0; i < count; i++) {
+        const rel =
+          pointType === "input"
+            ? { left: -6, top: (BLOCK_HEIGHT * (i + 1)) / (count + 1) }
+            : {
+                left: BLOCK_WIDTH - 6,
+                top: (BLOCK_HEIGHT * (i + 1)) / (count + 1),
+              };
+        const cx = block.position.x + rel.left + 6;
+        const cy = block.position.y + rel.top + 6;
+        points.push({ blockId: block.id, type: pointType, index: i, cx, cy });
+      }
+    }
+    return points;
+  };
+
+  const findNearestConnectionPoint = (x, y, targetType, excludeBlockId) => {
+    const candidates = getAllConnectionPoints(targetType).filter(
+      (p) => p.blockId !== excludeBlockId
+    );
+    if (candidates.length === 0) return null;
+    let best = null;
+    let bestDist = Infinity;
+    for (const c of candidates) {
+      const dx = c.cx - x;
+      const dy = c.cy - y;
+      const d = Math.hypot(dx, dy);
+      if (d < bestDist) {
+        bestDist = d;
+        best = c;
+      }
+    }
+    if (best && bestDist <= CONNECT_SNAP_DISTANCE) {
+      return best;
+    }
+    return null;
   };
 
   const handleDragStart = (e, type) => {
@@ -1698,7 +1766,19 @@ const IVRBuilder = () => {
       setDraggingBlock(null);
       setDragOffset({ x: 0, y: 0 });
     }
-    setConnectionInProgress(null);
+    if (connectionInProgress) {
+      if (hoverTarget) {
+        // Finalize connection to the hovered target even if mouse is not exactly on it
+        handleConnectionEnd(
+          hoverTarget.blockId,
+          hoverTarget.type,
+          hoverTarget.index
+        );
+      } else {
+        setConnectionInProgress(null);
+      }
+      setHoverTarget(null);
+    }
   };
   const ConnectionPoint = ({
     type,
@@ -1706,6 +1786,7 @@ const IVRBuilder = () => {
     blockId,
     index,
     isConnecting,
+    highlighted,
   }) => {
     const [isHovered, setIsHovered] = useState(false);
 
@@ -1736,17 +1817,24 @@ const IVRBuilder = () => {
         onMouseLeave={() => setIsHovered(false)}
         style={{
           position: "absolute",
-          width: "12px",
-          height: "12px",
-          backgroundColor: isConnecting
-            ? "#4caf50"
+          width: "14px",
+          height: "14px",
+          backgroundColor: highlighted
+            ? "#1b1b1b"
+            : isConnecting
+            ? "#2e7d32"
             : isHovered
-            ? "#666"
-            : "#fff",
-          border: "2px solid #666",
+            ? "#333"
+            : "#111",
+          border: highlighted ? "2px solid #2196f3" : "2px solid #444",
           borderRadius: "50%",
           cursor: "crosshair",
           zIndex: 2,
+          boxShadow: highlighted
+            ? "0 0 0 6px rgba(33,150,243,0.15), 0 2px 6px rgba(0,0,0,0.35)"
+            : isHovered
+            ? "0 1px 3px rgba(0,0,0,0.35)"
+            : "0 1px 2px rgba(0,0,0,0.25)",
           ...position,
         }}
       />
@@ -1759,6 +1847,10 @@ const IVRBuilder = () => {
     // Calculate control points for smooth curve
     const dx = connectionInProgress.currentX - connectionInProgress.startX;
     const controlPointOffset = Math.abs(dx) / 2;
+
+    // Use hoverTarget center to visually snap the preview line
+    const endX = hoverTarget ? hoverTarget.cx : connectionInProgress.currentX;
+    const endY = hoverTarget ? hoverTarget.cy : connectionInProgress.currentY;
 
     return (
       <svg
@@ -1788,13 +1880,9 @@ const IVRBuilder = () => {
               C ${connectionInProgress.startX + controlPointOffset} ${
             connectionInProgress.startY
           },
-                ${connectionInProgress.currentX - controlPointOffset} ${
-            connectionInProgress.currentY
-          },
-                ${connectionInProgress.currentX} ${
-            connectionInProgress.currentY
-          }`}
-          stroke="#690"
+                ${endX - controlPointOffset} ${endY},
+                ${endX} ${endY}`}
+          stroke="#4e7"
           strokeWidth="2"
           fill="none"
           strokeDasharray="5,5"
@@ -2041,10 +2129,10 @@ const IVRBuilder = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        opacity: 0.9,
+        opacity: 1,
         backgroundImage: `
-          linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px)
+          linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)
         `,
         backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
         pointerEvents: "none",
@@ -2477,7 +2565,7 @@ const IVRBuilder = () => {
             flex: 1,
             position: "relative",
             overflow: "auto",
-            bgcolor: "grey.100",
+            bgcolor: "#0f1115",
             "& > *": {
               minWidth: `${(canvasSize.width * zoom) / 100}px`,
               minHeight: `${(canvasSize.height * zoom) / 100}px`,
@@ -2490,9 +2578,7 @@ const IVRBuilder = () => {
               position: "relative",
               width: `${canvasSize.width}px`,
               height: `${canvasSize.height}px`,
-              bgcolor: "grey.100",
-              backgroundImage: "radial-gradient(#ddd 1px, transparent 1px)",
-              backgroundSize: `${gridSize}px ${gridSize}px`,
+              bgcolor: "#0f1115",
               transform: `scale(${zoom / 100})`,
               transformOrigin: "0 0",
               transition: "transform 0.2s ease-out",
@@ -2506,8 +2592,8 @@ const IVRBuilder = () => {
             <GridOverlay />
             {blocks.map((block) => {
               const blockType = BLOCK_TYPES.find((t) => t.id === block.type);
-              const blockWidth = 160;
-              const blockHeight = 40;
+              const blockWidth = BLOCK_WIDTH;
+              const blockHeight = BLOCK_HEIGHT;
 
               // Calculate connection point positions
               const inputPoints = Array(blockType.connections.inputs)
@@ -2563,6 +2649,12 @@ const IVRBuilder = () => {
                         !!connectionInProgress &&
                         connectionInProgress.sourceBlockId === block.id
                       }
+                      highlighted={
+                        !!hoverTarget &&
+                        hoverTarget.type === "input" &&
+                        hoverTarget.blockId === block.id &&
+                        hoverTarget.index === i
+                      }
                     />
                   ))}
 
@@ -2577,6 +2669,12 @@ const IVRBuilder = () => {
                       isConnecting={
                         !!connectionInProgress &&
                         connectionInProgress.sourceBlockId === block.id
+                      }
+                      highlighted={
+                        !!hoverTarget &&
+                        hoverTarget.type === "output" &&
+                        hoverTarget.blockId === block.id &&
+                        hoverTarget.index === i
                       }
                     />
                   ))}
