@@ -11,7 +11,7 @@ import { makeCall } from "../../services/sipClient";
 
 export default function DialerScreen({ navigation }) {
   const [number, setNumber] = useState("");
-  const { registered } = useSelector((s) => s.sip);
+  const { registered, connecting } = useSelector((s) => s.sip);
 
   const call = () => {
     if (!registered || !number) return;
@@ -23,11 +23,20 @@ export default function DialerScreen({ navigation }) {
   const backspace = () => setNumber((prev) => prev.slice(0, -1));
   const clearAll = () => setNumber("");
 
+  let statusText = registered ? "Registered" : "Not Registered";
+  let statusColor = registered ? "#22C55E" : "#9CA3AF";
+  if (connecting) {
+    statusText = "Registering…";
+    statusColor = "#F59E0B";
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        Dialer {registered ? "• Registered" : "• Not Registered"}
-      </Text>
+      <Text style={styles.title}>Dialer</Text>
+      <View style={styles.statusRow}>
+        <View style={[styles.dot, { backgroundColor: statusColor }]} />
+        <Text style={styles.statusText}>{statusText}</Text>
+      </View>
 
       <View style={styles.numberDisplayWrap}>
         <TextInput
@@ -100,8 +109,16 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 22,
     fontWeight: "600",
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
     marginBottom: 16,
   },
+  dot: { width: 10, height: 10, borderRadius: 10 },
+  statusText: { color: "#FFFFFF", fontWeight: "600" },
   numberDisplayWrap: {
     backgroundColor: "#111827",
     borderRadius: 12,

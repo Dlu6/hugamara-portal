@@ -69,6 +69,18 @@ export default function DashboardScreen() {
             title="Outbound"
             value={String(stats.outbound || 0)}
           />
+          <MetricCard
+            icon="close-circle"
+            iconColor="#EF4444"
+            title="Abandoned"
+            value={String((stats.abandoned ?? stats.missed) || 0)}
+          />
+          <MetricCard
+            icon="radio"
+            iconColor="#8B5CF6"
+            title="Active Calls"
+            value={String(stats.active || 0)}
+          />
         </View>
       )}
     </ScrollView>

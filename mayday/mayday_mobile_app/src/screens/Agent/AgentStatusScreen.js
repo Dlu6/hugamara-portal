@@ -52,6 +52,20 @@ export default function AgentStatusScreen() {
     "—";
   const ext = profile?.extension || extension || user?.extension || "—";
 
+  // Status indicator mapping
+  let statusText = "Available";
+  let statusColor = "#22C55E"; // green
+  if (status === "loading") {
+    statusText = "Updating…";
+    statusColor = "#F59E0B"; // amber
+  } else if (status === "failed") {
+    statusText = "Error";
+    statusColor = "#EF4444"; // red
+  } else if (isPaused) {
+    statusText = `Paused${pauseReason ? ` (${pauseReason})` : ""}`;
+    statusColor = "#EF4444"; // red
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Agent Status</Text>
@@ -76,9 +90,10 @@ export default function AgentStatusScreen() {
       {/* Pause/Availability */}
       <View style={styles.card}>
         <Text style={styles.label}>Current Status</Text>
-        <Text style={styles.value}>
-          {isPaused ? `Paused (${pauseReason || "No reason"})` : "Available"}
-        </Text>
+        <View style={styles.statusRow}>
+          <View style={[styles.dot, { backgroundColor: statusColor }]} />
+          <Text style={styles.value}>{statusText}</Text>
+        </View>
 
         <TouchableOpacity
           onPress={handleTogglePause}
@@ -128,6 +143,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
   },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  dot: { width: 10, height: 10, borderRadius: 10 },
   btn: {
     backgroundColor: "#1D4ED8",
     paddingVertical: 12,
