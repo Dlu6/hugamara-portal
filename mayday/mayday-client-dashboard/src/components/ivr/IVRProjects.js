@@ -136,13 +136,19 @@ const IVRProjects = () => {
       return;
     }
 
+    if (!user?.id) {
+      enqueueSnackbar("User not authenticated. Please log in again.", {
+        variant: "error",
+      });
+      return;
+    }
+
     const projectData = {
       name: newProject.name,
       description: newProject.description,
       blocks: [],
       connections: [],
       created_by: user?.id,
-      company_id: user?.company_id,
       metadata: {
         created: new Date().toISOString(),
         version: "1.0",
