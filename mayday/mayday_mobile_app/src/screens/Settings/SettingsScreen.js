@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
 import Constants from "expo-constants";
 import { useSelector } from "react-redux";
 // Dynamically require to avoid crashing when native module isn't present
@@ -11,6 +17,13 @@ try {
   RNWebRTC = null;
 }
 import { requestAudioPermission } from "../../services/webrtc";
+// Safely read version from package.json
+let APP_VERSION = "dev";
+try {
+  // eslint-disable-next-line global-require
+  const pkg = require("../../../package.json");
+  APP_VERSION = pkg?.version || APP_VERSION;
+} catch {}
 
 export default function SettingsScreen() {
   const extra = Constants?.expoConfig?.extra || {};
@@ -132,8 +145,13 @@ export default function SettingsScreen() {
     }
   };
 
+  const year = new Date().getFullYear();
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
       <Text style={styles.title}>Settings</Text>
 
       <View style={styles.card}>
@@ -214,10 +232,29 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      <View style={styles.card}>
+        <Text style={styles.section}>App Info</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Version</Text>
+          <Text style={styles.value}>{APP_VERSION}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Expo SDK</Text>
+          <Text style={styles.value}>{Constants?.expoVersion || "—"}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Project ID</Text>
+          <Text style={styles.value}>{extra?.eas?.projectId || "—"}</Text>
+        </View>
+      </View>
+
       <TouchableOpacity style={styles.testBtn}>
         <Text style={styles.testText}>Send Test Notification</Text>
       </TouchableOpacity>
-    </View>
+
+      <Text style={styles.footnote}>Mayday Mobile</Text>
+      <Text style={styles.copy}>© {year} MM-iCT. All rights reserved.</Text>
+    </ScrollView>
   );
 }
 
@@ -267,4 +304,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   testText: { color: "#FFFFFF", fontWeight: "700" },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  footnote: {
+    color: "#9CA3AF",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  copy: {
+    color: "#6B7280",
+    marginTop: 4,
+    textAlign: "center",
+  },
 });
