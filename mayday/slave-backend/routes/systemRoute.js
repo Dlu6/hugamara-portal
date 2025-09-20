@@ -6,6 +6,7 @@ import authMiddleware from "../middleware/authMiddleware.js";
 import {
   updateSystem,
   getSystemInfo,
+  getPublicConfig,
 } from "../controllers/systemController.js";
 import masterServerService from "../services/masterServerService.js";
 
@@ -141,5 +142,7 @@ router.get("/master-status", authMiddleware, async (req, res) => {
 // Existing authenticated routes
 router.post("/update", authMiddleware, updateSystem);
 router.get("/info", authMiddleware, getSystemInfo);
+// Public config for UI placeholders
+router.get("/public-config", getPublicConfig);
 
 export default router;

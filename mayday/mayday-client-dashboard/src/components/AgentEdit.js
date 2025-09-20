@@ -135,6 +135,9 @@ const AgentEdit = () => {
         media_encryption: agentDetails.media_encryption || "sdes",
         wss_port: agentDetails.wss_port || 8089,
         host: agentDetails.host || "dynamic",
+        // Mobile/WebRTC multi-tenant runtime configuration
+        sipDomain: agentDetails.sipDomain || agentDetails.host || "",
+        mobileApiBaseUrl: agentDetails.mobileApiBaseUrl || "",
         // Other fields
         recordingToUserExtension:
           agentDetails.recordingToUserExtension || "inactive", // Ensure it's a string
@@ -219,6 +222,9 @@ const AgentEdit = () => {
           context: formAgentDetails.context || "from-internal",
           recordingToUserExtension: formAgentDetails.recordingToUserExtension,
           wss_port: formAgentDetails.wss_port || 8089,
+          // Runtime multi-tenant config surfaced to mobile login payload
+          mobileApiBaseUrl: formAgentDetails.mobileApiBaseUrl || undefined,
+          sipDomain: formAgentDetails.sipDomain || undefined,
 
           // WebRTC-related fields in user model
           ice_support: formAgentDetails.ice_support || "yes",
@@ -770,6 +776,7 @@ const VoiceTabContent = ({
   handleInputChange,
   handleNatChange,
 }) => {
+  // Removed non-working public-config suggestion logic
   const transportOptions = [
     { value: "transport-wss", label: "WebSocket Secure" },
     { value: "transport-ws", label: "WebSocket" },
@@ -884,6 +891,37 @@ const VoiceTabContent = ({
             WebRTC Settings
           </Typography>
           <Stack spacing={2}>
+            {/* Multi-tenant runtime config */}
+            <FormControl fullWidth variant="standard">
+              <InputLabel htmlFor="mobileApiBaseUrl">
+                Mobile API Base URL
+              </InputLabel>
+              <Input
+                id="mobileApiBaseUrl"
+                name="mobileApiBaseUrl"
+                type="url"
+                value={formAgentDetails.mobileApiBaseUrl || ""}
+                onChange={handleInputChange}
+                placeholder={"your-server.com/mayday-api"}
+              />
+              <FormHelperText style={{ fontSize: "9px", fontStyle: "italic" }}>
+                Base URL used by the mobile app for REST calls
+              </FormHelperText>
+            </FormControl>
+
+            <FormControl fullWidth variant="standard">
+              <InputLabel htmlFor="sipDomain">SIP Domain</InputLabel>
+              <Input
+                id="sipDomain"
+                name="sipDomain"
+                value={formAgentDetails.sipDomain || ""}
+                onChange={handleInputChange}
+                placeholder={"your-server.com"}
+              />
+              <FormHelperText style={{ fontSize: "9px", fontStyle: "italic" }}>
+                Used by mobile softphone for SIP registration and WSS tests
+              </FormHelperText>
+            </FormControl>
             {/* Use typology instead of a separate webrtc field */}
             <FormControl fullWidth variant="standard">
               <InputLabel htmlFor="typology">Typology (WebRTC)</InputLabel>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
 } from "react-native";
 import { useSelector } from "react-redux";
 import { makeCall } from "../../services/sipClient";
+import * as Haptics from "expo-haptics";
+import { Audio } from "expo-av";
 
 export default function DialerScreen({ navigation }) {
   const [number, setNumber] = useState("");
   const { registered, connecting } = useSelector((s) => s.sip);
+  const soundRef = useRef(null);
 
   const call = () => {
     if (!registered || !number) return;
@@ -19,7 +22,27 @@ export default function DialerScreen({ navigation }) {
     makeCall(number);
   };
 
-  const append = (digit) => setNumber((prev) => `${prev}${digit}`);
+  const playKeyTone = async () => {
+    try {
+      // Lazily create a short tone from a tiny embedded wav (100ms 440Hz)
+      const uri =
+        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQgAAAAgICAfHx8eHh4eHh4dHR0cHBwcG9vb25ubm1tbGxsbGtra2pqampqampqa2tra2xsbG1tbm5ub29vcHBwcHR0dHh4eHh4eH4fHyAgICA=";
+      if (!soundRef.current) {
+        const { sound } = await Audio.Sound.createAsync(
+          { uri },
+          { volume: 0.5 }
+        );
+        soundRef.current = sound;
+      }
+      await soundRef.current.replayAsync();
+    } catch (_) {}
+  };
+
+  const append = async (digit) => {
+    setNumber((prev) => `${prev}${digit}`);
+    Haptics.selectionAsync();
+    playKeyTone();
+  };
   const backspace = () => setNumber((prev) => prev.slice(0, -1));
   const clearAll = () => setNumber("");
 
@@ -175,6 +198,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "800",
     textAlign: "center",
+    textAlignVertical: "center",
   },
   callBtn: {
     backgroundColor: "#0B9246",

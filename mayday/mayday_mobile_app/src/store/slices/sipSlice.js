@@ -5,6 +5,9 @@ export const registerSip = createAsyncThunk(
   "sip/register",
   async (sipConfig, { dispatch }) => {
     dispatch(setConnecting(true));
+    if (sipConfig?.server) {
+      dispatch(setDomain(sipConfig.server));
+    }
 
     // A promise that resolves or rejects based on SIP registration events
     const registrationPromise = new Promise((resolve, reject) => {
@@ -64,6 +67,7 @@ const initialState = {
   error: null,
   registered: false,
   connecting: false,
+  domain: null,
 };
 
 const sipSlice = createSlice({
@@ -82,6 +86,9 @@ const sipSlice = createSlice({
       if (action.payload) {
         state.status = "loading";
       }
+    },
+    setDomain(state, action) {
+      state.domain = action.payload || null;
     },
   },
   extraReducers: (builder) => {
@@ -105,5 +112,5 @@ const sipSlice = createSlice({
   },
 });
 
-export const { setRegistered, setConnecting } = sipSlice.actions;
+export const { setRegistered, setConnecting, setDomain } = sipSlice.actions;
 export default sipSlice.reducer;

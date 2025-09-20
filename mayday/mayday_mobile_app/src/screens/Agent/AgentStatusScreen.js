@@ -16,6 +16,9 @@ import {
   fetchAllAgentsStatus,
 } from "../../store/slices/agentSlice";
 import { makeCall } from "../../services/sipClient";
+import io from "socket.io-client";
+import Constants from "expo-constants";
+import { getApiBaseUrl } from "../../config/endpoints";
 
 export default function AgentStatusScreen() {
   const dispatch = useDispatch();
@@ -25,10 +28,43 @@ export default function AgentStatusScreen() {
   const { user, extension } = useSelector((s) => s.auth);
 
   useEffect(() => {
-    // Fetch initial status and profile when the component mounts
+    // Initial fetches
     dispatch(fetchAgentStatus());
     dispatch(fetchAgentProfile());
     dispatch(fetchAllAgentsStatus());
+
+    // Realtime updates via Socket.IO
+    const extra = Constants?.expoConfig?.extra || {};
+    const baseUrl = getApiBaseUrl() || extra.API_BASE_URL || "";
+    const socketUrl = baseUrl.replace(/\/api$/, "");
+
+    let lastRefreshAt = 0;
+    const maybeRefresh = () => {
+      const now = Date.now();
+      if (now - lastRefreshAt < 1500) return; // throttle spammy bursts
+      lastRefreshAt = now;
+      dispatch(fetchAllAgentsStatus());
+    };
+
+    let socket;
+    try {
+      socket = io(socketUrl, { transports: ["websocket"], path: "/socket.io" });
+      socket.on("connect", () => {
+        // Connected to socket server
+      });
+      socket.on("agent_status", maybeRefresh);
+      socket.on("agent_status_update", maybeRefresh);
+    } catch (_) {
+      // ignore socket wiring errors
+    }
+
+    // Optional fallback polling (every 60s) to stay fresh if socket fails
+    const id = setInterval(() => dispatch(fetchAllAgentsStatus()), 60000);
+
+    return () => {
+      clearInterval(id);
+      if (socket && socket.connected) socket.close();
+    };
   }, [dispatch]);
 
   const handleTogglePause = () => {
