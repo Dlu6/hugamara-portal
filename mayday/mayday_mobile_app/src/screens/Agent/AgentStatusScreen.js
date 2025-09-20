@@ -38,9 +38,18 @@ export default function AgentStatusScreen() {
 
   const isLoading = status === "loading";
 
-  const name =
-    profile?.fullName || profile?.name || user?.fullName || user?.name || "—";
   const email = profile?.email || user?.email || "—";
+  const localPart = typeof email === "string" ? email.split("@")[0] : "—";
+  const name =
+    profile?.fullName ||
+    profile?.full_name ||
+    profile?.username ||
+    profile?.name ||
+    user?.fullName ||
+    user?.username ||
+    user?.name ||
+    localPart ||
+    "—";
   const ext = profile?.extension || extension || user?.extension || "—";
 
   return (

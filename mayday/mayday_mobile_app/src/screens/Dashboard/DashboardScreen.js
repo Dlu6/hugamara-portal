@@ -29,7 +29,7 @@ export default function DashboardScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ paddingBottom: 32 }}
+      contentContainerStyle={{ paddingBottom: 32, paddingTop: 10 }}
     >
       <View style={styles.headerRow}>
         <Text style={styles.screenTitle}>Dashboard</Text>
@@ -47,21 +47,25 @@ export default function DashboardScreen() {
         <View style={styles.grid}>
           <MetricCard
             icon="call"
+            iconColor="#34D399"
             title="Total Calls Today"
             value={String(stats.totalCalls || 0)}
           />
           <MetricCard
             icon="timer"
+            iconColor="#F59E0B"
             title="Avg. Handle Time"
             value={String(stats.avgHandleTime || "0:00")}
           />
           <MetricCard
             icon="arrow-down-circle"
+            iconColor="#22C55E"
             title="Inbound"
             value={String(stats.inbound || 0)}
           />
           <MetricCard
             icon="arrow-up-circle"
+            iconColor="#3B82F6"
             title="Outbound"
             value={String(stats.outbound || 0)}
           />
@@ -71,11 +75,11 @@ export default function DashboardScreen() {
   );
 }
 
-function MetricCard({ icon, title, value }) {
+function MetricCard({ icon, title, value, iconColor }) {
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Ionicons name={icon} size={18} color="#9CA3AF" />
+        <Ionicons name={icon} size={18} color={iconColor || "#9CA3AF"} />
         <Text style={styles.cardTitle}>{title}</Text>
       </View>
       <Text style={styles.cardValue}>{value}</Text>

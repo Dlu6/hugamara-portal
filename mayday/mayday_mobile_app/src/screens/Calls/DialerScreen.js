@@ -90,7 +90,12 @@ export default function DialerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0A0A0A", padding: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: "#0A0A0A",
+    padding: 24,
+    paddingTop: 32,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 22,
@@ -103,14 +108,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1F2937",
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
   },
-  numberDisplay: { color: "#FFFFFF", fontSize: 22, paddingVertical: 8 },
+  numberDisplay: {
+    color: "#FFFFFF",
+    fontSize: 22,
+    paddingVertical: 10,
+    textAlignVertical: "center",
+  },
   editRow: { flexDirection: "row", justifyContent: "flex-end" },
   editBtn: {
     paddingVertical: 6,
@@ -127,12 +137,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     columnGap: 12,
     rowGap: 12,
+    marginTop: 8,
   },
   key: {
     width: "30%",
     aspectRatio: 1,
     backgroundColor: "#0F172A",
-    borderRadius: 16,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -142,13 +153,18 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
   },
-  keyText: { color: "#FFFFFF", fontSize: 22, fontWeight: "700" },
+  keyText: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "800",
+    textAlign: "center",
+  },
   callBtn: {
     backgroundColor: "#0B9246",
     padding: 16,
     borderRadius: 14,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 22,
     shadowColor: "#000",
     shadowOpacity: 0.35,
     shadowRadius: 10,
