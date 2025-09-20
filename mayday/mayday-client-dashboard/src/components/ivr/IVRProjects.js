@@ -39,12 +39,14 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 import AddIcon from "@mui/icons-material/Add";
 import { useSnackbar } from "notistack";
+import useAuth from "../../hooks/useAuth";
 import LoadingIndicator from "../common/LoadingIndicator";
+import { decodeToken } from "../../utils/jwtUtils";
 
 const IVRProjects = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const user = useSelector((state) => state.auth.user);
+  const { user, loading: authLoading } = useAuth();
   const flows = useSelector(selectAllFlows);
   const loading = useSelector(selectIVRLoading);
   const { enqueueSnackbar } = useSnackbar();
@@ -135,7 +137,12 @@ const IVRProjects = () => {
       return;
     }
 
-    if (!user?.id) {
+    // Prefer Redux user, but fall back to JWT token to avoid timing issues
+    const token = localStorage.getItem("token");
+    const decoded = decodeToken(token);
+    const createdBy = user?.id || decoded?.userId || decoded?.id;
+
+    if (!createdBy) {
       enqueueSnackbar("User not authenticated. Please log in again.", {
         variant: "error",
       });
@@ -147,7 +154,7 @@ const IVRProjects = () => {
       description: newProject.description,
       blocks: [],
       connections: [],
-      created_by: user?.id,
+      created_by: createdBy,
       metadata: {
         created: new Date().toISOString(),
         version: "1.0",
@@ -417,7 +424,7 @@ const IVRProjects = () => {
             onClick={handleCreateNewIvrProject}
             variant="contained"
             color="primary"
-            disabled={!newProject.name.trim() || isCreating}
+            disabled={!newProject.name.trim() || isCreating || authLoading}
             startIcon={isCreating ? <CircularProgress size={20} /> : null}
           >
             {isCreating ? "Creating..." : "Create"}
