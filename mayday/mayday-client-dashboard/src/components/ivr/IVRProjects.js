@@ -39,13 +39,12 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 import AddIcon from "@mui/icons-material/Add";
 import { useSnackbar } from "notistack";
-import useAuth from "../../hooks/useAuth";
 import LoadingIndicator from "../common/LoadingIndicator";
 
 const IVRProjects = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const user = useSelector((state) => state.auth.user);
   const flows = useSelector(selectAllFlows);
   const loading = useSelector(selectIVRLoading);
   const { enqueueSnackbar } = useSnackbar();
