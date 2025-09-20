@@ -2218,6 +2218,78 @@ export async function getSLAComplianceAsterisk(req, res) {
   }
 }
 
+/**
+ * Get performance stats for the currently authenticated agent
+ */
+export async function getMyPerformanceStats(req, res) {
+  try {
+    const userId = req.user.id;
+    const { timeframe = "today" } = req.query;
+
+    const user = await UserModel.findByPk(userId);
+    if (!user || !user.extension) {
+      return res.status(404).json({ error: "Agent extension not found" });
+    }
+
+    let startDate = new Date();
+    switch (timeframe) {
+      case "week":
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "month":
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case "today":
+      default:
+        startDate.setHours(0, 0, 0, 0);
+        break;
+    }
+    const endDate = new Date();
+
+    const calls = await CDR.findAll({
+      where: {
+        start: { [Op.between]: [startDate, endDate] },
+        [Op.or]: [{ src: user.extension }, { dst: user.extension }],
+      },
+    });
+
+    const inboundCalls = calls.filter((c) => c.dst === user.extension);
+    const outboundCalls = calls.filter((c) => c.src === user.extension);
+    const answeredCalls = calls.filter(
+      (c) => c.disposition === "ANSWERED" && c.billsec > 0
+    );
+    const missedCalls = inboundCalls.filter(
+      (c) => c.disposition !== "ANSWERED" || c.billsec === 0
+    );
+
+    const totalDuration = answeredCalls.reduce(
+      (sum, call) => sum + call.billsec,
+      0
+    );
+    const avgHandleTimeSeconds =
+      answeredCalls.length > 0
+        ? Math.round(totalDuration / answeredCalls.length)
+        : 0;
+    const minutes = Math.floor(avgHandleTimeSeconds / 60);
+    const seconds = avgHandleTimeSeconds % 60;
+    const avgHandleTime = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+    res.json({
+      success: true,
+      data: {
+        totalCalls: calls.length,
+        inbound: inboundCalls.length,
+        outbound: outboundCalls.length,
+        missed: missedCalls.length,
+        avgHandleTime,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching my performance stats:", error);
+    res.status(500).json({ error: "Failed to fetch performance stats" });
+  }
+}
+
 export default {
   getCallDetail,
   getQualityMetrics,
@@ -2241,4 +2313,5 @@ export default {
   getAgentCallDetailsAsterisk,
   getQueueDistributionAsterisk,
   getSLAComplianceAsterisk,
+  getMyPerformanceStats,
 };

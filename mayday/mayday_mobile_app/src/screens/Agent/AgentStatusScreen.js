@@ -1,40 +1,87 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { useSelector, useDispatch } from "react-redux";
+import {
+  fetchAgentStatus,
+  pauseAgent,
+  unpauseAgent,
+  fetchAgentProfile,
+} from "../../store/slices/agentSlice";
 
 export default function AgentStatusScreen() {
-  const [inQueue, setInQueue] = useState(true);
-  const [paused, setPaused] = useState(false);
+  const dispatch = useDispatch();
+  const { isPaused, pauseReason, status, profile } = useSelector(
+    (s) => s.agent
+  );
+  const { user, extension } = useSelector((s) => s.auth);
+
+  useEffect(() => {
+    // Fetch initial status and profile when the component mounts
+    dispatch(fetchAgentStatus());
+    dispatch(fetchAgentProfile());
+  }, [dispatch]);
+
+  const handleTogglePause = () => {
+    if (isPaused) {
+      dispatch(unpauseAgent());
+    } else {
+      // For now, we use a default reason. A modal could be added later.
+      dispatch(pauseAgent("Manual Pause"));
+    }
+  };
+
+  const isLoading = status === "loading";
+
+  const name =
+    profile?.fullName || profile?.name || user?.fullName || user?.name || "—";
+  const email = profile?.email || user?.email || "—";
+  const ext = profile?.extension || extension || user?.extension || "—";
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Agent Status</Text>
+
+      {/* Agent Details */}
       <View style={styles.card}>
-        <Text style={styles.label}>Queue Sign-in</Text>
-        <Text style={styles.value}>{inQueue ? "Signed In" : "Signed Out"}</Text>
+        <Text style={styles.sectionTitle}>Agent Details</Text>
         <View style={styles.row}>
-          <TouchableOpacity onPress={() => setInQueue(true)} style={styles.btn}>
-            <Text style={styles.btnText}>Sign In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setInQueue(false)}
-            style={styles.btn}
-          >
-            <Text style={styles.btnText}>Sign Out</Text>
-          </TouchableOpacity>
+          <Text style={styles.label}>Name</Text>
+          <Text style={styles.valueStrong}>{name}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Email</Text>
+          <Text style={styles.value}>{email}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Extension</Text>
+          <Text style={styles.value}>{ext}</Text>
         </View>
       </View>
 
+      {/* Pause/Availability */}
       <View style={styles.card}>
-        <Text style={styles.label}>Pause</Text>
-        <Text style={styles.value}>{paused ? "Paused" : "Available"}</Text>
-        <View style={styles.row}>
-          <TouchableOpacity onPress={() => setPaused(true)} style={styles.btn}>
-            <Text style={styles.btnText}>Pause</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setPaused(false)} style={styles.btn}>
-            <Text style={styles.btnText}>Resume</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.label}>Current Status</Text>
+        <Text style={styles.value}>
+          {isPaused ? `Paused (${pauseReason || "No reason"})` : "Available"}
+        </Text>
+
+        <TouchableOpacity
+          onPress={handleTogglePause}
+          style={[styles.btn, isPaused && styles.btnActive]}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.btnText}>{isPaused ? "Resume" : "Pause"}</Text>
+          )}
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -56,16 +103,31 @@ const styles = StyleSheet.create({
     borderColor: "#1F2937",
     marginBottom: 12,
   },
+  sectionTitle: { color: "#9CA3AF", marginBottom: 8, fontWeight: "600" },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   label: { color: "#9CA3AF", marginBottom: 6 },
-  value: { color: "#FFFFFF", fontWeight: "700", marginBottom: 8 },
-  row: { flexDirection: "row", gap: 12 },
+  value: { color: "#FFFFFF", fontWeight: "600" },
+  valueStrong: { color: "#FFFFFF", fontWeight: "700" },
+  valueBlock: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    marginBottom: 16,
+    fontSize: 16,
+  },
   btn: {
-    backgroundColor: "#111827",
-    paddingVertical: 10,
+    backgroundColor: "#1D4ED8",
+    paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#374151",
+    alignItems: "center",
+  },
+  btnActive: {
+    backgroundColor: "#B91C1C", // Red when paused
   },
   btnText: { color: "#FFFFFF", fontWeight: "700" },
 });

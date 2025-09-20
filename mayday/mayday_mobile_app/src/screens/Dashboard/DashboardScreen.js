@@ -1,0 +1,136 @@
+import React, { useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSelector, useDispatch } from "react-redux";
+import { fetchMyPerformanceStats } from "../../store/slices/dashboardSlice";
+
+export default function DashboardScreen() {
+  const dispatch = useDispatch();
+  const { stats, status, error } = useSelector((s) => s.dashboard);
+
+  useEffect(() => {
+    dispatch(fetchMyPerformanceStats("today"));
+  }, [dispatch]);
+
+  const onRefresh = () => {
+    dispatch(fetchMyPerformanceStats("today"));
+  };
+
+  const errorMessage =
+    typeof error === "string" ? error : error?.message || "Failed to load";
+
+  return (
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
+      <View style={styles.headerRow}>
+        <Text style={styles.screenTitle}>Dashboard</Text>
+        <TouchableOpacity onPress={onRefresh} disabled={status === "loading"}>
+          <Text style={styles.refreshText}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
+
+      {status === "loading" && <ActivityIndicator color="#FFFFFF" />}
+      {status === "failed" && (
+        <Text style={styles.errorText}>{errorMessage}</Text>
+      )}
+
+      {status === "succeeded" && (
+        <View style={styles.grid}>
+          <MetricCard
+            icon="call"
+            title="Total Calls Today"
+            value={String(stats.totalCalls || 0)}
+          />
+          <MetricCard
+            icon="timer"
+            title="Avg. Handle Time"
+            value={String(stats.avgHandleTime || "0:00")}
+          />
+          <MetricCard
+            icon="arrow-down-circle"
+            title="Inbound"
+            value={String(stats.inbound || 0)}
+          />
+          <MetricCard
+            icon="arrow-up-circle"
+            title="Outbound"
+            value={String(stats.outbound || 0)}
+          />
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+function MetricCard({ icon, title, value }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Ionicons name={icon} size={18} color="#9CA3AF" />
+        <Text style={styles.cardTitle}>{title}</Text>
+      </View>
+      <Text style={styles.cardValue}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#0A0A0A", padding: 16 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  screenTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  refreshText: {
+    color: "#3B82F6",
+    fontSize: 16,
+  },
+  errorText: {
+    color: "#EF4444",
+    textAlign: "center",
+    marginVertical: 10,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  card: {
+    width: "48%",
+    backgroundColor: "#0F172A",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  cardTitle: { color: "#9CA3AF", fontWeight: "600" },
+  cardValue: { color: "#FFFFFF", fontWeight: "800", fontSize: 22 },
+});

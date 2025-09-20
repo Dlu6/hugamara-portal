@@ -24,6 +24,7 @@ import {
   getAgentCallDetailsAsterisk,
   getQueueDistributionAsterisk,
   getSLAComplianceAsterisk,
+  getMyPerformanceStats,
 } from "../controllers/reportsController.js";
 import { validateDateRange } from "../middleware/dateValidation.js";
 
@@ -88,5 +89,8 @@ router.get("/preview", previewReport);
 // Data availability
 import { getDataAvailability } from "../controllers/reportsController.js";
 router.get("/availability", getDataAvailability);
+
+// New route for mobile dashboard
+router.get("/my-performance", sipAuthMiddleware, getMyPerformanceStats);
 
 export default router;

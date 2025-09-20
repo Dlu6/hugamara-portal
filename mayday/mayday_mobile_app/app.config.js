@@ -3,7 +3,7 @@ export default ({ config }) => ({
   name: "Mayday Mobile",
   slug: "mayday-mobile",
   scheme: "mayday",
-  plugins: ["expo-secure-store", "expo-asset"],
+  plugins: ["expo-secure-store", "expo-asset", "expo-font"],
   extra: {
     API_BASE_URL:
       process.env.EXPO_PUBLIC_API_BASE_URL ||

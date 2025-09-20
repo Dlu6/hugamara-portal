@@ -6,20 +6,17 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { useSelector, useDispatch } from "react-redux";
-import { startCall } from "../../store/slices/callSlice";
-import { makeCall, getUA } from "../../services/sipClient";
+import { useSelector } from "react-redux";
+import { makeCall } from "../../services/sipClient";
 
 export default function DialerScreen({ navigation }) {
   const [number, setNumber] = useState("");
   const { registered } = useSelector((s) => s.sip);
-  const dispatch = useDispatch();
 
   const call = () => {
     if (!registered || !number) return;
-    dispatch(startCall(number));
-    const session = makeCall(number);
-    if (session) navigation.navigate("Call", { number });
+    // The useSIP hook will now handle dispatching the call action and navigating
+    makeCall(number);
   };
 
   const append = (digit) => setNumber((prev) => `${prev}${digit}`);
