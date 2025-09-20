@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -12,11 +13,13 @@ import {
   pauseAgent,
   unpauseAgent,
   fetchAgentProfile,
+  fetchAllAgentsStatus,
 } from "../../store/slices/agentSlice";
+import { makeCall } from "../../services/sipClient";
 
 export default function AgentStatusScreen() {
   const dispatch = useDispatch();
-  const { isPaused, pauseReason, status, profile } = useSelector(
+  const { isPaused, pauseReason, status, profile, agents } = useSelector(
     (s) => s.agent
   );
   const { user, extension } = useSelector((s) => s.auth);
@@ -25,6 +28,7 @@ export default function AgentStatusScreen() {
     // Fetch initial status and profile when the component mounts
     dispatch(fetchAgentStatus());
     dispatch(fetchAgentProfile());
+    dispatch(fetchAllAgentsStatus());
   }, [dispatch]);
 
   const handleTogglePause = () => {
@@ -66,8 +70,37 @@ export default function AgentStatusScreen() {
     statusColor = "#EF4444"; // red
   }
 
+  const renderAgentItem = (a) => {
+    const isSelf = String(a.extension) === String(ext);
+    const color = a.status === "online" ? "#22C55E" : "#9CA3AF";
+    return (
+      <View key={a.extension} style={styles.agentRow}>
+        <View style={styles.agentLeft}>
+          <View style={[styles.dot, { backgroundColor: color }]} />
+          <Text style={styles.agentName}>
+            {a.fullName || a.username || `Agent ${a.extension}`} ({a.extension})
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.smallBtn, isSelf && styles.smallBtnDisabled]}
+          onPress={() => !isSelf && makeCall(String(a.extension))}
+          disabled={isSelf}
+        >
+          <Text style={styles.smallBtnText}>Call</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const otherAgents = (agents || []).filter(
+    (a) => String(a.extension) !== String(ext)
+  );
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
       <Text style={styles.title}>Agent Status</Text>
 
       {/* Agent Details */}
@@ -107,7 +140,17 @@ export default function AgentStatusScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+
+      {/* Other agents */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Other Agents</Text>
+        {otherAgents.length === 0 ? (
+          <Text style={styles.label}>No other agents</Text>
+        ) : (
+          otherAgents.map(renderAgentItem)
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -161,4 +204,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#B91C1C", // Red when paused
   },
   btnText: { color: "#FFFFFF", fontWeight: "700" },
+  agentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#1F2937",
+  },
+  agentLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  agentName: { color: "#FFFFFF", fontWeight: "600" },
+  smallBtn: {
+    backgroundColor: "#0B9246",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#14532D",
+  },
+  smallBtnDisabled: { opacity: 0.5 },
+  smallBtnText: { color: "#FFFFFF", fontWeight: "700" },
 });

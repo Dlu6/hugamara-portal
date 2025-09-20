@@ -60,3 +60,8 @@ export const getProfile = async (token) => {
   const url = `${ENDPOINTS.BASE_URL}/users/profile`;
   return fetchWithAuth(url, { token });
 };
+
+export const getAllAgentsStatus = async (token) => {
+  const url = `${ENDPOINTS.BASE_URL}/agent-status`;
+  return fetchWithAuth(url, { token });
+};
