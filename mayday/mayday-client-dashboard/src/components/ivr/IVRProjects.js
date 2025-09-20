@@ -142,6 +142,7 @@ const IVRProjects = () => {
       blocks: [],
       connections: [],
       created_by: user?.id,
+      company_id: user?.company_id,
       metadata: {
         created: new Date().toISOString(),
         version: "1.0",

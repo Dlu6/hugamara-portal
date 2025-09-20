@@ -12,7 +12,7 @@ import { setConnecting } from "../../store/slices/sipSlice";
 import { initializeSIP } from "../../services/sipClient";
 import Constants from "expo-constants";
 
-export default function LoginScreen({ navigation }) {
+export default function LoginMobileScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const dispatch = useDispatch();
@@ -20,24 +20,7 @@ export default function LoginScreen({ navigation }) {
 
   const onLogin = async () => {
     try {
-      // Compute host like the chrome extension: /mayday-api on *.hugamara.com else /api
-      const extra =
-        Constants?.expoConfig?.extra || Constants?.manifest?.extra || {};
-      const base = process.env.EXPO_PUBLIC_API_BASE_URL || extra.API_BASE_URL;
-      let host = base;
-      if (!host) {
-        const sipDomain =
-          process.env.EXPO_PUBLIC_SIP_DOMAIN || extra.SIP_DOMAIN || "";
-        if (/(^|\.)hugamara\.com$/i.test(sipDomain || "")) {
-          host = `https://${sipDomain}/mayday-api`;
-        } else {
-          host = "http://10.0.2.2:8004/api";
-        }
-      }
-
-      const res = await dispatch(
-        login({ email, password, hostOverride: host })
-      ).unwrap();
+      const res = await dispatch(login({ email, password })).unwrap();
       dispatch(setConnecting(true));
       const data = res?.data || res;
       const pjsip = data?.user?.pjsip || {};
