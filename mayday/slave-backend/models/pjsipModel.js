@@ -49,8 +49,8 @@ export const PJSIPEndpoint = sequelize.define(
       onDelete: "SET NULL",
       onUpdate: "CASCADE",
     },
-    send_pai: PJSIP_BOOL,
-    send_rpid: PJSIP_BOOL,
+    // Identity headers
+    send_pai: PJSIP_BOOL, // P-Asserted-Identity
     direct_media: {
       type: DataTypes.ENUM("yes", "no"),
       defaultValue: "no",

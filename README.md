@@ -90,6 +90,107 @@ For the call center stack (Asterisk 20):
 
 See: `docs/ASTERISK_REALTIME_CDR_AND_WEBRTC.md` for full setup and troubleshooting.
 
+## Inbound Routes Configuration (Realtime)
+
+This project uses Asterisk 20 with ODBC realtime for dialplan and PJSIP. Each provider DID (e.g. 0323300243–0323300249) is configured as its own inbound route so departments/outlets can manage traffic independently.
+
+### Prerequisites
+
+- PJSIP trunk configured with `send_pai=yes` and `send_rpid=yes` on the endpoint.
+- Context mapping in Asterisk to realtime tables (already included):
+  - `from-voip-provider` → `voice_extensions`
+  - File reference on server: `extensions_mayday_context.conf`
+
+### Create an inbound route (per DID)
+
+1. Open Call Center Dashboard → `Voice → Inbound Routes`.
+2. Click “+ Add Inbound Route”.
+3. In Settings:
+   - Phone Number: enter the DID exactly as sent by the provider (e.g. `0323300244`).
+   - Context: `from-voip-provider`.
+   - Optional: Alias/Description to reflect the department or outlet.
+4. In Action tab (drag & drop):
+   - Optionally add a `Set` for normalization or tagging (e.g. set a variable, or a readable name).
+   - Add your destination (typically `Queue`) and select the department queue.
+   - Add terminal step (e.g. `Hangup`) if desired.
+5. Save. The UI writes the steps to the realtime `voice_extensions` table.
+
+### How routing works
+
+- Provider sends the DID to the Asterisk `Hugamara_Trunk` endpoint.
+- Context `from-voip-provider` is switched to realtime via `extconfig.conf`/`sorcery.conf` and `extensions_mayday_context.conf`.
+- The dialplan row matching the DID executes the configured Actions (Set/NoOp/Queue/etc.).
+
+### Testing
+
+- Place a test call to each DID and confirm it lands in the intended queue/IVR.
+- Use Asterisk CLI for visibility:
+  - `sudo asterisk -rvvv`
+  - `pjsip set logger on` (verify To/PAI, DID format)
+  - `dialplan show from-voip-provider` (should show realtime switch)
+
+### Common pitfalls
+
+- DID format mismatch: if provider sends E.164 or includes a prefix, add a top `Set`/normalization step or use pattern routes to translate to your stored number.
+- Queue not ringing: verify queue and members exist and are not paused; check that the inbound route’s queue step has the right queue name.
+- No matching extension: ensure Phone Number in the route equals the inbound DID the provider sends.
+
+## Outbound Caller ID (CLI) with Prefix Routes
+
+Use per‑outlet prefix routes so agents can choose the DID to present. Example for “The Villa” (0323300244) with prefix 94:
+
+1) Settings in `Voice → Outbound Routes → Edit`:
+   - Context: `from-internal`
+   - Phone Number (pattern): `_94X.`
+
+2) Actions (order matters):
+   - Custom → Application Name: `Set`
+     - Arguments: `CALLERID(all)="The Villa" <0323300244>`
+   - Custom → Application Name: `Dial`
+     - Arguments: `PJSIP/${EXTEN:2}@Hugamara_Trunk`  (strips the 2‑digit prefix)
+
+3) Repeat for each outlet/DID with its own prefix (e.g., 95, 96…). Agents dial `<prefix><number>` to select identity.
+
+### Trunk endpoint: identity header requirements (realtime)
+
+Your provider must accept identity headers. Ensure these are enabled on the trunk endpoint (`ps_endpoints.id='Hugamara_Trunk'`):
+
+- `send_pai = yes`
+- `send_rpid = yes`
+- `rpid_immediate = yes`
+- `trust_id_outbound = yes`
+
+Verify live settings:
+
+```bash
+sudo asterisk -rvvv
+pjsip show endpoint Hugamara_Trunk | egrep "send_pai|send_rpid|rpid_immediate|trust_id_outbound|from_user"
+```
+
+Optional: also add P-Preferred-Identity/PAI explicitly in the route before Dial when testing providers that need it:
+
+```text
+Custom → Set → PJSIP_HEADER(add,P-Preferred-Identity)=<sip:0323300244@siptrunk.cyber-innovative.com>
+Custom → Set → PJSIP_HEADER(add,P-Asserted-Identity)=<sip:0323300244@siptrunk.cyber-innovative.com>
+```
+
+### Verifying what’s sent
+
+- Enable SIP trace: `pjsip set logger on`, place a call using the prefix route.
+- Check the outbound INVITE to the provider. Expect `P-Asserted-Identity` and/or `P-Preferred-Identity` to contain `0323300244` (or E.164 if required).
+
+### Provider-side requirements
+
+If the callee still sees `0323300243` even though PAI/PPID show `0323300244` in the INVITE, the provider is overriding CLI. Request the provider to:
+
+- Whitelist/enable outbound CLI presentation for your DID range `0323300243–0323300249`.
+- Confirm required CLI format (national vs E.164, e.g., `+256323300244`).
+- If they only honor the account’s From user, either:
+  - Issue separate accounts per DID, or
+  - Accept PAI/PPID for your authorized DIDs.
+
+Workaround if provider cannot present PAI/PPID: create one trunk per DID with `from_user` set to that DID, and route by the chosen prefix to the corresponding trunk.
+
 ## Quick Start
 
 ### Prerequisites

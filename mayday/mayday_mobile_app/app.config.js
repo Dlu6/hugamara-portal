@@ -14,13 +14,13 @@ export default ({ config }) => ({
   },
   ios: {
     supportsTablet: false,
-    bundleIdentifier: "com.hugamara.mayday",
+    bundleIdentifier: "com.mayday",
     infoPlist: {
       UIBackgroundModes: ["audio", "voip", "processing"],
     },
   },
   android: {
-    package: "com.hugamara.mayday",
+    package: "com.mayday",
     permissions: [
       "INTERNET",
       "RECORD_AUDIO",
