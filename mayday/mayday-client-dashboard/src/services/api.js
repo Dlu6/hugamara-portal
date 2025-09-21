@@ -11,3 +11,12 @@ export const adminAPI = {
 
 // License API - re-export the license service
 export const licenseAPI = licenseService;
+
+// Dialplan Contexts API
+export const contextsAPI = {
+  list: () => apiClient.get("/contexts"),
+  create: (payload) => apiClient.post("/contexts", payload),
+  update: (id, payload) => apiClient.put(`/contexts/${id}`, payload),
+  remove: (id) => apiClient.delete(`/contexts/${id}`),
+  sync: () => apiClient.post("/contexts/sync"),
+};

@@ -38,7 +38,7 @@ const getUserRoutes = (user) => {
               { name: "View Routes", path: "/voice/outboundRoutes/list" },
             ],
           },
-          // { name: "Context", path: "/voice/contexts", exact: false },
+          { name: "Contexts", path: "/voice/contexts", exact: false },
           { name: "Music On Hold", path: "/voice/musicOnhold", exact: false },
           { name: "Recordings", path: "/voice/recordings", exact: false },
           // { name: "Chan Spy", path: "/voice/chanSpies", exact: false },

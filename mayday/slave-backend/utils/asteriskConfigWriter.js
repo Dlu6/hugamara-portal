@@ -857,7 +857,22 @@ export const updateContextsConfig = async () => {
       "/etc/asterisk/mayday.d/extensions_mayday_contexts.conf";
     const tempFile = "/tmp/extensions_append.conf";
 
-    const contextsContent = `
+    // Load dynamic contexts from DB
+    let dynamicContexts = [];
+    try {
+      const DialplanContext = (
+        await import("../models/dialplanContextModel.js")
+      ).default;
+      dynamicContexts = await DialplanContext.findAll({
+        where: { active: true },
+        raw: true,
+      });
+    } catch (e) {
+      console.warn("Could not load dialplan contexts from DB:", e.message);
+    }
+
+    // Base contexts
+    let contextsContent = `
 [from-sip]
 include => from-sip-custom
 switch => Realtime
@@ -873,6 +888,23 @@ switch => Realtime
 [mayday-mixmonitor-context]
 switch => Realtime
 `;
+
+    // Append dynamic contexts: each includes optional include and switches to realtime key
+    if (dynamicContexts && dynamicContexts.length > 0) {
+      const rendered = dynamicContexts
+        .map((c) => {
+          const name = c.name?.trim();
+          if (!name) return null;
+          const include = c.include?.trim();
+          const rt = (c.realtimeKey || name).trim();
+          return `\n[${name}]\n${
+            include ? `include => ${include}\n` : ""
+          }switch => Realtime/${rt}@voice_extensions\n`;
+        })
+        .filter(Boolean)
+        .join("");
+      contextsContent += rendered;
+    }
 
     // Write to temp file
     await fs.writeFile(tempFile, contextsContent);

@@ -139,17 +139,19 @@ This project uses Asterisk 20 with ODBC realtime for dialplan and PJSIP. Each pr
 
 Use per‑outlet prefix routes so agents can choose the DID to present. Example for “The Villa” (0323300244) with prefix 94:
 
-1) Settings in `Voice → Outbound Routes → Edit`:
+1. Settings in `Voice → Outbound Routes → Edit`:
+
    - Context: `from-internal`
    - Phone Number (pattern): `_94X.`
 
-2) Actions (order matters):
+2. Actions (order matters):
+
    - Custom → Application Name: `Set`
      - Arguments: `CALLERID(all)="The Villa" <0323300244>`
    - Custom → Application Name: `Dial`
-     - Arguments: `PJSIP/${EXTEN:2}@Hugamara_Trunk`  (strips the 2‑digit prefix)
+     - Arguments: `PJSIP/${EXTEN:2}@Hugamara_Trunk` (strips the 2‑digit prefix)
 
-3) Repeat for each outlet/DID with its own prefix (e.g., 95, 96…). Agents dial `<prefix><number>` to select identity.
+3. Repeat for each outlet/DID with its own prefix (e.g., 95, 96…). Agents dial `<prefix><number>` to select identity.
 
 ### Trunk endpoint: identity header requirements (realtime)
 

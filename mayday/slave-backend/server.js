@@ -31,6 +31,7 @@ import redisClient, { initializeRedis } from "./config/redis.js";
 import RedisStore from "connect-redis";
 import bcrypt from "bcrypt";
 import sequelize, { syncDatabase } from "./config/sequelize.js";
+import contextRoutes from "./routes/contextRoutes.js";
 import UserModel from "./models/usersModel.js";
 import authRoutes from "./routes/UsersRoute.js";
 // import sipRoutes from "./routes/sipRoutes.js";
@@ -351,6 +352,7 @@ app.use("/api/balance-verification", balanceVerificationRoutes);
 app.use("/api/integrations", integrationRoutes);
 app.use("/api/agent-status", agentStatusRoutes);
 app.use("/api/emails", emailRoutes);
+app.use("/api", contextRoutes);
 
 // app.use("/api/sip", sipRoutes);
 

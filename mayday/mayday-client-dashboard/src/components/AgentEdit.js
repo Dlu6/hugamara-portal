@@ -41,6 +41,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import { contextsAPI } from "../services/api";
 import { useSnackbar } from "notistack";
 import {
   fetchAgentDetailsByExtension,
@@ -59,6 +60,12 @@ const AgentEdit = () => {
   const [currentTab, setCurrentTab] = useState("account");
 
   const [formAgentDetails, setFormAgentDetails] = useState({});
+  const [availableContexts, setAvailableContexts] = useState([
+    { value: "from-internal", label: "from-internal" },
+    { value: "from-sip", label: "from-sip" },
+    { value: "from-voicemail", label: "from-voicemail" },
+    { value: "from-voip-provider", label: "from-voip-provider" },
+  ]);
 
   // Password reset state
   const [passwordResetState, setPasswordResetState] = useState({
@@ -80,6 +87,27 @@ const AgentEdit = () => {
       dispatch(fetchAgentDetailsByExtension(agentId));
     }
   }, [dispatch, agentId]);
+
+  // Load contexts from API
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await contextsAPI.list();
+        if (mounted && data?.success && Array.isArray(data.data)) {
+          const items = data.data
+            .filter((c) => c?.name)
+            .map((c) => ({ value: c.name, label: c.name }));
+          if (items.length > 0) setAvailableContexts(items);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   //Manage form inputs locally before submitting on save
   useEffect(() => {
@@ -519,6 +547,7 @@ const AgentEdit = () => {
               handleSwitchChange={handleSwitchChange}
               handleInputChange={handleInputChange}
               handleNatChange={handleNatChange}
+              availableContexts={availableContexts}
             />
           )}
           {currentTab === "otherChannels" && (
@@ -775,6 +804,7 @@ const VoiceTabContent = ({
   handleSwitchChange,
   handleInputChange,
   handleNatChange,
+  availableContexts,
 }) => {
   // Removed non-working public-config suggestion logic
   const transportOptions = [
@@ -1233,10 +1263,11 @@ const VoiceTabContent = ({
           value={formAgentDetails.context || ""}
           onChange={handleInputChange}
         >
-          <MenuItem value="from-internal">from-internal</MenuItem>
-          <MenuItem value="from-sip">from-sip</MenuItem>
-          <MenuItem value="from-voicemail">from-voicemail</MenuItem>
-          <MenuItem value="from-voip-provider">from-voip-provider</MenuItem>
+          {availableContexts.map((c) => (
+            <MenuItem key={c.value} value={c.value}>
+              {c.label}
+            </MenuItem>
+          ))}
         </Select>
       </FormControl>
 

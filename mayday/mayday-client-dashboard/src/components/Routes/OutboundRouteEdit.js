@@ -41,6 +41,7 @@ import {
   fetchOutboundRouteById,
 } from "../../features/outboundRoutes/outboundRouteSlice";
 import AppsIcon from "@mui/icons-material/Apps";
+import { contextsAPI } from "../../services/api";
 
 const initialApps = [
   { id: 1, app: "outboundDial", name: "Outbound Dial", type: "OutboundDial" },
@@ -197,6 +198,13 @@ const OutboundRouteEdit = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editableApp, setEditableApp] = useState(null);
   const [voiceExtensions, setVoiceExtensions] = useState([]);
+  const [availableContexts, setAvailableContexts] = useState([
+    { value: "outbound-trunk", label: "Outbound Trunk" },
+    { value: "from-sip", label: "From SIP" },
+    { value: "from-internal", label: "From Internal" },
+    { value: "from-voip-provider", label: "From VoIP Provider" },
+    { value: "from-voicemail", label: "From Voicemail" },
+  ]);
 
   const currentRoute = useSelector((state) => state.outboundRoute.currentRoute);
   // const loading = useSelector((state) => state.outboundRoute.loading);
@@ -206,6 +214,27 @@ const OutboundRouteEdit = () => {
       dispatch(fetchOutboundRouteById(outboundRouteId));
     }
   }, [outboundRouteId, dispatch]);
+
+  // Load contexts from API
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await contextsAPI.list();
+        if (mounted && data?.success && Array.isArray(data.data)) {
+          const items = data.data
+            .filter((c) => c?.name)
+            .map((c) => ({ value: c.name, label: c.name }));
+          if (items.length > 0) setAvailableContexts(items);
+        }
+      } catch (e) {
+        // silent fallback to defaults
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (currentRoute) {
@@ -259,13 +288,7 @@ const OutboundRouteEdit = () => {
     }
   }, [currentRoute]);
 
-  const contexts = [
-    { value: "outbound-trunk", label: "Outbound Trunk" },
-    { value: "from-sip", label: "From SIP" },
-    { value: "from-internal", label: "From Internal" },
-    { value: "from-voip-provider", label: "From VoIP Provider" },
-    { value: "from-voicemail", label: "From Voicemail" },
-  ];
+  const contexts = availableContexts;
 
   // Settings Tab Content
   const SettingsTabContent = () => {

@@ -126,6 +126,8 @@ export const syncDatabase = async () => {
     const IntegrationDataModel = (
       await import("../models/integrationDataModel.js")
     ).default;
+    const DialplanContext = (await import("../models/dialplanContextModel.js"))
+      .default;
     const {
       LicenseCache,
       LicenseValidation,
@@ -159,6 +161,9 @@ export const syncDatabase = async () => {
       }
       await VoiceExtension.sync({ force: false, transaction: tx });
       await InboundRoute.sync({ force: false, transaction: tx });
+
+      // Dialplan Contexts (new)
+      await DialplanContext.sync({ force: false, transaction: tx });
 
       // Integrations
       await IntegrationModel.sync({ force: false, transaction: tx });
