@@ -4,17 +4,28 @@ import https from "https";
 import redisClient from "../config/redis.js";
 import SmsMessage from "../models/SmsMessage.js"; // Import the SmsMessage model
 
-function buildAxiosClient(env = process.env) {
+function buildAxiosClient(config = {}) {
   const baseUrl =
-    env.SMS_PROVIDER_BASE_URL || "https://sms.cyber-innovative.com/secure";
-  const overrideIp = env.SMS_PROVIDER_OVERRIDE_IP; // e.g., 41.77.78.156
-  const strictTls = env.SMS_PROVIDER_STRICT_TLS === "true"; // default false if overriding IP
+    config.baseUrl ||
+    process.env.SMS_PROVIDER_BASE_URL ||
+    "https://sms.cyber-innovative.com/secure";
+  const overrideIp = config.overrideIp || process.env.SMS_PROVIDER_OVERRIDE_IP; // e.g., 41.77.78.156
+  const strictTls =
+    config.strictTls === true ||
+    config.strictTls === "true" ||
+    process.env.SMS_PROVIDER_STRICT_TLS === "true";
 
   // Build Authorization header
-  let authHeader = env.SMS_PROVIDER_AUTH; // e.g., "Basic base64..."
+  let authHeader = config.authHeader || process.env.SMS_PROVIDER_AUTH; // e.g., "Basic base64..."
   if (!authHeader) {
-    const user = env.SMS_PROVIDER_USERNAME || env.SMS_USERNAME;
-    const pass = env.SMS_PROVIDER_PASSWORD || env.SMS_PASSWORD;
+    const user =
+      config.username ||
+      process.env.SMS_PROVIDER_USERNAME ||
+      process.env.SMS_USERNAME;
+    const pass =
+      config.password ||
+      process.env.SMS_PROVIDER_PASSWORD ||
+      process.env.SMS_PASSWORD;
     if (user && pass) {
       const token = Buffer.from(`${user}:${pass}`).toString("base64");
       authHeader = `Basic ${token}`;
@@ -47,19 +58,18 @@ function buildAxiosClient(env = process.env) {
   });
 }
 
-let client = buildAxiosClient();
-
-// Runtime-configurable settings persisted to Redis (optional)
 let runtimeConfig = {
   baseUrl: process.env.SMS_PROVIDER_BASE_URL,
   overrideIp: process.env.SMS_PROVIDER_OVERRIDE_IP,
   strictTls: process.env.SMS_PROVIDER_STRICT_TLS,
   authHeader: process.env.SMS_PROVIDER_AUTH,
   username: process.env.SMS_PROVIDER_USERNAME || process.env.SMS_USERNAME,
-  password: process.env.SMS_PROVIDER_PASSWORD || env.SMS_PASSWORD,
+  password: process.env.SMS_PROVIDER_PASSWORD || process.env.SMS_PASSWORD,
   defaultSender: process.env.SMS_DEFAULT_SENDER || "Hugamara",
   dlrUrl: process.env.SMS_DLR_URL,
 };
+
+let client = buildAxiosClient(runtimeConfig);
 
 async function loadConfig() {
   try {
@@ -68,22 +78,7 @@ async function loadConfig() {
       if (raw) {
         const cfg = JSON.parse(raw);
         runtimeConfig = { ...runtimeConfig, ...cfg };
-        client = buildAxiosClient({
-          ...process.env,
-          SMS_PROVIDER_BASE_URL:
-            cfg.baseUrl || process.env.SMS_PROVIDER_BASE_URL,
-          SMS_PROVIDER_OVERRIDE_IP:
-            cfg.overrideIp || process.env.SMS_PROVIDER_OVERRIDE_IP,
-          SMS_PROVIDER_STRICT_TLS:
-            cfg.strictTls ?? process.env.SMS_PROVIDER_STRICT_TLS,
-          SMS_PROVIDER_AUTH: cfg.authHeader || process.env.SMS_PROVIDER_AUTH,
-          SMS_PROVIDER_USERNAME:
-            cfg.username || process.env.SMS_PROVIDER_USERNAME,
-          SMS_PROVIDER_PASSWORD:
-            cfg.password || process.env.SMS_PROVIDER_PASSWORD,
-          SMS_USERNAME: cfg.username || process.env.SMS_USERNAME,
-          SMS_PASSWORD: cfg.password || process.env.SMS_PASSWORD,
-        });
+        client = buildAxiosClient(runtimeConfig);
       }
     }
   } catch (_) {}
@@ -103,6 +98,7 @@ export const smsService = {
 
   // Backward-compatible alias used by controllers
   getProviderConfig() {
+    // If no Redis config, expose environment-derived defaults
     return this.getConfig();
   },
 
@@ -114,23 +110,7 @@ export const smsService = {
       }
     } catch (_) {}
 
-    client = buildAxiosClient({
-      ...process.env,
-      SMS_PROVIDER_BASE_URL:
-        runtimeConfig.baseUrl || process.env.SMS_PROVIDER_BASE_URL,
-      SMS_PROVIDER_OVERRIDE_IP:
-        runtimeConfig.overrideIp || process.env.SMS_PROVIDER_OVERRIDE_IP,
-      SMS_PROVIDER_STRICT_TLS:
-        runtimeConfig.strictTls ?? process.env.SMS_PROVIDER_STRICT_TLS,
-      SMS_PROVIDER_AUTH:
-        runtimeConfig.authHeader || process.env.SMS_PROVIDER_AUTH,
-      SMS_PROVIDER_USERNAME:
-        runtimeConfig.username || process.env.SMS_PROVIDER_USERNAME,
-      SMS_PROVIDER_PASSWORD:
-        runtimeConfig.password || process.env.SMS_PROVIDER_PASSWORD,
-      SMS_USERNAME: runtimeConfig.username || process.env.SMS_USERNAME,
-      SMS_PASSWORD: runtimeConfig.password || process.env.SMS_PASSWORD,
-    });
+    client = buildAxiosClient(runtimeConfig);
     return this.getConfig();
   },
 
