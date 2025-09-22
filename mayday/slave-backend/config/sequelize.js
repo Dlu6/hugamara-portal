@@ -134,6 +134,7 @@ export const syncDatabase = async () => {
       FingerprintHistory,
       ClientSession,
     } = await import("../models/licenseModel.js");
+    const SmsMessage = (await import("../models/SmsMessage.js")).default; // Import the new model
 
     // Single transaction for all DDL
     const tx = await sequelize.transaction();
@@ -186,6 +187,9 @@ export const syncDatabase = async () => {
       await SoundFile.sync({ force: false, transaction: tx });
       await OdbcConnection.sync({ force: false, transaction: tx });
       await IVRFlow.sync({ force: false, transaction: tx });
+
+      // SMS
+      await SmsMessage.sync({ force: false, transaction: tx }); // Sync the new model
 
       await tx.commit();
       console.log("Database synchronized successfully");

@@ -97,6 +97,11 @@ const getUserRoutes = (user) => {
             path: "/integrations/zoho",
             feature: "zoho",
           },
+          {
+            name: "SMS",
+            path: "/integrations/sms",
+            feature: "sms",
+          },
         ],
       },
       // { name: 'Settings', path: '/settings' },

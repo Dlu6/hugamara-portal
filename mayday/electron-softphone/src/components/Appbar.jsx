@@ -71,9 +71,9 @@ import {
   PersonAdd,
   Search,
   StarBorder,
-  Timeline,
+  // Timeline,
   BarChart,
-  Refresh,
+  Message as MessageIcon,
 } from "@mui/icons-material";
 // import { io } from "socket.io-client";
 // import DialPad from "./DialPad";
@@ -103,7 +103,8 @@ import transferHistoryService from "../services/transferHistoryService";
 import { agentService } from "../services/agentService";
 import { useNavigate } from "react-router-dom";
 import CallPopup from "./CallPopup";
-
+import smsApi from "../services/smsService";
+import SmsView from "./SmsView";
 // Debug connection manager import - removed excessive logging
 
 const pulseAnimation = keyframes`
@@ -1969,30 +1970,12 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       action: () => setActiveSection("transferHistory"),
       id: "transferHistory",
     },
-    // {
-    //   icon: <EmailIcon />,
-    //   text: "Email",
-    //   action: () => setActiveSection("email"),
-    //   id: "email",
-    // },
-    // {
-    //   icon: <FacebookIcon />,
-    //   text: "Facebook",
-    //   action: () => setActiveSection("facebook"),
-    //   id: "facebook",
-    // },
     {
       icon: <BarChart />,
       text: "Reports",
       action: () => setActiveSection("reports"),
       id: "reports",
     },
-    // {
-    //   icon: <Group />,
-    //   text: "Contacts",
-    //   action: () => setActiveSection("contacts"),
-    //   id: "contacts",
-    // },
     {
       icon: <SupportAgent />,
       text: "Agent Status",
@@ -2006,17 +1989,17 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       id: "whatsapp",
     },
     {
+      icon: <MessageIcon />,
+      text: "SMS",
+      action: () => setActiveSection("sms"),
+      id: "sms",
+    },
+    {
       icon: <EmailIcon />,
       text: "Email",
       action: () => setActiveSection("email"),
       id: "email",
     },
-    // {
-    //   icon: <Campaign />,
-    //   text: "Campaigns",
-    //   action: () => setActiveSection("campaigns"),
-    //   id: "campaigns",
-    // },
     {
       icon: <InfoIcon />,
       text: "Info",
@@ -3965,6 +3948,20 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
     return () => clearInterval(interval);
   }, [isAttendedTransfer, consultationCall, isLoggingOut]);
 
+  // Add near other handlers
+  const handleQuickSms = async () => {
+    try {
+      const to = window.prompt("Send SMS to (E.164, e.g. +256...)");
+      if (!to) return;
+      const content = window.prompt("Message content");
+      if (!content) return;
+      await smsApi.send({ to, content });
+      window.alert("SMS sent");
+    } catch (e) {
+      window.alert(`Failed to send SMS: ${e.message}`);
+    }
+  };
+
   // ========== Component Rendering ==========
 
   return (
@@ -4819,23 +4816,11 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
         open={activeSection === "email"}
         onClose={handleCloseSection}
       />
-      {/* <Contacts
-        open={activeSection === "contacts"}
-        onClose={handleCloseSection}
-        onWhatsAppChat={handleWhatsAppChat}
-      /> */}
-      {/* <Campaigns
-        open={activeSection === "campaigns"}
-        onClose={handleCloseSection}
-      /> */}
+      <SmsView open={activeSection === "sms"} onClose={handleCloseSection} />
       <AgentStatus
         open={activeSection === "agentStatus"}
         onClose={handleCloseSection}
       />
-      {/* <FacebookView
-        open={activeSection === "facebook"}
-        onClose={handleCloseSection}
-      /> */}
       <PhonebarInfo
         open={activeSection === "info"}
         onClose={handleCloseSection}

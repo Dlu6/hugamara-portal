@@ -128,6 +128,17 @@ module.exports = {
         TRUNK_PROVIDER_AUTH_HEADER: "MDMyMDAwMDAwODoxMy4yMzQuMTguMg==",
         TRUNK_PROVIDER_VALIDATE_URL:
           "https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php",
+
+        // SMS Provider Configuration
+        SMS_PROVIDER_BASE_URL: "https://sms.cyber-innovative.com/secure",
+        SMS_PROVIDER_OVERRIDE_IP: "41.77.78.156", // optional; for DNS issues
+        SMS_PROVIDER_STRICT_TLS: "false", // "true" if not using override IP
+        // Use either USER/PASS or AUTH header (prefer user/pass)
+        SMS_PROVIDER_USERNAME: "medhi",
+        SMS_PROVIDER_PASSWORD: "Lusuku@#2025!",
+        // SMS_PROVIDER_AUTH: "Basic bWVkaGk6THVzdWt1QCMyMDI1IQ==",
+        SMS_DEFAULT_SENDER: "Hugamara",
+        SMS_DLR_URL: "https://cs.hugamara.com/api/sms/dlr",
       },
       error_file: "./logs/mayday-backend-error.log",
       out_file: "./logs/mayday-backend-out.log",

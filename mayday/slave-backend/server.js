@@ -77,6 +77,7 @@ import cdrRoutes from "./routes/CdrRoute.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import recordingRoutes from "./routes/recordingRoutes.js";
 import emailRoutes from "./routes/emailRoutes.js";
+import smsRoutes from "./routes/smsRoutes.js";
 import { setupAssociations } from "./models/usersModel.js";
 import { setupIntegrationAssociations } from "./models/associations.js";
 import IntegrationModel from "./models/integrationModel.js";
@@ -352,6 +353,7 @@ app.use("/api/balance-verification", balanceVerificationRoutes);
 app.use("/api/integrations", integrationRoutes);
 app.use("/api/agent-status", agentStatusRoutes);
 app.use("/api/emails", emailRoutes);
+app.use("/api/sms", smsRoutes);
 app.use("/api", contextRoutes);
 
 // app.use("/api/sip", sipRoutes);
