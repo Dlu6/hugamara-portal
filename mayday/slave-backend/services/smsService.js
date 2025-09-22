@@ -56,7 +56,7 @@ let runtimeConfig = {
   strictTls: process.env.SMS_PROVIDER_STRICT_TLS,
   authHeader: process.env.SMS_PROVIDER_AUTH,
   username: process.env.SMS_PROVIDER_USERNAME || process.env.SMS_USERNAME,
-  password: process.env.SMS_PROVIDER_PASSWORD || process.env.SMS_PASSWORD,
+  password: process.env.SMS_PROVIDER_PASSWORD || env.SMS_PASSWORD,
   defaultSender: process.env.SMS_DEFAULT_SENDER || "Hugamara",
   dlrUrl: process.env.SMS_DLR_URL,
 };
@@ -101,6 +101,11 @@ export const smsService = {
     return cfg;
   },
 
+  // Backward-compatible alias used by controllers
+  getProviderConfig() {
+    return this.getConfig();
+  },
+
   async setConfig(update) {
     runtimeConfig = { ...runtimeConfig, ...update };
     try {
@@ -127,6 +132,12 @@ export const smsService = {
       SMS_PASSWORD: runtimeConfig.password || process.env.SMS_PASSWORD,
     });
     return this.getConfig();
+  },
+
+  // Backward-compatible alias used by controllers
+  async updateProviderConfig(newConfig) {
+    await this.setConfig(newConfig);
+    return { success: true, message: "SMS provider config updated" };
   },
 
   async send({ to, content, from, dlr = "yes", dlrUrl, dlrLevel = 3 }) {

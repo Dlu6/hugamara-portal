@@ -316,6 +316,141 @@ const response = await fetch(endpoints.users.systemHealth, {
 });
 ```
 
+## 📩 SMS Integration
+
+The Call Center now supports outbound SMS via an external provider and a built-in UI in the Electron softphone.
+
+### Provider
+
+- Default provider: Cyber Innovative SMS
+- Base URL: `https://sms.cyber-innovative.com/secure`
+- Optional Override IP (when DNS fails): `41.77.78.156`
+
+### Backend Configuration (Production)
+
+Add these variables to the `mayday-callcenter-backend` app in `ecosystem.config.js`:
+
+```js
+// SMS Provider Configuration
+SMS_PROVIDER_BASE_URL: "https://sms.cyber-innovative.com/secure",
+SMS_PROVIDER_OVERRIDE_IP: "41.77.78.156",     // optional; for DNS issues
+SMS_PROVIDER_STRICT_TLS: "false",             // "true" if NOT using override IP
+// Use either USER/PASS or AUTH header (prefer user/pass)
+SMS_PROVIDER_USERNAME: "medhi",
+SMS_PROVIDER_PASSWORD: "Lusuku@#2025!",
+// Alternatively:
+// SMS_PROVIDER_AUTH: "Basic bWVkaGk6THVzdWt1QCMyMDI1IQ==",
+SMS_DEFAULT_SENDER: "Hugamara",
+SMS_DLR_URL: "https://cs.hugamara.com/api/sms/dlr",
+```
+
+Notes:
+
+- Use one authentication method only: Username/Password, or `SMS_PROVIDER_AUTH`.
+- If DNS works on the server, omit `SMS_PROVIDER_OVERRIDE_IP` and set `SMS_PROVIDER_STRICT_TLS` to `"true"`.
+
+### Backend Configuration (Development)
+
+- Dashboard API client points to `http://localhost:8004/api` automatically when accessed on `localhost`.
+- Delivery Report (DLR) URL in dev: `http://localhost:8004/api/sms/dlr`.
+
+### Runtime Configuration (Dashboard)
+
+You can configure the provider at runtime in the Call Center Dashboard:
+
+- Navigate: `Integrations → SMS`
+- Fields:
+  - Base URL
+  - Override IP (optional)
+  - Strict TLS (enable if no Override IP)
+  - Auth Header (Basic ...) or Username/Password
+  - Default Sender
+  - DLR URL (dev/prod values above)
+- Actions:
+  - Save Configuration
+  - Check Balance
+
+Internally, the runtime config is stored in Redis (`key: sms_provider_config`). If this key exists, it overrides environment variables. To revert to env values in production:
+
+```bash
+redis-cli DEL sms_provider_config
+pm2 restart mayday-callcenter-backend
+```
+
+### API Endpoints (Backend)
+
+- `POST /api/sms/send` — Send an SMS
+- `GET  /api/sms/balance` — Provider balance (admin)
+- `GET  /api/sms/providers` — Provider metadata (admin)
+- `GET  /api/sms/config` — Get current configuration (admin)
+- `PUT|POST /api/sms/config` — Update runtime configuration (admin)
+- `POST /api/sms/dlr` — Delivery Report webhook (public)
+- `GET  /api/sms/conversations` — List SMS conversations (latest per partner)
+- `GET  /api/sms/conversations/:phoneNumber` — Messages for a phone number
+
+### cURL Examples
+
+Send SMS:
+
+```bash
+curl --location 'https://sms.cyber-innovative.com/secure/send' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Basic bWVkaGk6THVzdWt1QCMyMDI1IQ==' \
+  --data '{
+    "to":"+256700771301",
+    "from":"Hugamara",
+    "content":"This is a test message from Hugamara Mayday",
+    "dlr":"yes",
+    "dlr-url":"https://cs.hugamara.com/api/sms/dlr",
+    "dlr-level":3
+  }'
+```
+
+Check Balance:
+
+```bash
+curl --location 'https://sms.cyber-innovative.com/secure/balance' \
+  --header 'Authorization: Basic bWVkaGk6THVzdWt1QCMyMDI1IQ=='
+```
+
+If DNS fails, temporarily resolve via IP and Host override (example):
+
+```bash
+curl --location 'https://sms.cyber-innovative.com/secure/send' \
+  --resolve 'sms.cyber-innovative.com:443:41.77.78.156' \
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Basic bWVkaGk6THVzdWt1QCMyMDI1IQ==' \
+  --data '{"to":"+256700771301","from":"Hugamara","content":"Test","dlr":"yes"}'
+```
+
+### Electron Softphone – SMS UI
+
+- New sidebar item: **SMS**
+- Features:
+  - List conversations (latest message per partner)
+  - View thread and send messages
+  - Messages persist to the database (`SmsMessages` table)
+  - Delivery status updates via DLR handler
+
+### Data Model
+
+`SmsMessage` (MySQL):
+
+- `id` (UUID, PK)
+- `providerMessageId` (string, nullable)
+- `fromNumber` (string)
+- `toNumber` (string)
+- `content` (text)
+- `direction` (`inbound` | `outbound`)
+- `status` (`queued` | `sent` | `delivered` | `failed` | `received` | `undelivered`)
+- `createdAt` / `updatedAt`
+
+### Troubleshooting
+
+- 404 on saving config: ensure backend accepts `PUT`/`POST /api/sms/config` and the dashboard points to the correct base URL.
+- HTML returned instead of JSON on balance: verify the dashboard API base resolves to the backend (`http://localhost:8004/api` in dev) and not the React app.
+- TLS/Host issues: when using Override IP, set `Strict TLS` to `false` or configure proper certificates for the IP/Host combination.
+
 ## 🚀 Deployment
 
 ### Production Setup

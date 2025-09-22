@@ -135,7 +135,7 @@ module.exports = {
         SMS_PROVIDER_STRICT_TLS: "false", // "true" if not using override IP
         // Use either USER/PASS or AUTH header (prefer user/pass)
         SMS_PROVIDER_USERNAME: "medhi",
-        SMS_PROVIDER_PASSWORD: "Lusuku@#2025!",
+        SMS_PROVIDER_PASSWORD: "Mayday@#1759!",
         // SMS_PROVIDER_AUTH: "Basic bWVkaGk6THVzdWt1QCMyMDI1IQ==",
         SMS_DEFAULT_SENDER: "Hugamara",
         SMS_DLR_URL: "https://cs.hugamara.com/api/sms/dlr",
