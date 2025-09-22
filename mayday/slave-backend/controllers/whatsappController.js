@@ -3,10 +3,12 @@ import {
   Contact,
   WhatsAppMessage,
   WhatsAppConfig,
+  Conversation,
 } from "../models/WhatsAppModel.js";
 // import pkg from "twilio"; // Removed Twilio import
 import { socketService } from "../services/socketService.js";
 import axios from "axios"; // Added axios import
+import lipachat from "../services/lipachatService.js";
 // const { Twilio } = pkg; // Removed Twilio import
 
 // Get configuration from environment variables
@@ -29,6 +31,10 @@ if (!lipaChatApiKey || !lipaChatPhoneNumber) {
 // export const sendMessage = async (req, res) => { ... }; // Entire sendMessage function removed as it was Twilio specific
 
 export const handleWebhook = async (req, res) => {
+  // Verify webhook signature if configured
+  if (!lipachat.verifyWebhookSignature(req)) {
+    return res.status(401).json({ success: false, error: "Invalid signature" });
+  }
   console.log("--- LIPACHAT WEBHOOK RECEIVED ---");
   console.log("Headers:", JSON.stringify(req.headers, null, 2));
   console.log("Body:", JSON.stringify(req.body, null, 2));
@@ -262,6 +268,26 @@ export const handleWebhook = async (req, res) => {
               unreadCountForEmit = contact.unreadCount;
             }
 
+            // Find/create conversation for this contact
+            let conversation = await Conversation.findOne({
+              where: { contactId: contact.id, status: "open" },
+              order: [["updatedAt", "DESC"]],
+            });
+            if (!conversation) {
+              conversation = await Conversation.create({
+                contactId: contact.id,
+                provider: "lipachat",
+                status: "open",
+                unreadCount: 1,
+                lastMessageAt: eventTimestamp,
+              });
+            } else {
+              await conversation.update({
+                unreadCount: conversation.unreadCount + 1,
+                lastMessageAt: eventTimestamp,
+              });
+            }
+
             const incomingMessage = await WhatsAppMessage.create({
               messageId: lipaMessageId,
               from: fromNumber,
@@ -273,6 +299,7 @@ export const handleWebhook = async (req, res) => {
               sender: fromNumber,
               type: messageType,
               timestamp: eventTimestamp,
+              conversationId: conversation.id,
             });
 
             console.log(
@@ -303,10 +330,11 @@ export const handleWebhook = async (req, res) => {
                   contact.name?.substring(0, 2).toUpperCase() ||
                   fromNumber.substring(fromNumber.length - 2),
                 lastMessage: contact.lastMessage,
-                unreadCount: unreadCountForEmit,
+                unreadCount: conversation.unreadCount,
                 isOnline: contact.isOnline,
                 lastMessageSender: contact.lastMessageSender,
                 lastMessageId: contact.lastMessageId,
+                conversationId: conversation.id,
               },
             });
           }
@@ -551,24 +579,31 @@ export const getMedia = async (req, res) => {
 
 export const getWhatsAppConfig = async (req, res) => {
   try {
-    // This function primarily returns the configured LipaChat phone number for the agent.
-    // It relies on the LIPACHAT_PHONE_NUMBER environment variable.
-    if (!lipaChatPhoneNumber) {
-      console.error(
-        "Agent WhatsApp number (LIPACHAT_PHONE_NUMBER) is not configured in environment variables."
-      );
-      return res.status(500).json({
-        success: false,
-        error: "Agent WhatsApp number is not configured on the server.",
+    // Prefer DB-configured values; fall back to env
+    const cfg = await WhatsAppConfig.findOne();
+    const phone = cfg?.phoneNumber || lipaChatPhoneNumber || null;
+    if (!phone) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          enabled: cfg?.enabled || false,
+          phoneNumber: "",
+          webhookUrl: cfg?.webhookUrl || "",
+          apiKeyProvided: Boolean(cfg?.lipaApiKey),
+        },
+        warning: "WhatsApp number not configured yet.",
       });
     }
 
     res.json({
       success: true,
       data: {
-        phoneNumber: lipaChatPhoneNumber,
-        // We can add other relevant config details here if needed in the future
-        // For now, only the phone number is requested for display.
+        enabled: cfg?.enabled ?? Boolean(process.env.LIPACHAT_API_KEY),
+        phoneNumber: phone,
+        webhookUrl: cfg?.webhookUrl || "",
+        apiKeyProvided: Boolean(
+          cfg?.lipaApiKey || process.env.LIPACHAT_API_KEY
+        ),
       },
     });
   } catch (error) {
@@ -592,32 +627,21 @@ export const updateWhatsAppConfig = async (req, res) => {
       // contentSid, // Removed Twilio
     } = req.body;
 
-    // TODO: Decide if you want to save Lipachat API key and number to DB via WhatsAppConfig model
-    // For now, this function might not be directly applicable if config is mainly from .env
-    // Or, adapt WhatsAppConfig to store lipaApiKey, lipaPhoneNumber
-
     let config = await WhatsAppConfig.findOne();
 
     if (!config) {
       config = await WhatsAppConfig.create({
         enabled,
-        // accountSid,
-        // authToken,
-        // Adapt model if storing Lipachat API Key here
-        // lipaApiKey: apiKey,
-        phoneNumber, // This would be the Lipachat number being configured
-        webhookUrl, // Your app's webhook for Lipachat
-        // contentSid,
+        lipaApiKey: apiKey || null,
+        phoneNumber: phoneNumber || null,
+        webhookUrl: webhookUrl || null,
       });
     } else {
       await config.update({
         enabled,
-        // accountSid,
-        // authToken,
-        // lipaApiKey: apiKey,
-        phoneNumber,
-        webhookUrl,
-        // contentSid,
+        lipaApiKey: apiKey || config.lipaApiKey,
+        phoneNumber: phoneNumber || config.phoneNumber,
+        webhookUrl: webhookUrl || config.webhookUrl,
       });
     }
 
@@ -628,11 +652,9 @@ export const updateWhatsAppConfig = async (req, res) => {
       success: true,
       data: {
         enabled: config.enabled,
-        // accountSid: config.accountSid, // Removed
-        phoneNumber: config.phoneNumber, // Lipachat phone number
-        webhookUrl: config.webhookUrl,
-        // contentSid: config.contentSid, // Removed
-        apiKeyProvided: !!apiKey, // Indicate if API key was part of the update
+        phoneNumber: config.phoneNumber || "",
+        webhookUrl: config.webhookUrl || "",
+        apiKeyProvided: Boolean(config.lipaApiKey),
       },
     });
   } catch (error) {
@@ -845,10 +867,27 @@ export const sendChatMessage = async (req, res) => {
 
     if (template && template.name) {
       finalMessageType = "template";
-      console.warn(
-        `sendChatMessage: Sending templates via Lipachat is not yet fully implemented. Template: ${template.name}`
-      );
-      lipaMessageId = `lipa-template-attempt-${Date.now()}`;
+      try {
+        const resp = await lipachat.sendTemplate({
+          to: toNumberForApi,
+          from: fromNumberForApi,
+          template,
+          apiKey:
+            (await WhatsAppConfig.findOne())?.lipaApiKey || lipaChatApiKey,
+        });
+        if (resp?.data?.messageId) {
+          lipaMessageId = resp.data.messageId;
+          lipaMessageStatus = resp.data.status?.toLowerCase() || "sent";
+        } else {
+          lipaMessageId = `lipa-template-${Date.now()}`;
+        }
+      } catch (e) {
+        console.error(
+          "Lipachat template send error:",
+          e.response?.data || e.message
+        );
+        lipaMessageId = `lipa-template-error-${Date.now()}`;
+      }
     } else if (mediaUrl) {
       finalMessageType =
         mediaUrl.includes(".jpg") || mediaUrl.includes(".png")
@@ -856,66 +895,43 @@ export const sendChatMessage = async (req, res) => {
           : mediaUrl.includes(".mp4")
           ? "video"
           : "document";
-      console.warn(
-        `sendChatMessage: Sending media via Lipachat is not yet fully implemented. Media URL: ${mediaUrl}`
-      );
-      lipaMessageId = `lipa-media-attempt-${Date.now()}`;
+      try {
+        const resp = await lipachat.sendMedia({
+          to: toNumberForApi,
+          from: fromNumberForApi,
+          url: mediaUrl,
+          type: finalMessageType,
+          apiKey:
+            (await WhatsAppConfig.findOne())?.lipaApiKey || lipaChatApiKey,
+        });
+        if (resp?.data?.messageId) {
+          lipaMessageId = resp.data.messageId;
+          lipaMessageStatus = resp.data.status?.toLowerCase() || "sent";
+        } else {
+          lipaMessageId = `lipa-media-${Date.now()}`;
+        }
+      } catch (e) {
+        console.error(
+          "Lipachat media send error:",
+          e.response?.data || e.message
+        );
+        lipaMessageId = `lipa-media-error-${Date.now()}`;
+      }
     } else if (text) {
       finalMessageType = "text";
-      const textMessagePayload = {
-        message: text,
-        messageId: `client-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2, 15)}`,
-        to: toNumberForApi, // Use consistently formatted E.164 number (with +)
-        from: fromNumberForApi, // Use number directly from .env for 'from' field
-      };
-
       try {
-        console.log(
-          "Sending text message to Lipachat with payload:",
-          JSON.stringify(textMessagePayload, null, 2)
-        );
-        const response = await axios.post(
-          `${LIPACHAT_API_BASE_URL}`,
-          textMessagePayload,
-          {
-            headers: {
-              apiKey: lipaChatApiKey,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        console.log(
-          "Lipachat API Response:",
-          JSON.stringify(response.data, null, 2)
-        );
-        if (
-          response.data &&
-          response.data.status === "success" &&
-          response.data.data &&
-          response.data.data.messageId
-        ) {
-          lipaMessageId = response.data.data.messageId;
-          lipaMessageStatus = response.data.data.status
-            ? response.data.data.status.toLowerCase()
-            : "sent";
-        } else if (
-          response.data &&
-          response.data.messages &&
-          response.data.messages.length > 0 &&
-          response.data.messages[0].id
-        ) {
-          lipaMessageId = response.data.messages[0].id;
-          lipaMessageStatus = response.data.messages[0].status
-            ? response.data.messages[0].status.toLowerCase()
-            : "sent";
+        const response = await lipachat.sendText({
+          to: toNumberForApi,
+          from: fromNumberForApi,
+          message: text,
+          apiKey:
+            (await WhatsAppConfig.findOne())?.lipaApiKey || lipaChatApiKey,
+        });
+        if (response?.data?.messageId) {
+          lipaMessageId = response.data.messageId;
+          lipaMessageStatus = response.data.status?.toLowerCase() || "sent";
         } else {
-          console.error(
-            "Lipachat API call did not return expected success structure or messageId:",
-            response.data
-          );
-          lipaMessageId = `lipa-failed-text-${Date.now()}`;
+          lipaMessageId = `lipa-text-${Date.now()}`;
         }
       } catch (apiError) {
         console.error(
@@ -933,6 +949,23 @@ export const sendChatMessage = async (req, res) => {
       });
     }
 
+    // Find or create conversation for outbound message
+    let conversation = await Conversation.findOne({
+      where: { contactId: contact.id, status: "open" },
+      order: [["updatedAt", "DESC"]],
+    });
+    if (!conversation) {
+      conversation = await Conversation.create({
+        contactId: contact.id,
+        provider: "lipachat",
+        status: "open",
+        unreadCount: 0,
+        lastMessageAt: new Date(),
+      });
+    } else {
+      await conversation.update({ lastMessageAt: new Date() });
+    }
+
     const messageToSave = {
       messageId: lipaMessageId || `unknown-${Date.now()}`,
       from: normalizedFromNumberForDb, // Store the number as it was sent
@@ -945,6 +978,7 @@ export const sendChatMessage = async (req, res) => {
       template: template ? JSON.stringify(template) : null,
       type: finalMessageType,
       timestamp: new Date(),
+      conversationId: conversation.id,
     };
 
     const message = await WhatsAppMessage.create(messageToSave);
@@ -972,6 +1006,7 @@ export const sendChatMessage = async (req, res) => {
         phoneNumber: contact.phoneNumber,
         lastMessageSender: "user",
         lastMessageId: message.messageId,
+        conversationId: conversation.id,
       },
     });
 
@@ -1172,9 +1207,13 @@ export const markChatAsRead = async (req, res) => {
         .json({ success: false, error: "Contact not found" });
     }
 
-    if (contact.unreadCount > 0) {
-      await contact.update({ unreadCount: 0 });
-      await contact.reload(); // Get the updated contact data
+    // Reset unread on the latest open conversation
+    const conversation = await Conversation.findOne({
+      where: { contactId: contact.id, status: "open" },
+      order: [["updatedAt", "DESC"]],
+    });
+    if (conversation && conversation.unreadCount > 0) {
+      await conversation.update({ unreadCount: 0 });
 
       // Emit an update to inform clients
       socketService.emitWhatsAppMessage({
@@ -1183,7 +1222,7 @@ export const markChatAsRead = async (req, res) => {
         message: {
           // Provide minimal message-like info if needed, or adapt frontend
           id: null, // No specific message, just chat update
-          timestamp: contact.lastInteraction, // Could use lastInteraction or now
+          timestamp: conversation.lastMessageAt || new Date(),
         },
         contact: {
           id: contact.id,
@@ -1194,15 +1233,16 @@ export const markChatAsRead = async (req, res) => {
             contact.name?.substring(0, 2).toUpperCase() ||
             phoneNumber.substring(phoneNumber.length - 2),
           lastMessage: contact.lastMessage,
-          unreadCount: contact.unreadCount, // This will be 0
+          unreadCount: 0,
           isOnline: contact.isOnline,
           lastMessageSender: contact.lastMessageSender,
           lastMessageId: contact.lastMessageId,
+          conversationId: conversation.id,
         },
       });
     }
 
-    res.json({ success: true, data: { unreadCount: contact.unreadCount } });
+    res.json({ success: true, data: { unreadCount: 0 } });
   } catch (error) {
     console.error("Error marking chat as read:", error);
     res

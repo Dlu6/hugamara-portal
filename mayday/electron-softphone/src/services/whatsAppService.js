@@ -51,6 +51,51 @@ const whatsAppService = {
     });
   },
 
+  getConversations: async () => {
+    return safeApiCall(async () => {
+      const response = await axios.get(`${API_BASE_URL}/conversations`);
+      return response.data;
+    });
+  },
+
+  claimConversation: async (conversationId) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(
+        `${API_BASE_URL}/conversations/${conversationId}/claim`
+      );
+      return response.data;
+    });
+  },
+
+  transferConversation: async (conversationId, agentId) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(
+        `${API_BASE_URL}/conversations/${conversationId}/transfer`,
+        { agentId }
+      );
+      return response.data;
+    });
+  },
+
+  resolveConversation: async (conversationId) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(
+        `${API_BASE_URL}/conversations/${conversationId}/resolve`
+      );
+      return response.data;
+    });
+  },
+
+  markChatAsRead: async (contactPhone) => {
+    return safeApiCall(async () => {
+      const encoded = encodeURIComponent(contactPhone);
+      const response = await axios.post(
+        `${API_BASE_URL}/chats/${encoded}/read`
+      );
+      return response.data;
+    });
+  },
+
   sendChatMessage: async (contactId, messageData) => {
     return safeApiCall(async () => {
       const encodedContactId = encodeURIComponent(contactId);

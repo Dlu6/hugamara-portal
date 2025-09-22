@@ -208,6 +208,9 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   const [whatsappConfig, setWhatsappConfig] = useState(null);
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [socket, setSocket] = useState(null);
+  const [conversations, setConversations] = useState([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  const [viewMode, setViewMode] = useState("chats");
 
   const fetchChatMessages = async (phoneNumber) => {
     try {
@@ -235,6 +238,16 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
     setSelectedChat(chat);
     await fetchChatMessages(chat.phoneNumber);
+    try {
+      await whatsAppService.markChatAsRead(chat.phoneNumber);
+      setChats((prev) =>
+        prev.map((c) =>
+          c.phoneNumber === chat.phoneNumber ? { ...c, unread: 0 } : c
+        )
+      );
+    } catch (e) {
+      console.warn("Failed to mark chat as read", e);
+    }
   };
 
   const handleBackToList = () => {
@@ -242,6 +255,49 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       socket.emit("whatsapp:leave", { contactId: selectedChat.phoneNumber });
     }
     setSelectedChat(null);
+  };
+
+  const fetchConversations = async () => {
+    try {
+      setIsLoadingConversations(true);
+      const res = await whatsAppService.getConversations();
+      if (res?.success) {
+        setConversations(res.data || []);
+      }
+    } catch (e) {
+      console.error("Error fetching conversations:", e);
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  };
+
+  const handleClaimConversation = async (conversationId) => {
+    try {
+      await whatsAppService.claimConversation(conversationId);
+      await fetchConversations();
+    } catch (e) {
+      console.error("Claim conversation failed:", e);
+    }
+  };
+
+  const handleTransferConversation = async (conversationId) => {
+    const agentId = window.prompt("Enter target agent ID to transfer to:");
+    if (!agentId) return;
+    try {
+      await whatsAppService.transferConversation(conversationId, agentId);
+      await fetchConversations();
+    } catch (e) {
+      console.error("Transfer conversation failed:", e);
+    }
+  };
+
+  const handleResolveConversation = async (conversationId) => {
+    try {
+      await whatsAppService.resolveConversation(conversationId);
+      await fetchConversations();
+    } catch (e) {
+      console.error("Resolve conversation failed:", e);
+    }
   };
 
   const handleReplyClick = (message) => {
@@ -1241,6 +1297,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
     setLoading(true);
     try {
       await fetchChats();
+      await fetchConversations();
       if (selectedChat) {
         await fetchChatMessages(selectedChat.phoneNumber);
       }
@@ -1270,8 +1327,22 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             minHeight: 64,
           }}
         >
-          <Typography variant="h6">WhatsApp Chats</Typography>
+          <Typography variant="h6">
+            {viewMode === "chats" ? "WhatsApp Chats" : "Conversations"}
+          </Typography>
           <Box sx={{ display: "flex", gap: 1 }}>
+            <Chip
+              label="Chats"
+              color={viewMode === "chats" ? "success" : "default"}
+              onClick={() => setViewMode("chats")}
+              sx={{ color: "white" }}
+            />
+            <Chip
+              label="Conversations"
+              color={viewMode === "conversations" ? "success" : "default"}
+              onClick={() => setViewMode("conversations")}
+              sx={{ color: "white" }}
+            />
             <Tooltip title="Refresh">
               <IconButton
                 onClick={handleRefresh}
@@ -1489,6 +1560,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       return;
     }
     fetchChats();
+    fetchConversations();
 
     // Cleanup function to cancel requests on unmount or logout
     return () => {
@@ -1763,8 +1835,9 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             />
           </Box>
 
-          {/* Add loading indicator */}
-          {loading ? (
+          {/* Loading indicator */}
+          {loading ||
+          (viewMode === "conversations" && isLoadingConversations) ? (
             <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
               <CircularProgress size={40} sx={{ color: "#128C7E" }} />
             </Box>
@@ -1774,130 +1847,204 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             </Alert>
           ) : null}
 
-          {/* Chat List */}
-          <List sx={{ p: 0, bgcolor: "background.paper" }}>
-            {chats
-              .filter(
-                (chat) =>
-                  chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  chat.phoneNumber.includes(searchQuery)
-              )
-              .map((chat, index) => (
-                <ListItem
-                  button
-                  key={chat.id}
-                  onClick={() => handleChatSelect(chat)}
-                  sx={{
-                    py: 1.5,
-                    px: 2,
-                    transition: "all 0.2s",
-                    "&:hover": {
-                      backgroundColor: "#f5f6f6",
-                    },
-                  }}
-                >
-                  <ListItemAvatar>
-                    <Badge
-                      overlap="circular"
-                      anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-                      variant="dot"
-                      sx={{
-                        "& .MuiBadge-badge": {
-                          backgroundColor: chat.isOnline
-                            ? "#25D366"
-                            : "transparent",
-                          border: chat.isOnline ? "2px solid #fff" : "none",
-                        },
-                      }}
-                    >
-                      <Avatar
+          {viewMode === "chats" ? (
+            <List sx={{ p: 0, bgcolor: "background.paper" }}>
+              {chats
+                .filter(
+                  (chat) =>
+                    chat.name
+                      .toLowerCase()
+                      .includes(searchQuery.toLowerCase()) ||
+                    chat.phoneNumber.includes(searchQuery)
+                )
+                .map((chat, index) => (
+                  <ListItem
+                    button
+                    key={chat.id}
+                    onClick={() => handleChatSelect(chat)}
+                    sx={{
+                      py: 1.5,
+                      px: 2,
+                      transition: "all 0.2s",
+                      "&:hover": {
+                        backgroundColor: "#f5f6f6",
+                      },
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Badge
+                        overlap="circular"
+                        anchorOrigin={{
+                          vertical: "bottom",
+                          horizontal: "right",
+                        }}
+                        variant="dot"
                         sx={{
-                          bgcolor: chat.isGroup ? "#128C7E" : "#00A884",
-                          width: 48,
-                          height: 48,
+                          "& .MuiBadge-badge": {
+                            backgroundColor: chat.isOnline
+                              ? "#25D366"
+                              : "transparent",
+                            border: chat.isOnline ? "2px solid #fff" : "none",
+                          },
                         }}
                       >
-                        {chat.isGroup ? <MessageIcon /> : chat?.avatar}
-                      </Avatar>
-                    </Badge>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle1"
-                          sx={{ fontWeight: chat.unread ? 600 : 400 }}
-                        >
-                          {chat.name}
-                        </Typography>
-                        <Typography
-                          variant="caption"
+                        <Avatar
                           sx={{
-                            color: chat.unread ? "#00A884" : "#667781",
-                            fontWeight: chat.unread ? 500 : 400,
+                            bgcolor: chat.isGroup ? "#128C7E" : "#00A884",
+                            width: 48,
+                            height: 48,
                           }}
                         >
-                          {formatTimestamp(chat.timestamp)}
-                        </Typography>
-                      </Box>
-                    }
-                    secondary={
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
+                          {chat.isGroup ? <MessageIcon /> : chat?.avatar}
+                        </Avatar>
+                      </Badge>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
                         <Box
                           sx={{
                             display: "flex",
+                            justifyContent: "space-between",
                             alignItems: "center",
-                            gap: 0.5,
                           }}
                         >
-                          {!chat.isGroup && getMessageStatus(chat.status)}
                           <Typography
-                            variant="body2"
+                            variant="subtitle1"
+                            sx={{ fontWeight: chat.unread ? 600 : 400 }}
+                          >
+                            {chat.name}
+                          </Typography>
+                          <Typography
+                            variant="caption"
                             sx={{
-                              color: chat.unread ? "#111b21" : "#667781",
+                              color: chat.unread ? "#00A884" : "#667781",
                               fontWeight: chat.unread ? 500 : 400,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              maxWidth: "260px",
                             }}
                           >
-                            {chat.lastMessage}
+                            {formatTimestamp(chat.timestamp)}
                           </Typography>
                         </Box>
-                        {chat.unread > 0 && (
-                          <Badge
-                            badgeContent={chat.unread}
+                      }
+                      secondary={
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Box
                             sx={{
-                              "& .MuiBadge-badge": {
-                                bgcolor: "#00A884",
-                                color: "white",
-                                fontSize: "11px",
-                                minWidth: "20px",
-                                height: "20px",
-                                borderRadius: "10px",
-                              },
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.5,
                             }}
-                          />
-                        )}
+                          >
+                            {!chat.isGroup && getMessageStatus(chat.status)}
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: chat.unread ? "#111b21" : "#667781",
+                                fontWeight: chat.unread ? 500 : 400,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                maxWidth: "260px",
+                              }}
+                            >
+                              {chat.lastMessage}
+                            </Typography>
+                          </Box>
+                          {chat.unread > 0 && (
+                            <Badge
+                              badgeContent={chat.unread}
+                              sx={{
+                                "& .MuiBadge-badge": {
+                                  bgcolor: "#00A884",
+                                  color: "white",
+                                  fontSize: "11px",
+                                  minWidth: "20px",
+                                  height: "20px",
+                                  borderRadius: "10px",
+                                },
+                              }}
+                            />
+                          )}
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                ))}
+            </List>
+          ) : (
+            <List sx={{ p: 0, bgcolor: "background.paper" }}>
+              {conversations
+                .filter(
+                  (c) =>
+                    String(c.contactId).includes(searchQuery) ||
+                    String(c.assignedAgentId || "").includes(searchQuery) ||
+                    String(c.status || "").includes(searchQuery)
+                )
+                .map((c) => (
+                  <ListItem
+                    key={c.id}
+                    sx={{ py: 1.5, px: 2 }}
+                    secondaryAction={
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleClaimConversation(c.id)}
+                        >
+                          Claim
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleTransferConversation(c.id)}
+                        >
+                          Transfer
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={() => handleResolveConversation(c.id)}
+                        >
+                          Resolve
+                        </Button>
                       </Box>
                     }
-                  />
-                </ListItem>
-              ))}
-          </List>
+                  >
+                    <ListItemText
+                      primary={
+                        <Box
+                          sx={{ display: "flex", gap: 1, alignItems: "center" }}
+                        >
+                          <Chip size="small" label={`ID ${c.id}`} />
+                          <Chip size="small" label={c.status} color="default" />
+                          {typeof c.unreadCount === "number" && (
+                            <Chip
+                              size="small"
+                              label={`Unread ${c.unreadCount}`}
+                            />
+                          )}
+                        </Box>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary">
+                          contactId: {c.contactId} • agent:{" "}
+                          {c.assignedAgentId || "unassigned"} • last:{" "}
+                          {c.lastMessageAt
+                            ? formatTimestamp(c.lastMessageAt)
+                            : "-"}
+                        </Typography>
+                      }
+                    />
+                  </ListItem>
+                ))}
+            </List>
+          )}
 
           {/* Add this right after the search TextField (around line 1791) */}
           {!loading &&

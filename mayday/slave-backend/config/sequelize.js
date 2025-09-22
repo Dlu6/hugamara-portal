@@ -117,9 +117,8 @@ export const syncDatabase = async () => {
     const CallCost = (await import("../models/callCostModel.js")).default;
     const SoundFile = (await import("../models/soundFileModel.js")).default;
     const OdbcConnection = (await import("../models/odbcModel.js")).default;
-    const { Contact, WhatsAppMessage, WhatsAppConfig } = await import(
-      "../models/WhatsAppModel.js"
-    );
+    const { Contact, WhatsAppMessage, WhatsAppConfig, Conversation } =
+      await import("../models/WhatsAppModel.js");
     const IVRFlow = (await import("../models/IVRModel.js")).default;
     const IntegrationModel = (await import("../models/integrationModel.js"))
       .default;
@@ -174,6 +173,7 @@ export const syncDatabase = async () => {
       await Contact.sync({ force: false, transaction: tx });
       await WhatsAppMessage.sync({ force: false, transaction: tx });
       await WhatsAppConfig.sync({ force: false, transaction: tx });
+      await Conversation.sync({ force: false, transaction: tx });
 
       // Licensing
       await LicenseCache.sync({ force: false, transaction: tx });

@@ -32,11 +32,9 @@ import {
   Add as AddIcon,
   Delete as DeleteIcon,
   WhatsApp as WhatsAppIcon,
-  AccountBox as AccountBoxIcon,
   Key as KeyIcon,
   Phone as PhoneIcon,
   Link as LinkIcon,
-  ContentCopy as ContentCopyIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
   Warning as WarningIcon,
@@ -198,12 +196,10 @@ const CreateTemplateDialog = ({ open, onClose, onSubmit }) => {
 const WhatsappWebConfig = () => {
   const theme = useTheme();
   const [whatsappConfig, setWhatsappConfig] = useState({
-    accountSid: "",
-    authToken: "",
+    apiKey: "",
     phoneNumber: "",
     enabled: false,
     webhookUrl: "",
-    contentSid: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -259,14 +255,12 @@ const WhatsappWebConfig = () => {
 
   const hasChanges = () => {
     if (!originalConfig) return false;
-
     return (
-      originalConfig.accountSid !== whatsappConfig.accountSid ||
-      originalConfig.authToken !== whatsappConfig.authToken ||
-      originalConfig.phoneNumber !== whatsappConfig.phoneNumber ||
-      originalConfig.enabled !== whatsappConfig.enabled ||
-      originalConfig.webhookUrl !== whatsappConfig.webhookUrl ||
-      originalConfig.contentSid !== whatsappConfig.contentSid
+      (originalConfig.apiKey || "") !== (whatsappConfig.apiKey || "") ||
+      (originalConfig.phoneNumber || "") !==
+        (whatsappConfig.phoneNumber || "") ||
+      (originalConfig.enabled || false) !== (whatsappConfig.enabled || false) ||
+      (originalConfig.webhookUrl || "") !== (whatsappConfig.webhookUrl || "")
     );
   };
 
@@ -541,39 +535,10 @@ const WhatsappWebConfig = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Twilio Account SID"
-                value={whatsappConfig.accountSid}
-                onChange={handleChange("accountSid")}
-                variant="outlined"
-                disabled={!whatsappConfig.enabled}
-                InputProps={{
-                  startAdornment: (
-                    <AccountBoxIcon sx={{ mr: 1, color: "action.active" }} />
-                  ),
-                  sx: {
-                    borderRadius: 2,
-                    "&:hover fieldset": {
-                      borderColor: "primary.main",
-                    },
-                  },
-                }}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    "&:hover fieldset": {
-                      borderColor: "primary.main",
-                    },
-                  },
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Twilio Auth Token"
+                label="Lipachat API Key"
                 type={showAuthToken ? "text" : "password"}
-                value={whatsappConfig.authToken}
-                onChange={handleChange("authToken")}
+                value={whatsappConfig.apiKey}
+                onChange={handleChange("apiKey")}
                 variant="outlined"
                 disabled={!whatsappConfig.enabled}
                 InputProps={{
@@ -614,7 +579,7 @@ const WhatsappWebConfig = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="WhatsApp Phone Number"
+                label="WhatsApp Business Number"
                 value={whatsappConfig.phoneNumber}
                 onChange={handleChange("phoneNumber")}
                 variant="outlined"
@@ -642,33 +607,11 @@ const WhatsappWebConfig = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Content SID"
-                value={whatsappConfig.contentSid}
-                onChange={handleChange("contentSid")}
-                variant="outlined"
-                helperText="Twilio Content SID for WhatsApp templates"
-                disabled={!whatsappConfig.enabled}
-                InputProps={{
-                  startAdornment: (
-                    <ContentCopyIcon sx={{ mr: 1, color: "action.active" }} />
-                  ),
-                  sx: {
-                    borderRadius: 2,
-                    "&:hover fieldset": {
-                      borderColor: "primary.main",
-                    },
-                  },
-                }}
-                sx={{
-                  "& .MuiOutlinedInput-root": {
-                    "&:hover fieldset": {
-                      borderColor: "primary.main",
-                    },
-                  },
-                }}
-              />
+              {/* Slot intentionally left blank (previous Twilio field replaced by number above) */}
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              {/* Content SID removed for Lipachat */}
             </Grid>
 
             <Grid item xs={12}>
@@ -678,7 +621,7 @@ const WhatsappWebConfig = () => {
                 value={whatsappConfig.webhookUrl}
                 onChange={handleChange("webhookUrl")}
                 variant="outlined"
-                helperText="URL for receiving WhatsApp webhooks"
+                helperText="Set this in Lipachat to: https://your-domain/api/whatsapp/webhook"
                 disabled={!whatsappConfig.enabled}
                 InputProps={{
                   startAdornment: (

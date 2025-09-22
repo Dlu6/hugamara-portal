@@ -121,8 +121,11 @@ module.exports = {
         REDIS_SESSION_CLEANUP_INTERVAL: "300000",
 
         // External APIs
-        LIPACHAT_API_KEY: "lipachat_api_key",
-        LIPACHAT_PHONE_NUMBER: "lipachat_phone",
+        LIPACHAT_API_KEY:
+          "55d6305cf8e27aee1783b9e4f8b6ba7c-2f57ab67-4353-46f1-85cf-88ec6c7f75d6",
+        LIPACHAT_PHONE_NUMBER: "+15557612891",
+        LIPACHAT_GATEWAY_URL: "https://gateway.lipachat.com/api/v1/whatsapp",
+        LIPACHAT_WEBHOOK_SECRET: "",
 
         // Trunk Provider Configuration
         TRUNK_PROVIDER_AUTH_HEADER: "MDMyMDAwMDAwODoxMy4yMzQuMTguMg==",
