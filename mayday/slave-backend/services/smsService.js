@@ -86,6 +86,39 @@ async function loadConfig() {
 
 await loadConfig();
 
+function normalizeBoolean(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return undefined;
+}
+
+function sanitizeUpdate(update = {}) {
+  const cleaned = { ...update };
+
+  // Treat masked placeholders or empty strings as "no change"
+  const isMasked = (v) => v === "********" || v === "" || v == null;
+  if (isMasked(cleaned.password)) delete cleaned.password;
+  if (isMasked(cleaned.authHeader)) delete cleaned.authHeader;
+
+  // Normalize strictTls to boolean/string compatible
+  if (cleaned.strictTls !== undefined) {
+    const b = normalizeBoolean(cleaned.strictTls);
+    cleaned.strictTls = b === undefined ? cleaned.strictTls : b;
+  }
+
+  // If no authHeader provided but username/password are present (either in update or existing), (re)compute header
+  const finalUsername = cleaned.username ?? runtimeConfig.username;
+  const finalPassword = cleaned.password ?? runtimeConfig.password;
+  if (!cleaned.authHeader && finalUsername && finalPassword) {
+    const token = Buffer.from(`${finalUsername}:${finalPassword}`).toString(
+      "base64"
+    );
+    cleaned.authHeader = `Basic ${token}`;
+  }
+
+  return cleaned;
+}
+
 export const smsService = {
   getConfig(mask = true) {
     const cfg = { ...runtimeConfig };
@@ -103,7 +136,8 @@ export const smsService = {
   },
 
   async setConfig(update) {
-    runtimeConfig = { ...runtimeConfig, ...update };
+    const cleaned = sanitizeUpdate(update);
+    runtimeConfig = { ...runtimeConfig, ...cleaned };
     try {
       if (redisClient?.isReady) {
         await redisClient.set("sms:config", JSON.stringify(runtimeConfig));
