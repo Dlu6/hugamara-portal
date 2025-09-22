@@ -193,6 +193,105 @@ If the callee still sees `0323300243` even though PAI/PPID show `0323300244` in 
 
 Workaround if provider cannot present PAI/PPID: create one trunk per DID with `from_user` set to that DID, and route by the chosen prefix to the corresponding trunk.
 
+## Outlet Contexts and Default Outbound
+
+Goal: allow agents to dial normally (no prefix) and automatically present the outlet’s DID.
+
+1. Create outlet contexts (UI)
+
+- Call Center Dashboard → Voice → Contexts → Add Context per outlet
+  - Name: `from-internal-<outlet>` (e.g., `from-internal-villa`)
+  - Include: `from-internal-custom`
+  - Realtime Key: same as Name
+  - Active: Yes
+- Click “Update Asterisk Contexts” to render `/etc/asterisk/mayday.d/extensions_mayday_contexts.conf` and reload the dialplan. Validate with:
+  - `sudo asterisk -rx "dialplan show from-internal-villa"` → should show Include and Alt. Switch to Realtime.
+
+2. Create default outbound route per outlet (UI)
+
+- Voice → Outbound Routes → Create
+  - Context: the outlet context (e.g., `from-internal-villa`)
+  - Phone Number: `_X.`
+  - Actions:
+    1. Custom → Set → `CALLERID(all)="<Outlet Name>" <Outlet DID>`
+    2. Custom → Dial → `PJSIP/${EXTEN}@Hugamara_Trunk`
+
+3. Assign agents to their outlet context (UI)
+
+- Staff → Agents → Edit → Voice tab → Context → pick outlet (e.g., `from-internal-villa`).
+- Result: normal dialing uses that outlet’s default route and DID.
+
+4. Optional: prefix routes for DID override
+
+- Create one prefix route per DID using `Custom → Dial` and `${EXTEN:n}` to strip the prefix (e.g., `_94X.` with `PJSIP/${EXTEN:2}@Hugamara_Trunk`).
+
+5. Provider requirements
+
+- Ensure the trunk endpoint has identity headers enabled (realtime PJSIP endpoint): `send_pai=yes`, `send_rpid=yes`, `trust_id_outbound=yes`.
+- Verify outbound INVITE has PAI/PPID using `pjsip set logger on`.
+
+## Outbound Routing (Default + Prefix)
+
+Overview
+
+- Default routes guarantee every agent dials out with their outlet’s DID with no extra steps.
+- Prefix routes let any agent temporarily choose another outlet’s DID by dialing a short prefix first.
+
+Prerequisites
+
+- Create one outlet context per outlet (see section above) and press “Update Asterisk Contexts”.
+- Ensure the shared context `from-internal-custom` exists and is active; outlet contexts should `include => from-internal-custom`.
+
+1. Default per‑outlet routes (mandatory)
+
+- Location: Voice → Outbound Routes → Create
+- For each outlet/DID:
+  - Context: `from-internal-<outlet>` (e.g., `from-internal-villa`)
+  - Phone Number: `_X.`
+  - Actions (order matters):
+    1. Custom → Application: `Set`
+       - Arguments: `CALLERID(all)="<Outlet Name>" <DID>`
+    2. Custom → Application: `Dial`
+       - Arguments: `PJSIP/${EXTEN}@Hugamara_Trunk`
+- Result: Agents whose endpoint `context` is the outlet’s context will present that outlet’s DID when dialing normally.
+
+2. Prefixed routes (optional overrides)
+
+- Location: Voice → Outbound Routes → Create (define once in the shared context)
+- Context: `from-internal-custom`
+- Phone Number: `_<prefix>X.`
+  - Examples: `_94X.`, `_95X.`, `_96X.` (one per DID)
+- Actions (order matters):
+  1. Custom → `Set`
+     - `CALLERID(all)="<Outlet Name>" <DID>`
+  2. Custom → `Dial`
+     - `PJSIP/${EXTEN:n}@Hugamara_Trunk` (replace `n` with prefix length; for `94` use `${EXTEN:2}`)
+- Result: Agents dial `<prefix><destination>` to present that DID, regardless of their default outlet.
+
+3. Agent assignment
+
+- Staff → Agents → Edit → Voice tab → Context → select outlet context (e.g., `from-internal-villa`).
+- Default calls follow the outlet route; dialing a prefix uses the mapped prefixed route.
+
+4. Patterns, examples, and tips
+
+- Asterisk patterns must start with an underscore: `_X.`, `_94X.`
+- Example mapping:
+  - 94 → Villa → `CALLERID(all)="The Villa" <0323300244>` → Phone Number `_94X.` → Dial `PJSIP/${EXTEN:2}@Hugamara_Trunk`
+  - 95 → LaCueva → `CALLERID(all)="LaCueva" <0323300245>` → Phone Number `_95X.` → Dial `PJSIP/${EXTEN:2}@Hugamara_Trunk`
+- Optional normalization: insert `Set(DST=${EXTEN:2})` before Dial and dial `PJSIP/${DST}@...` if the trunk requires specific formatting.
+
+5. Validation
+
+- Contexts rendered: `sudo asterisk -rx "dialplan show from-internal-<outlet>"`
+- Prefixed routes present: `sudo asterisk -rx "dialplan show from-internal-custom" | grep _9`
+- Live signaling: `asterisk -rvvv`, then `pjsip set logger on` and place a test call; confirm P-Asserted-Identity matches the chosen DID.
+
+6. Provider notes
+
+- Trunk must honor CLI via PAI/RPID; enable on the endpoint: `send_pai=yes`, `send_rpid=yes`, `trust_id_outbound=yes` (realtime `ps_endpoints`).
+- If the provider rewrites CLI, ask them to whitelist your DIDs or require E.164 formatting.
+
 ## Quick Start
 
 ### Prerequisites

@@ -2119,6 +2119,75 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
     );
   }, [isAttendedTransfer, consultationCall]);
 
+  // Registration duration from backend-provided start time
+  const [registrationDurationSec, setRegistrationDurationSec] = useState(0);
+  useEffect(() => {
+    if (!isRegistered) {
+      return;
+    }
+
+    // Prefer backend registrationStart, else fall back to lastSeen when registered
+    const startIso =
+      registeredAgent?.registrationStart || registeredAgent?.lastSeen || null;
+    if (!startIso) {
+      return;
+    }
+
+    const startMs = (() => {
+      try {
+        return new Date(startIso).getTime();
+      } catch (_) {
+        return null;
+      }
+    })();
+    if (!startMs || Number.isNaN(startMs)) {
+      return;
+    }
+
+    const update = () => {
+      const diff = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      setRegistrationDurationSec(diff);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [
+    isRegistered,
+    registeredAgent?.registrationStart,
+    registeredAgent?.lastSeen,
+  ]);
+
+  const RegistrationDuration = useCallback(() => {
+    if (!isRegistered || !registrationDurationSec) return null;
+    const hours = Math.floor(registrationDurationSec / 3600);
+    const minutes = Math.floor((registrationDurationSec % 3600) / 60);
+    const seconds = registrationDurationSec % 60;
+    const text =
+      hours > 0
+        ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+            .toString()
+            .padStart(2, "0")}`
+        : `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+    return (
+      <Typography
+        variant="caption"
+        sx={{
+          ml: 1,
+          color: "#0ca",
+          fontSize: "0.7rem",
+          fontFamily: "monospace",
+          backgroundColor: "rgba(255,255,255,0.08)",
+          borderRadius: "4px",
+          padding: "2px 4px",
+        }}
+        title="Time since registration (backend)"
+      >
+        {text}
+      </Typography>
+    );
+  }, [isRegistered, registrationDurationSec]);
+
   // Handler to close any active section
   const handleCloseSection = useCallback(() => {
     // CRITICAL: Ensure authentication is ready before closing section
@@ -4283,6 +4352,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
                         : "Ready"
                       : "Not Ready"}
                   </Typography>
+                  <RegistrationDuration />
                   {isRegistered && (
                     <>
                       <IconButton
@@ -4391,7 +4461,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
                       >
                         |
                       </span>
-                      {registeredAgent?.username}
+                      {registeredAgent?.extension || user?.extension || ""}
                     </>
                   ) : user?.username ? (
                     <>

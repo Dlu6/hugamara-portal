@@ -9,7 +9,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import { useNotification } from "../contexts/NotificationContext";
 import { storageService, clearLogoutFlag } from "../services/storageService";
-import mhulogo from "../../src/assets/mhu_logo.jpg";
+// import mhulogo from "../../src/assets/mhu_logo.jpg";
+import mhulogo from "../../src/assets/mayday-logo6.png";
 import {
   CircularProgress,
   Switch,
@@ -647,8 +648,8 @@ const Login = ({ onLoginSuccess }) => {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1 className="title">MENTAL HEALTH UGANDA</h1>
-        <img src={mhulogo} alt="Mental Health Uganda" className="logo" />
+        <h1 className="title">Mayday Phonebar</h1>
+        <img src={mhulogo} alt="Mayday Phonebar" className="logo" />
         <h2 className="subtitle">Sign In</h2>
 
         <form onSubmit={handleSubmit}>
@@ -819,7 +820,7 @@ const Login = ({ onLoginSuccess }) => {
 
         {state.error && <div className="error-message">{state.error}</div>}
 
-        <div className="version">MaydayBar v4.0.0</div>
+        <div className="version">MaydayBar v8.0.0</div>
       </div>
     </div>
   );
