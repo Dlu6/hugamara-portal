@@ -4,7 +4,7 @@ const getBase = () => {
   const host =
     process.env.NODE_ENV === "development"
       ? "http://localhost:8004"
-      : "https://hugamara.com";
+      : "https://cs.hugamara.com";
   return host;
 };
 

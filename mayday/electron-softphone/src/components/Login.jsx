@@ -118,7 +118,7 @@ const Login = ({ onLoginSuccess }) => {
     host:
       process.env.NODE_ENV === "development"
         ? "http://localhost:8004"
-        : "https://hugamara.com",
+        : "https://cs.hugamara.com",
     email: "",
     password: "",
     rememberMe: false,
@@ -250,7 +250,26 @@ const Login = ({ onLoginSuccess }) => {
         progress: 20,
       }));
 
-      const loginResponse = await fetch(`${state.host}/api/users/agent-login`, {
+      // Determine correct API base path depending on environment/host
+      const hostname = (() => {
+        try {
+          return new URL(state.host).hostname;
+        } catch {
+          return state.host;
+        }
+      })();
+
+      const isHugamaraDomain = /(^|\.)cs.hugamara\.com$/i.test(hostname);
+      const apiBasePath =
+        process.env.NODE_ENV === "development"
+          ? "/api"
+          : isHugamaraDomain
+          ? "/mayday-api/api"
+          : "/api";
+
+      const loginUrl = `${state.host}${apiBasePath}/users/agent-login`;
+
+      const loginResponse = await fetch(loginUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -314,10 +333,11 @@ const Login = ({ onLoginSuccess }) => {
       console.log("🚀 Starting SIP service initialization...");
 
       // Use the same server for WebSocket as the SIP registrar
-      const wsUrl =
-        process.env.NODE_ENV === "development"
-          ? `ws://${user.pjsip.server}:8088/ws`
-          : "wss://hugamara.com/ws";
+      const isRemoteServer = user.pjsip.server.includes("cs.hugamara.com");
+
+      const wsUrl = isRemoteServer
+        ? `wss://${user.pjsip.server}/ws` // Use wss for remote server, proxied by nginx
+        : `ws://${user.pjsip.server}:8088/ws`; // Use ws for local dev
 
       console.log("SIP config:", {
         extension: user.extension,

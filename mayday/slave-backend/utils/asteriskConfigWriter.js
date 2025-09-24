@@ -112,7 +112,7 @@ protocol=udp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 `;
@@ -127,7 +127,7 @@ protocol=tcp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 `;
@@ -160,7 +160,7 @@ websocket_write_timeout=10000
 method=tlsv1_2
 require_client_cert=no
 verify_client=no
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 `;
@@ -273,7 +273,7 @@ protocol=udp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 
@@ -283,7 +283,7 @@ protocol=tcp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 
@@ -306,7 +306,7 @@ websocket_write_timeout=10000
 method=tlsv1_2
 require_client_cert=no
 verify_client=no
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 `;
@@ -914,10 +914,23 @@ switch => Realtime
     await execAsync(`sudo chown asterisk:asterisk ${extensionsContextsPath}`);
     await execAsync(`sudo chmod 644 ${extensionsContextsPath}`);
 
-    // Append include directive to extensions.conf using tee
-    await execAsync(
-      `echo "#include mayday.d/extensions_mayday_contexts.conf" | sudo tee -a /etc/asterisk/extensions.conf`
-    );
+    // Append include directive to extensions.conf only if not already present
+    const includeLine = "#include mayday.d/extensions_mayday_contexts.conf";
+    try {
+      const { stdout } = await execAsync(
+        `sudo bash -lc 'grep -Fxq "${includeLine}" /etc/asterisk/extensions.conf && echo present || echo missing'`
+      );
+      if (!stdout || !stdout.toString().includes("present")) {
+        await execAsync(
+          `echo "${includeLine}" | sudo tee -a /etc/asterisk/extensions.conf`
+        );
+      }
+    } catch (e) {
+      // As a safe fallback, attempt an idempotent append using sed guard
+      await execAsync(
+        `sudo bash -lc 'grep -Fxq "${includeLine}" /etc/asterisk/extensions.conf || echo "${includeLine}" >> /etc/asterisk/extensions.conf'`
+      );
+    }
 
     // Reload dialplan
     await amiService.executeAction({

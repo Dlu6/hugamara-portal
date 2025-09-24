@@ -4,7 +4,7 @@ import { storageService } from "./storageService";
 function resolvePreferredOrigin() {
   try {
     const useRemote = localStorage.getItem("useRemoteUrl") === "true";
-    if (useRemote) return "https://hugamara.com";
+    if (useRemote) return "https://cs.hugamara.com";
   } catch (_) {}
 
   if (
@@ -16,7 +16,7 @@ function resolvePreferredOrigin() {
   }
   return process.env.NODE_ENV === "development"
     ? "http://localhost:8004"
-    : "https://hugamara.com";
+    : "https://cs.hugamara.com";
 }
 
 const baseUrl = `${resolvePreferredOrigin()}/api/sms`;

@@ -147,7 +147,6 @@ export const syncDatabase = async () => {
       // Dependent PJSIP tables
       await PJSIPEndpoint.sync({ force: false, transaction: tx });
       await PJSIPContact.sync({ force: false, transaction: tx });
-      await PJSIPIdentify.sync({ force: false, transaction: tx });
 
       // Queues
       await VoiceQueue.sync({ force: false, transaction: tx });
@@ -170,10 +169,12 @@ export const syncDatabase = async () => {
       await IntegrationDataModel.sync({ force: false, transaction: tx });
 
       // WhatsApp
+      // Ensure base tables are created before FKs
       await Contact.sync({ force: false, transaction: tx });
-      await WhatsAppMessage.sync({ force: false, transaction: tx });
       await WhatsAppConfig.sync({ force: false, transaction: tx });
+      // Messages reference Contact and Conversation, create Conversation first
       await Conversation.sync({ force: false, transaction: tx });
+      await WhatsAppMessage.sync({ force: false, transaction: tx });
 
       // Licensing
       await LicenseCache.sync({ force: false, transaction: tx });

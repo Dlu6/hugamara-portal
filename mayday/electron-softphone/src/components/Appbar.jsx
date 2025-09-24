@@ -392,7 +392,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
             `${
               process.env.NODE_ENV === "development"
                 ? "http://localhost:8004"
-                : "https://hugamara.com"
+                : "https://cs.hugamara.com"
             }/api/users/agent-logout`,
             {
               method: "POST",
@@ -1897,7 +1897,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
           `${
             process.env.NODE_ENV === "development"
               ? "http://localhost:8004"
-              : "https://hugamara.com"
+              : "https://cs.hugamara.com"
           }/api/users/agent-presence`,
           {
             method: "POST",
@@ -2582,7 +2582,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
         const base =
           process.env.NODE_ENV === "development"
             ? "http://localhost:8004"
-            : "https://hugamara.com";
+            : "https://cs.hugamara.com";
         const resp = await fetch(`${base}/api/agent-status`, {
           headers: {
             Authorization: `Bearer ${token}`,

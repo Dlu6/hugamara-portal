@@ -13,7 +13,7 @@ const DialplanContext = sequelize.define(
       // Asterisk context name, e.g. from-internal-villa
       type: DataTypes.STRING(80),
       allowNull: false,
-      unique: true,
+      // Unique constraint is defined via a named index below to avoid duplicate auto indexes
     },
     include: {
       // Optional context to include (e.g. internal or from-internal-custom)
@@ -37,6 +37,13 @@ const DialplanContext = sequelize.define(
   },
   {
     timestamps: true,
+    indexes: [
+      {
+        name: "ux_dialplan_contexts_name",
+        unique: true,
+        fields: ["name"],
+      },
+    ],
   }
 );
 

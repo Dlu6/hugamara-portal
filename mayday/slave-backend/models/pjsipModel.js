@@ -365,6 +365,18 @@ export const PJSIPContact = sequelize.define(
       type: DataTypes.FLOAT,
       defaultValue: 3.0,
     },
+    qualify_2xx_only: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "no",
+      allowNull: false,
+      comment: "Consider 2xx responses to qualify as successful",
+    },
+    prune_on_boot: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "no",
+      allowNull: false,
+      comment: "Prune this contact on Asterisk boot",
+    },
     authenticate_qualify: {
       type: DataTypes.ENUM("yes", "no"),
       defaultValue: "no",
@@ -424,36 +436,7 @@ export const PJSIPContact = sequelize.define(
   }
 );
 
-export const PJSIPIdentify = sequelize.define(
-  "ps_endpoint_id_ips",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
-    endpoint: {
-      type: DataTypes.STRING(40),
-      allowNull: false,
-      references: {
-        model: "users",
-        key: "extension",
-      },
-    },
-    match_header: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    ip_match: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-  },
-  {
-    tableName: "ps_endpoint_id_ips",
-    timestamps: false,
-  }
-);
+// Removed legacy model that used non-standard "ip_match"; use PJSIPEndpointIdentifier below (with standard "match")
 
 export const PJSIPTransport = sequelize.define(
   "ps_transports",
@@ -618,6 +601,7 @@ export const generatePJSIPConfig = (
   // Base endpoint config
   const endpointConfig = {
     id: extension,
+    identify_by: "auth_username,username",
     // identify_by: "auth_username,username,ip",
     transport: "transport-wss",
     aors: extension,
@@ -640,8 +624,8 @@ export const generatePJSIPConfig = (
     bundle: "yes",
     webrtc: "yes",
     outbound_auth: extension,
-    dtls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
-    dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
+    dtls_cert_file: "/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem",
+    dtls_private_key: "/etc/letsencrypt/live/cs.hugamara.com/privkey.pem",
     dtls_auto_generate_cert: "no",
   };
 
@@ -657,8 +641,8 @@ export const generatePJSIPConfig = (
       bundle: "yes",
       webrtc: "yes",
       dtls_auto_generate_cert: "no",
-      tls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
-      dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
+      tls_cert_file: "/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem",
+      dtls_private_key: "/etc/letsencrypt/live/cs.hugamara.com/privkey.pem",
     });
   }
 
@@ -682,12 +666,6 @@ export const generatePJSIPConfig = (
       minimum_expiration: 60,
       support_path: "yes", // Keep yes for WebSocket
     },
-    endpoint_identifier: {
-      endpoint: extension,
-      // ip_match: options.ip_match || process.env.PJSIP_IP_MATCH || "0.0.0.0/0",
-      ip_match: "0.0.0.0/0",
-      srv_lookups: "no",
-    },
   };
 };
 
@@ -708,6 +686,7 @@ export async function createPJSIPConfigs(
   const config = {
     endpoint: {
       id: extension,
+      identify_by: "auth_username,username",
       transport: "transport-wss",
       aors: extension,
       auth: extension,
@@ -762,11 +741,18 @@ export async function createPJSIPConfigs(
   };
 
   try {
-    const [endpoint, auth, aor] = await Promise.all([
-      PJSIPEndpoint.create(config.endpoint, { transaction }),
-      PJSIPAuth.create(config.auth, { transaction }),
-      PJSIPAor.create(config.aor, { transaction }),
-    ]);
+    // Create dependent records first to satisfy FK constraints
+    const aor = await PJSIPAor.create(config.aor, { transaction });
+    const auth = await PJSIPAuth.create(config.auth, { transaction });
+
+    // Force endpoint to reference the exact newly created IDs to avoid race conditions
+    config.endpoint.aors = aor.id;
+    config.endpoint.auth = auth.id;
+    config.endpoint.identify_by = "auth_username,username";
+
+    const endpoint = await PJSIPEndpoint.create(config.endpoint, {
+      transaction,
+    });
 
     return { endpoint, auth, aor };
   } catch (error) {

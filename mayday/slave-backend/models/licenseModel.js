@@ -48,7 +48,7 @@ export const ClientSession = sequelize.define(
   "client_session",
   {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    session_token: { type: DataTypes.TEXT, unique: true, allowNull: false },
+    session_token: { type: DataTypes.TEXT, allowNull: false },
     user_id: {
       type: DataTypes.STRING(36),
       allowNull: false,
@@ -100,6 +100,11 @@ export const ClientSession = sequelize.define(
       {
         fields: ["sip_username", "status"],
         name: "client_session_sip_status_idx",
+      },
+      {
+        name: "ux_client_session_session_token",
+        unique: true,
+        fields: [{ name: "session_token", length: 255 }],
       },
     ],
   }

@@ -111,7 +111,7 @@ async function connect(config) {
     let iceServers = [];
 
     if (!isDev) {
-      const apiHost = "hugamara.com";
+      const apiHost = "cs.hugamara.com";
       const apiProtocol = "https";
       const stunConfigUrl = `${apiProtocol}://${apiHost}/api/users/network-config/stun`;
       const stunServers = await fetchStunConfigWithRetry(stunConfigUrl, 1);
@@ -136,16 +136,16 @@ async function connect(config) {
       authorizationPassword: password,
       displayName: extension,
       transportOptions: {
-        wsServers: [wsUrl],
+        server: wsUrl,
         traceSip: false,
-        maxReconnectionAttempts: 5, // 5 reconnection attempts
-        reconnectionTimeout: 10000, // 10 seconds between reconnection attempts
         keepAliveInterval: 60, // Send keep-alive every 60 seconds
         keepAliveDebounce: 20, // Minimum 20 seconds between keep-alives
         connectionTimeout: 30000, // 30 seconds to establish connection
-        secure: process.env.NODE_ENV !== "development", // Use secure in production
+        secure: wsUrl.startsWith("wss:"), // Determine security from URL scheme
         rejectUnauthorized: false, // Similar to websocketService
       },
+      reconnectionAttempts: 5,
+      reconnectionDelay: 10,
       registerOptions: {
         expires: registerExpires,
         extraContactHeaderParams: ["transport=ws"],
@@ -2433,7 +2433,7 @@ export const sipCallService = {
       const apiHost =
         process.env.NODE_ENV === "development"
           ? "localhost:8004"
-          : "hugamara.com";
+          : "cs.hugamara.com";
       const apiProtocol =
         process.env.NODE_ENV === "development" ? "http" : "https";
 
@@ -2453,7 +2453,7 @@ export const sipCallService = {
       const apiHost =
         process.env.NODE_ENV === "development"
           ? "localhost:8004"
-          : "hugamara.com";
+          : "cs.hugamara.com";
       const apiProtocol =
         process.env.NODE_ENV === "development" ? "http" : "https";
 

@@ -6,7 +6,7 @@ let mainWindow = null;
 let appbarWindow = null;
 let isLoadingUrl = false;
 
-const PROD_URL = "https://hugamara.com";
+const PROD_URL = "https://cs.hugamara.com";
 // VERY IMPORTANT TO GET CONSOLE LOGS IN THE TERMINAL
 // Forward renderer console messages to main process stdout so they appear in the terminal
 function forwardRendererConsole(win, label = "window") {

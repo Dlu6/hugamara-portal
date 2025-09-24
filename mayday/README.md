@@ -57,6 +57,17 @@ The Mayday Call Center system consists of two main components:
    cp mayday/mayday-client-dashboard/env.example mayday/mayday-client-dashboard/.env
    ```
 
+   Configure the call center database connection in `mayday/slave-backend/.env`. Use a privileged user like `root` to ensure permissions for database migrations and schema synchronization.
+
+   ```ini
+   # Example for mayday/slave-backend/.env
+   DB_HOST=cs.hugamara.com
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=YOUR_ROOT_PASSWORD
+   DB_NAME=asterisk
+   ```
+
 3. **Configure trunk provider settings:**
 
    ```bash
@@ -211,6 +222,102 @@ node scripts/sync-db.js
 # Check database connection
 cd mayday/slave-backend
 node -e "import('./config/sequelize.js').then(db => db.sequelize.authenticate().then(() => console.log('✅ Database connected')).catch(err => console.error('❌ Database error:', err)))"
+```
+
+#### Running Database Migrations Manually
+
+Due to a custom programmatic setup in `config/sequelize.js`, the standard `npx sequelize-cli db:migrate` command will fail because it cannot find a `config/config.json` file.
+
+To run a migration, you must use a custom script.
+
+**1. Create a Runner Script**
+
+Create a temporary file in the `mayday/slave-backend/` directory (e.g., `run-migration.mjs`):
+
+```javascript
+// run-migration.mjs
+import { sequelize } from "./config/sequelize.js";
+
+// Use a dynamic import for the migration file, as it is a CommonJS module
+const migration = await import(
+  "./migrations/20250924180000-add-qualify-fields-to-ps-contacts.js"
+);
+
+import pkg from "sequelize";
+const { Sequelize } = pkg;
+
+const { up } = migration;
+
+async function runMigration() {
+  const queryInterface = sequelize.getQueryInterface();
+  console.log("Starting migration...");
+  try {
+    await up(queryInterface, Sequelize);
+    console.log("Migration completed successfully.");
+  } catch (error) {
+    console.error("Migration failed:", error);
+    process.exit(1);
+  } finally {
+    await sequelize.close();
+  }
+}
+
+runMigration();
+```
+
+**2. Run the Script**
+
+Execute the script from within the `mayday/slave-backend` directory on the server:
+
+```bash
+node --experimental-specifier-resolution=node run-migration.mjs
+```
+
+**3. Reliable Fallback: Direct SQL**
+
+If Node.js scripting fails due to environment issues, the most reliable method is to apply the change with a direct SQL command.
+
+```bash
+# Example for adding a column
+ssh -i <your-key.pem> admin@<your-server-ip> "sudo mysql -uroot asterisk -e \"ALTER TABLE ps_contacts ADD COLUMN qualify_2xx_only ENUM('yes', 'no') NOT NULL DEFAULT 'no';\""
+```
+
+#### Troubleshooting: ER_TOO_MANY_KEYS (Duplicate Indexes)
+
+If you encounter the error `ER_TOO_MANY_KEYS (1069): Too many keys specified; max 64 keys allowed` during database sync, it means a table has accumulated duplicate unique indexes from repeated syncs with older model definitions. This has been observed on `dialplan_contexts` (`name` column) and `client_session` (`session_token` column).
+
+**Fix (run on the VM as root):**
+
+```bash
+# This script drops all extra indexes on the specified column and ensures a single, named unique index exists.
+# --- Fix for dialplan_contexts ---
+DB=asterisk
+TBL=dialplan_contexts
+COL=name
+mysql -uroot -N -e "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='${DB}' AND TABLE_NAME='${TBL}' AND COLUMN_NAME='${COL}' AND INDEX_NAME NOT IN ('PRIMARY', 'ux_${TBL}_${COL}');" | while read idx; do
+  if [ -n "$idx" ]; then
+    echo "Dropping index: $idx from ${TBL}"
+    mysql -uroot "$DB" -e "ALTER TABLE ${TBL} DROP INDEX \`$idx\`"
+  fi
+done
+mysql -uroot "${DB}" -e "CREATE UNIQUE INDEX ux_${TBL}_${COL} ON ${TBL} (${COL});" || echo "Index on ${TBL} already exists or failed."
+
+# --- Fix for client_session ---
+TBL=client_session
+COL=session_token
+mysql -uroot -N -e "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='${DB}' AND TABLE_NAME='${TBL}' AND COLUMN_NAME='${COL}' AND INDEX_NAME <> 'PRIMARY';" | while read idx; do
+  if [ -n "$idx" ]; then
+    echo "Dropping index: $idx from ${TBL}"
+    mysql -uroot "$DB" -e "ALTER TABLE ${TBL} DROP INDEX \`$idx\`"
+  fi
+done
+mysql -uroot "${DB}" -e "CREATE UNIQUE INDEX ux_${TBL}_${COL} ON ${TBL} (${COL}(255));" || echo "Index on ${TBL} already exists or failed."
+
+# Verify final indexes
+echo "--- Final indexes for dialplan_contexts ---"
+mysql -uroot "${DB}" -e "SHOW INDEX FROM dialplan_contexts;"
+echo "--- Final indexes for client_session ---"
+mysql -uroot "${DB}" -e "SHOW INDEX FROM client_session;"
 ```
 
 ### Asterisk Configuration

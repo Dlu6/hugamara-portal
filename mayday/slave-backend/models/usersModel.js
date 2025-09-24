@@ -19,13 +19,11 @@ const UserModel = sequelize.define(
     },
     username: {
       type: DataTypes.STRING,
-      unique: true,
     },
     name: { type: DataTypes.STRING, allowNull: true },
     password: DataTypes.STRING,
     email: {
       type: DataTypes.STRING,
-      unique: true,
       validate: { isEmail: true },
     },
     fullName: {
@@ -49,7 +47,6 @@ const UserModel = sequelize.define(
     },
     extension: {
       type: DataTypes.STRING,
-      unique: true,
       validate: {
         is: {
           args: /^(999|10\d{2})$/, // Allows '999' or numbers starting with '10'
@@ -697,6 +694,23 @@ const UserModel = sequelize.define(
     timestamps: true,
     underscored: true,
     freezeTableName: true,
+    indexes: [
+      {
+        name: 'ux_users_username',
+        unique: true,
+        fields: ['username'],
+      },
+      {
+        name: 'ux_users_email',
+        unique: true,
+        fields: ['email'],
+      },
+      {
+        name: 'ux_users_extension',
+        unique: true,
+        fields: ['extension'],
+      },
+    ],
   }
 );
 

@@ -9,7 +9,6 @@ const Contact = sequelize.define(
     phoneNumber: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
       validate: {
         // E.164 format validation for WhatsApp
         is: /^\+[1-9]\d{1,14}$/,
@@ -111,6 +110,13 @@ const Contact = sequelize.define(
   },
   {
     timestamps: true, // enables createdAt and updatedAt
+    indexes: [
+      {
+        name: "ux_whatsapp_contact_phone_number",
+        unique: true,
+        fields: ["phoneNumber"],
+      },
+    ],
   }
 );
 
@@ -120,7 +126,6 @@ const WhatsAppMessage = sequelize.define(
     messageId: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
     },
     from: {
       type: DataTypes.STRING,
@@ -182,6 +187,13 @@ const WhatsAppMessage = sequelize.define(
   {
     tableName: "whatsapp_messages",
     timestamps: true,
+    indexes: [
+      {
+        name: "ux_whatsapp_messages_message_id",
+        unique: true,
+        fields: ["messageId"],
+      },
+    ],
   }
 );
 
@@ -239,7 +251,9 @@ const Conversation = sequelize.define(
     contactId: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      references: { model: "whatsapp_contacts", key: "id" },
+      references: { model: Contact.getTableName(), key: "id" },
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
     },
     provider: {
       type: DataTypes.ENUM("lipachat"),
@@ -254,6 +268,8 @@ const Conversation = sequelize.define(
       type: DataTypes.UUID,
       allowNull: true,
       references: { model: "users", key: "id" },
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
     },
     queueId: {
       type: DataTypes.INTEGER,

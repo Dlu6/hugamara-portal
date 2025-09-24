@@ -292,6 +292,45 @@ Prerequisites
 - Trunk must honor CLI via PAI/RPID; enable on the endpoint: `send_pai=yes`, `send_rpid=yes`, `trust_id_outbound=yes` (realtime `ps_endpoints`).
 - If the provider rewrites CLI, ask them to whitelist your DIDs or require E.164 formatting.
 
+### Agent workflow (normal vs prefixed)
+
+- Each agent/extension has a single dialing context set on their endpoint (AgentEdit → Voice → Context).
+- Normal call: the agent dials a number without a prefix → Asterisk matches `_X.` in the agent’s outlet context → the outlet’s DID is presented.
+- Prefixed call: the agent dials `<prefix><destination>` (e.g., `94 0700…`) → `_94X.` in `from‑internal‑custom` matches more specifically → `${EXTEN:2}` strips the prefix and the mapped DID is presented for this call only.
+
+### Admin checklist (TL;DR)
+
+1. Create one context per outlet (e.g., `from-internal-villa`) and one shared context `from-internal-custom`.
+2. In each outlet context, add the default route:
+   - Phone Number `_X.`
+   - Actions: Set `CALLERID(all)` to the outlet DID → Custom Dial `PJSIP/${EXTEN}@Hugamara_Trunk`.
+3. In `from-internal-custom`, add one prefixed route per DID:
+   - Phone Number `_<prefix>X.` (e.g., `_94X.`)
+   - Actions: Set `CALLERID(all)` to that DID → Custom Dial `PJSIP/${EXTEN:n}@Hugamara_Trunk`.
+4. Assign each agent to their outlet context in AgentEdit.
+5. Press “Update Asterisk Contexts” and verify with `dialplan show`.
+
+### Base contexts and common warnings
+
+Define base contexts with keyed realtime switches and optional custom includes:
+
+```ini
+[from-sip]
+include => from-sip-custom
+switch  => Realtime/from-sip@voice_extensions
+
+[from-voip-provider]
+include => from-voip-provider-custom
+switch  => Realtime/from-voip-provider@voice_extensions
+
+[from-internal]
+include => from-internal-custom
+switch  => Realtime/from-internal@voice_extensions
+```
+
+- If you see “tries to include nonexistent …-custom”, create that custom context in Voice → Contexts and sync.
+- The “Update Asterisk Contexts” action is idempotent; it won’t duplicate `#include mayday.d/extensions_mayday_contexts.conf` in `extensions.conf`.
+
 ## Quick Start
 
 ### Prerequisites

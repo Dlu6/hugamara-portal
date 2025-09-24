@@ -9,13 +9,10 @@ export const VoiceQueue = sequelize.define(
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
-      unique: true,
     },
     name: {
       type: DataTypes.STRING(128),
       //   allowNull: false,
-      primaryKey: true,
-      unique: true,
     },
     type: {
       type: DataTypes.ENUM("inbound", "outbound"),
@@ -158,5 +155,12 @@ export const VoiceQueue = sequelize.define(
     tableName: "voice_queues",
     timestamps: true,
     freezeTableName: true, // This prevents Sequelize from pluralizing the table name
+    indexes: [
+      {
+        name: "ux_voice_queues_name",
+        unique: true,
+        fields: ["name"],
+      },
+    ],
   }
 );

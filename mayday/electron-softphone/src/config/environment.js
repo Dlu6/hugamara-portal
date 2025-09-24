@@ -13,17 +13,17 @@ const config = {
   // API Base URL
   apiUrl: isDevelopment
     ? "http://localhost:8004"
-    : import.meta?.env?.VITE_API_URL || "https://hugamara.com",
+    : import.meta?.env?.VITE_API_URL || "https://cs.hugamara.com",
 
   // Socket.IO URL
   socketUrl: isDevelopment
     ? "http://localhost:8004"
-    : import.meta?.env?.VITE_SOCKET_URL || "https://hugamara.com",
+    : import.meta?.env?.VITE_SOCKET_URL || "https://cs.hugamara.com",
 
   // WebSocket URL for SIP
   wsUrl: isDevelopment
     ? "ws://localhost:8088/ws"
-    : import.meta?.env?.VITE_WS_URL || "wss://hugamara.com/ws",
+    : import.meta?.env?.VITE_WS_URL || "wss://cs.hugamara.com/ws",
 
   // Environment flags
   isDevelopment,
