@@ -112,7 +112,7 @@ const clearEncryptedCredentials = () => {
   }
 };
 
-const Login = ({ onLoginSuccess }) => {
+const LoginElectron = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
   const [state, setState] = useState({
     host:
@@ -846,8 +846,8 @@ const Login = ({ onLoginSuccess }) => {
   );
 };
 
-Login.propTypes = {
+LoginElectron.propTypes = {
   onLoginSuccess: PropTypes.func.isRequired,
 };
 
-export default Login;
+export default LoginElectron;

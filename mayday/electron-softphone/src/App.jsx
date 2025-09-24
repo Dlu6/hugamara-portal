@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import Login from "./components/Login";
+import LoginElectron from "./components/LoginElectron";
 import Appbar from "./components/Appbar";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
@@ -72,7 +72,7 @@ const App = () => {
           isAuthenticated ? (
             <Navigate to="/appbar" replace />
           ) : (
-            <Login onLoginSuccess={handleLoginSuccess} />
+            <LoginElectron onLoginSuccess={handleLoginSuccess} />
           )
         }
       />

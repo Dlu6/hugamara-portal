@@ -1,8 +1,9 @@
 // models/pjsipModel.js
 import sequelizePkg from "sequelize";
-const { DataTypes, Op } = sequelizePkg;
 import sequelize from "../config/sequelize.js";
 import UserModel from "./usersModel.js";
+
+const { DataTypes, Op } = sequelizePkg;
 
 // Common PJSIP data types
 const PJSIP_STRING = (length = 40) => ({
@@ -342,7 +343,7 @@ export const PJSIPContact = sequelize.define(
   "ps_contacts",
   {
     id: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.STRING(255),
       primaryKey: true,
     },
     uri: {
@@ -676,11 +677,7 @@ export async function createPJSIPConfigs(
   transaction,
   options = {}
 ) {
-  const {
-    isWebRTC = false,
-    maxContacts = 1,
-    endpoint: endpointOverrides = {},
-  } = options;
+  const { maxContacts = 1, endpoint: endpointOverrides = {} } = options;
 
   // Base configurations for WebRTC user endpoint
   const config = {
@@ -737,6 +734,7 @@ export async function createPJSIPConfigs(
       maximum_expiration: 3600,
       minimum_expiration: 60,
       default_expiration: 300,
+      support_path: "yes", // Critical for WebSocket/WebRTC Contact header handling
     },
   };
 
