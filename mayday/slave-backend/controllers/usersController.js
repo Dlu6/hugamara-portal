@@ -220,8 +220,8 @@ export const registerAgent = async (req, res) => {
           authenticate_qualify: "yes",
           maximum_expiration: 7200,
           minimum_expiration: 60,
-          outbound_proxy: `sip:${getAsteriskHost()}:${getSipPort()}`,
-          rewrite_contact: "yes",
+          outbound_proxy: null, // No proxy for WebSocket connections
+          rewrite_contact: "no", // Don't rewrite contact for WebSocket to preserve transport=wss
         },
         { transaction: sqlTransaction }
       ),
