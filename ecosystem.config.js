@@ -51,6 +51,7 @@ module.exports = {
         // WebRTC/SIP hostnames for WSS registration
         PUBLIC_IP: "cs.hugamara.com",
         ASTERISK_HOST: "cs.hugamara.com",
+        ASTERISK_SIP_PORT: "8089",
 
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",

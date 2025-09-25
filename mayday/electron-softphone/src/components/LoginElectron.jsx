@@ -288,17 +288,15 @@ const LoginElectron = ({ onLoginSuccess }) => {
         throw new Error(responseData.message || "Login failed");
       }
 
-      const { user, mongoUser, tokens } = responseData.data;
+      const { user, tokens } = responseData.data;
 
       // Store user data immediately
       storageService.setUserData({
         user,
-        mongoUser,
         tokens,
       });
 
       storageService.setAuthToken(tokens.sip);
-      localStorage.setItem("mongoToken", tokens.mongo);
 
       // Clear logout flag on successful login
       clearLogoutFlag();
@@ -345,6 +343,7 @@ const LoginElectron = ({ onLoginSuccess }) => {
         ws_servers: wsUrl,
       });
 
+      console.log("🔥🔥🔥🔥🔥🔥SIP Service config:", sipService);
       await sipService.initialize({
         extension: user.extension,
         pjsip: {

@@ -332,6 +332,28 @@ export const PJSIPAor = sequelize.define(
       type: DataTypes.INTEGER,
       defaultValue: 1,
     },
+    // CRITICAL: Missing fields required by Asterisk 20
+    minimum_expiration: {
+      type: DataTypes.INTEGER,
+      defaultValue: 60, // 1 minute minimum
+      allowNull: false,
+    },
+    maximum_expiration: {
+      type: DataTypes.INTEGER,
+      defaultValue: 7200, // 2 hours maximum
+      allowNull: false,
+    },
+    authenticate_qualify: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
+    },
+    outbound_proxy: PJSIP_STRING(255),
+    rewrite_contact: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
+    },
   },
   {
     tableName: "ps_aors",
@@ -731,10 +753,13 @@ export async function createPJSIPConfigs(
       remove_existing: "yes",
       qualify_frequency: 60,
       user_id: userId,
-      maximum_expiration: 3600,
-      minimum_expiration: 60,
-      default_expiration: 300,
+      maximum_expiration: 7200, // 2 hours maximum
+      minimum_expiration: 60, // 1 minute minimum
+      default_expiration: 300, // 5 minutes default
       support_path: "yes", // Critical for WebSocket/WebRTC Contact header handling
+      authenticate_qualify: "yes", // Required for WebSocket registrations
+      rewrite_contact: "yes", // Essential for WebSocket transport
+      outbound_proxy: null, // Will be set by Asterisk if needed
     },
   };
 
