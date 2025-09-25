@@ -212,7 +212,7 @@ export const registerAgent = async (req, res) => {
       PJSIPAor.upsert(
         {
           id: user.extension,
-          max_contacts: 10,
+          max_contacts: 1,
           remove_existing: "yes",
           default_expiration: 3600,
           qualify_frequency: 30,
@@ -221,7 +221,6 @@ export const registerAgent = async (req, res) => {
           maximum_expiration: 7200,
           minimum_expiration: 60,
           outbound_proxy: null, // No proxy for WebSocket connections
-          rewrite_contact: "no", // Don't rewrite contact for WebSocket to preserve transport=wss
         },
         { transaction: sqlTransaction }
       ),
