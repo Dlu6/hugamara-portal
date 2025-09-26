@@ -189,7 +189,7 @@ export const registerAgent = async (req, res) => {
           use_avpf: "yes",
           media_encryption: "sdes",
           media_use_received_transport: "yes",
-          identify_by: "auth,username",
+          identify_by: "auth_username,username",
           rtp_symmetric: "yes",
           send_pai: "no",
           allow_subscribe: "yes",
@@ -472,6 +472,7 @@ export const createPJSIPUser = async (req, res) => {
           use_avpf: "yes",
           media_encryption: "sdes", // ✅ Use SDES for WebRTC
           media_use_received_transport: "yes",
+          identify_by: "auth_username,username",
           endpoint_type: "user",
         },
       }

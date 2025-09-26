@@ -288,7 +288,7 @@ app.get("/", (req, res) => {
       </style>
     </head>
     <body>
-      <h1>Reach-mi Backend Server</h1>
+      <h1>Mayday Backend Server</h1>
       
       <div id="status-container" class="status-container checking">
         <p id="status-text" class="status-text">Status: CHECKING...</p>
