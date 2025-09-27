@@ -1624,6 +1624,7 @@ REACT_APP_CALL_CENTER_URL=http://localhost:3002/login
 #### Backend Services
 
 1. **Hospitality Backend** (`backend/`)
+
    - Port: 8000
    - URL: `http://localhost:8000/api`
    - Purpose: Hospitality management API
@@ -1936,6 +1937,7 @@ pm2 save
 #### Common Issues
 
 **1. Wrong Login Page Shows**
+
 - **Symptom**: Call center opens but shows hospitality login
 - **Cause**: Port collision or wrong URL
 - **Solution**:
@@ -1944,6 +1946,7 @@ pm2 save
   - Hard refresh browser (Cmd/Cmd+Shift+R)
 
 **2. Call Center Page Blank with MIME Error**
+
 - **Symptom**: Console shows: `Refused to execute script ... MIME type 'text/html'` and 404s at `/static/js/...`
 - **Cause**: Call center bundle emitted asset paths under `/static/...` (root) instead of `/callcenter/static/...`
 - **Fix**:
@@ -1953,11 +1956,13 @@ pm2 save
   4. Verify `build/index.html` references `/callcenter/static/...`
 
 **3. JWT Secret Error**
+
 - **Symptom**: `"secretOrPrivateKey must be a symmetric key when using HS256"`
 - **Cause**: Mismatch between JWT algorithm and key type
 - **Solution**: Fixed in `licenseService.js` (HS256 → RS256)
 
 **4. API Connection Issues**
+
 - **Symptom**: Frontend can't connect to backend
 - **Solution**:
   - Verify backend is running on correct port
@@ -1965,6 +1970,7 @@ pm2 save
   - Verify environment variables
 
 **5. Port Conflicts (EADDRINUSE: :::5000)**
+
 - **Symptom**: Hospitality backend restarts repeatedly with `EADDRINUSE` errors.
 - **Cause**: Another Node/PM2 instance using port 5000, possibly under a different user.
 - **Fix**:
@@ -1973,6 +1979,7 @@ pm2 save
   - Verify: `sudo lsof -i :5000` shows nothing, then restart PM2 as `admin`.
 
 **6. Redis Authentication Error (Call Center)**
+
 - **Symptom**: `ERR AUTH <password> called without any password configured` in logs.
 - **Cause**: App configured a Redis password but Redis server has none.
 - **Fix**:
@@ -1980,21 +1987,25 @@ pm2 save
   - Remove `REDIS_PASSWORD` from the call center app environment in `ecosystem.config.js`.
 
 **7. Nginx Fails to Reload**
+
 - **Symptom**: Nginx fails to reload with an `invalid parameter "immutable"` error.
 - **Cause**: The server's Nginx version is older.
 - **Fix**: Change `add_header Cache-Control "public, immutable";` to `add_header Cache-Control "public";`.
 
 **8. PM2 Permission Issues**
+
 - **Symptom**: PM2 fails to start with `EACCES: permission denied` on log files.
 - **Cause**: The `ecosystem.config.js` on the server has incorrect absolute log paths, and the `mayday` user doesn't have permission to write to them.
 - **Fix**: Force-pull from git (`git reset --hard`) to get the updated config with relative `./logs` paths, then ensure `mayday` owns the project directory.
 
 **9. Database Connection Issues**
+
 - **Symptom**: Backend cannot connect to asterisk database
 - **Cause**: Wrong database user configuration
 - **Fix**: The mayday-callcenter-backend uses `root` user for asterisk database, not `hugamara_user`
 
 **10. Creating a Trunk Fails**
+
 - **Symptom**: Database errors like `Unknown column 'match'` or `a foreign key constraint fails`.
 - **Cause**: The `asterisk` database schema for PJSIP tables is incorrect or outdated.
 - **Fix**: Connect to the `asterisk` database and manually run SQL commands to fix the `ps_endpoint_id_ips` table.
