@@ -134,6 +134,87 @@ JWT_SECRET=your_jwt_secret_key_here
 SESSION_SECRET=your_session_secret_here
 ```
 
+## Provider IP Identify Mapping (PJSIP Realtime)
+
+When your SIP provider sends OPTIONS/INVITE from specific public IPs, Asterisk must map those source IPs to a trunk endpoint. We use realtime table `ps_endpoint_id_ips` to create an identify that matches the provider IPs.
+
+### Add/Update identify rows (example)
+
+Run inside MySQL on the VM (asterisk DB):
+
+```sql
+-- Map provider IP 41.77.78.155 to endpoint Hugamara_Trunk
+INSERT INTO ps_endpoint_id_ips (id, endpoint, `match`, srv_lookups, match_request_uri)
+VALUES ('provider-41.77.78.155', 'Hugamara_Trunk', '41.77.78.155/32', 'no', 'no')
+ON DUPLICATE KEY UPDATE `match`=VALUES(`match`);
+```
+
+Repeat per provider IP/CIDR. Example for a /29 block:
+
+```sql
+INSERT INTO ps_endpoint_id_ips (id, endpoint, `match`, srv_lookups, match_request_uri)
+VALUES ('provider-203.0.113.8-29', 'Hugamara_Trunk', '203.0.113.8/29', 'no', 'no')
+ON DUPLICATE KEY UPDATE `match`=VALUES(`match`);
+```
+
+### Verify mappings and identifier order
+
+```sql
+SELECT * FROM ps_endpoint_id_ips \G;
+SELECT * FROM ps_globals \G; -- expect endpoint_identifier_order to include ip
+```
+
+Recommended `endpoint_identifier_order` (set in `ps_globals` where `id='global'`):
+
+```text
+ip,username,auth_username,anonymous
+```
+
+Reload PJSIP after changes:
+
+```bash
+sudo asterisk -rx "pjsip reload"
+```
+
+This prevents "No matching endpoint found" notices for legitimate provider OPTIONS/INVITEs coming from known IPs.
+
+### Ensure realtime identify is enabled in config (recommended)
+
+To avoid future drift and make identifies fully managed via the database, confirm these are enabled on the VM:
+
+1. `/etc/asterisk/extconfig.conf`
+
+```
+[settings]
+ps_endpoints => odbc,asterisk,ps_endpoints
+ps_auths => odbc,asterisk,ps_auths
+ps_aors => odbc,asterisk,ps_aors
+ps_contacts => odbc,asterisk,ps_contacts
+ps_endpoint_id_ips => odbc,asterisk,ps_endpoint_id_ips   ; UNCOMMENT/ADD THIS
+```
+
+2. `/etc/asterisk/sorcery.conf`
+
+```
+[res_pjsip]
+endpoint=realtime,ps_endpoints
+auth=realtime,ps_auths
+aor=realtime,ps_aors
+contact=realtime,ps_contacts
+
+[res_pjsip_endpoint_identifier_ip]
+identify=realtime,ps_endpoint_id_ips   ; UNCOMMENT/ADD THIS
+```
+
+3. Reload configuration:
+
+```bash
+sudo asterisk -rx "module reload res_config_odbc.so"
+sudo asterisk -rx "pjsip reload"
+```
+
+With these in place, adding rows to `ps_endpoint_id_ips` (as shown above) immediately activates identify mappings without further file edits.
+
 ## Verification
 
 ### 1. Test AMI Connection
