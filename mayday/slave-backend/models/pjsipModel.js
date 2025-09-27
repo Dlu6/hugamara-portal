@@ -377,8 +377,8 @@ export const PJSIPContact = sequelize.define(
   {
     id: {
       type: DataTypes.STRING(255),
-      allowNull: true,
-      unique: true,
+      allowNull: false,
+      primaryKey: true,
     },
     uri: {
       type: DataTypes.STRING(511),
