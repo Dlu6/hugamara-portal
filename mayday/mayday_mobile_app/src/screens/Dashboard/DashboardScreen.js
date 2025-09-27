@@ -10,6 +10,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import { fetchMyPerformanceStats } from "../../store/slices/dashboardSlice";
+import io from "socket.io-client";
+import Constants from "expo-constants";
+import { getApiBaseUrl } from "../../config/endpoints";
 
 export default function DashboardScreen() {
   const dispatch = useDispatch();
@@ -17,6 +20,37 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     dispatch(fetchMyPerformanceStats("today"));
+
+    // Realtime updates via Socket.IO (best-effort)
+    const extra = Constants?.expoConfig?.extra || {};
+    const baseUrl = getApiBaseUrl() || extra.API_BASE_URL || "";
+    const socketUrl = baseUrl.replace(/\/api$/, "");
+
+    let socket;
+    try {
+      socket = io(socketUrl, { transports: ["websocket"], path: "/socket.io" });
+      socket.on("connect", () => {
+        // Optionally authenticate/identify here if backend supports it
+      });
+      // If backend emits call updates, re-fetch quick personal stats
+      const refresh = () => dispatch(fetchMyPerformanceStats("today"));
+      socket.on("call_started", refresh);
+      socket.on("call_ended", refresh);
+      socket.on("stats_updated", refresh);
+    } catch (e) {
+      // Ignore socket wiring errors; fallback interval below covers updates
+    }
+
+    // Fallback polling every 60s to keep numbers fresh if socket is unavailable
+    const id = setInterval(
+      () => dispatch(fetchMyPerformanceStats("today")),
+      60000
+    );
+
+    return () => {
+      clearInterval(id);
+      if (socket && socket.connected) socket.close();
+    };
   }, [dispatch]);
 
   const onRefresh = () => {

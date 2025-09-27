@@ -78,7 +78,7 @@ class WebSocketService extends EventEmitter {
     }
 
     // Default to production URL for Electron or when window is not available
-    return import.meta.env?.VITE_API_URL || "https://hugamara.com";
+    return import.meta.env?.VITE_API_URL || "https://cs.hugamara.com";
   }
 
   // Get authentication token

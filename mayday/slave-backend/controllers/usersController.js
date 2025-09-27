@@ -189,13 +189,19 @@ export const registerAgent = async (req, res) => {
           use_avpf: "yes",
           media_encryption: "sdes",
           media_use_received_transport: "yes",
-          identify_by: "auth,username",
+          identify_by: "auth_username,username",
           rtp_symmetric: "yes",
           send_pai: "no",
           allow_subscribe: "yes",
           timers: "yes",
           timers_min_se: "90",
           timers_sess_expires: "1800",
+          // Additional WebSocket-specific settings
+          trust_remote_party_id: "no",
+          send_remote_party_id_header: "no",
+          allow_overlap: "yes",
+          notify_early_inuse_ringing: "yes",
+          refer_blind_progress: "yes",
         },
         { transaction: sqlTransaction }
       ),
@@ -212,16 +218,19 @@ export const registerAgent = async (req, res) => {
       PJSIPAor.upsert(
         {
           id: user.extension,
-          max_contacts: 10,
+          contact: "", // Empty contact allows dynamic registration
+          max_contacts: 1,
           remove_existing: "yes",
-          default_expiration: 3600,
-          qualify_frequency: 30,
+          default_expiration: 600, // Shorter expiration for WebSocket
+          qualify_frequency: 60, // Less frequent qualify for WebSocket
           support_path: "yes",
           authenticate_qualify: "yes",
           maximum_expiration: 7200,
           minimum_expiration: 60,
-          outbound_proxy: `sip:${getAsteriskHost()}:${getSipPort()}`,
-          rewrite_contact: "yes",
+          outbound_proxy: null, // No proxy for WebSocket connections
+          rewrite_contact: "yes", // Important for WebSocket connections
+          websocket_enabled: "yes", // Enable WebSocket for this AOR
+          media_websocket: "yes", // Enable media over WebSocket
         },
         { transaction: sqlTransaction }
       ),
@@ -458,8 +467,8 @@ export const createPJSIPUser = async (req, res) => {
           transport: "transport-wss",
           webrtc: "yes",
           dtls_auto_generate_cert: "no",
-          //   dtls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
-          //   dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
+          //   dtls_cert_file: "/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem",
+          //   dtls_private_key: "/etc/letsencrypt/live/cs.hugamara.com/privkey.pem",
           direct_media: "no",
           force_rport: "yes",
           ice_support: "yes",
@@ -473,6 +482,7 @@ export const createPJSIPUser = async (req, res) => {
           use_avpf: "yes",
           media_encryption: "sdes", // ✅ Use SDES for WebRTC
           media_use_received_transport: "yes",
+          identify_by: "auth_username,username",
           endpoint_type: "user",
         },
       }

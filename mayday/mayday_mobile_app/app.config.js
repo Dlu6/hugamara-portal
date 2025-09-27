@@ -5,9 +5,7 @@ export default ({ config }) => ({
   scheme: "mayday",
   plugins: ["expo-secure-store", "expo-asset", "expo-font"],
   extra: {
-    API_BASE_URL:
-      process.env.EXPO_PUBLIC_API_BASE_URL ||
-      "https://cs.hugamara.com/mayday-api/api",
+    API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL || null,
     SIP_DOMAIN: process.env.EXPO_PUBLIC_SIP_DOMAIN || "cs.hugamara.com",
     NOTIFICATIONS_CHANNEL_ID: "calls",
     eas: {
@@ -16,13 +14,13 @@ export default ({ config }) => ({
   },
   ios: {
     supportsTablet: false,
-    bundleIdentifier: "com.hugamara.mayday",
+    bundleIdentifier: "com.mayday",
     infoPlist: {
       UIBackgroundModes: ["audio", "voip", "processing"],
     },
   },
   android: {
-    package: "com.hugamara.mayday",
+    package: "com.mayday",
     permissions: [
       "INTERNET",
       "RECORD_AUDIO",

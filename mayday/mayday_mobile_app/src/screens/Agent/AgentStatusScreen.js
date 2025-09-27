@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -12,19 +13,58 @@ import {
   pauseAgent,
   unpauseAgent,
   fetchAgentProfile,
+  fetchAllAgentsStatus,
 } from "../../store/slices/agentSlice";
+import { makeCall } from "../../services/sipClient";
+import io from "socket.io-client";
+import Constants from "expo-constants";
+import { getApiBaseUrl } from "../../config/endpoints";
 
 export default function AgentStatusScreen() {
   const dispatch = useDispatch();
-  const { isPaused, pauseReason, status, profile } = useSelector(
+  const { isPaused, pauseReason, status, profile, agents } = useSelector(
     (s) => s.agent
   );
   const { user, extension } = useSelector((s) => s.auth);
 
   useEffect(() => {
-    // Fetch initial status and profile when the component mounts
+    // Initial fetches
     dispatch(fetchAgentStatus());
     dispatch(fetchAgentProfile());
+    dispatch(fetchAllAgentsStatus());
+
+    // Realtime updates via Socket.IO
+    const extra = Constants?.expoConfig?.extra || {};
+    const baseUrl = getApiBaseUrl() || extra.API_BASE_URL || "";
+    const socketUrl = baseUrl.replace(/\/api$/, "");
+
+    let lastRefreshAt = 0;
+    const maybeRefresh = () => {
+      const now = Date.now();
+      if (now - lastRefreshAt < 1500) return; // throttle spammy bursts
+      lastRefreshAt = now;
+      dispatch(fetchAllAgentsStatus());
+    };
+
+    let socket;
+    try {
+      socket = io(socketUrl, { transports: ["websocket"], path: "/socket.io" });
+      socket.on("connect", () => {
+        // Connected to socket server
+      });
+      socket.on("agent_status", maybeRefresh);
+      socket.on("agent_status_update", maybeRefresh);
+    } catch (_) {
+      // ignore socket wiring errors
+    }
+
+    // Optional fallback polling (every 60s) to stay fresh if socket fails
+    const id = setInterval(() => dispatch(fetchAllAgentsStatus()), 60000);
+
+    return () => {
+      clearInterval(id);
+      if (socket && socket.connected) socket.close();
+    };
   }, [dispatch]);
 
   const handleTogglePause = () => {
@@ -66,8 +106,37 @@ export default function AgentStatusScreen() {
     statusColor = "#EF4444"; // red
   }
 
+  const renderAgentItem = (a) => {
+    const isSelf = String(a.extension) === String(ext);
+    const color = a.status === "online" ? "#22C55E" : "#9CA3AF";
+    return (
+      <View key={a.extension} style={styles.agentRow}>
+        <View style={styles.agentLeft}>
+          <View style={[styles.dot, { backgroundColor: color }]} />
+          <Text style={styles.agentName}>
+            {a.fullName || a.username || `Agent ${a.extension}`} ({a.extension})
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.smallBtn, isSelf && styles.smallBtnDisabled]}
+          onPress={() => !isSelf && makeCall(String(a.extension))}
+          disabled={isSelf}
+        >
+          <Text style={styles.smallBtnText}>Call</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const otherAgents = (agents || []).filter(
+    (a) => String(a.extension) !== String(ext)
+  );
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
       <Text style={styles.title}>Agent Status</Text>
 
       {/* Agent Details */}
@@ -107,7 +176,17 @@ export default function AgentStatusScreen() {
           )}
         </TouchableOpacity>
       </View>
-    </View>
+
+      {/* Other agents */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Other Agents</Text>
+        {otherAgents.length === 0 ? (
+          <Text style={styles.label}>No other agents</Text>
+        ) : (
+          otherAgents.map(renderAgentItem)
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -161,4 +240,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#B91C1C", // Red when paused
   },
   btnText: { color: "#FFFFFF", fontWeight: "700" },
+  agentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#1F2937",
+  },
+  agentLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  agentName: { color: "#FFFFFF", fontWeight: "600" },
+  smallBtn: {
+    backgroundColor: "#0B9246",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#14532D",
+  },
+  smallBtnDisabled: { opacity: 0.5 },
+  smallBtnText: { color: "#FFFFFF", fontWeight: "700" },
 });

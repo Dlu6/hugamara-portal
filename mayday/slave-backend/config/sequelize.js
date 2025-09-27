@@ -117,21 +117,23 @@ export const syncDatabase = async () => {
     const CallCost = (await import("../models/callCostModel.js")).default;
     const SoundFile = (await import("../models/soundFileModel.js")).default;
     const OdbcConnection = (await import("../models/odbcModel.js")).default;
-    const { Contact, WhatsAppMessage, WhatsAppConfig } = await import(
-      "../models/WhatsAppModel.js"
-    );
+    const { Contact, WhatsAppMessage, WhatsAppConfig, Conversation } =
+      await import("../models/WhatsAppModel.js");
     const IVRFlow = (await import("../models/IVRModel.js")).default;
     const IntegrationModel = (await import("../models/integrationModel.js"))
       .default;
     const IntegrationDataModel = (
       await import("../models/integrationDataModel.js")
     ).default;
+    const DialplanContext = (await import("../models/dialplanContextModel.js"))
+      .default;
     const {
       LicenseCache,
       LicenseValidation,
       FingerprintHistory,
       ClientSession,
     } = await import("../models/licenseModel.js");
+    const SmsMessage = (await import("../models/SmsMessage.js")).default; // Import the new model
 
     // Single transaction for all DDL
     const tx = await sequelize.transaction();
@@ -145,7 +147,6 @@ export const syncDatabase = async () => {
       // Dependent PJSIP tables
       await PJSIPEndpoint.sync({ force: false, transaction: tx });
       await PJSIPContact.sync({ force: false, transaction: tx });
-      await PJSIPIdentify.sync({ force: false, transaction: tx });
 
       // Queues
       await VoiceQueue.sync({ force: false, transaction: tx });
@@ -160,14 +161,20 @@ export const syncDatabase = async () => {
       await VoiceExtension.sync({ force: false, transaction: tx });
       await InboundRoute.sync({ force: false, transaction: tx });
 
+      // Dialplan Contexts (new)
+      await DialplanContext.sync({ force: false, transaction: tx });
+
       // Integrations
       await IntegrationModel.sync({ force: false, transaction: tx });
       await IntegrationDataModel.sync({ force: false, transaction: tx });
 
       // WhatsApp
+      // Ensure base tables are created before FKs
       await Contact.sync({ force: false, transaction: tx });
-      await WhatsAppMessage.sync({ force: false, transaction: tx });
       await WhatsAppConfig.sync({ force: false, transaction: tx });
+      // Messages reference Contact and Conversation, create Conversation first
+      await Conversation.sync({ force: false, transaction: tx });
+      await WhatsAppMessage.sync({ force: false, transaction: tx });
 
       // Licensing
       await LicenseCache.sync({ force: false, transaction: tx });
@@ -181,6 +188,9 @@ export const syncDatabase = async () => {
       await SoundFile.sync({ force: false, transaction: tx });
       await OdbcConnection.sync({ force: false, transaction: tx });
       await IVRFlow.sync({ force: false, transaction: tx });
+
+      // SMS
+      await SmsMessage.sync({ force: false, transaction: tx }); // Sync the new model
 
       await tx.commit();
       console.log("Database synchronized successfully");

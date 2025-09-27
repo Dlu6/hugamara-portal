@@ -71,9 +71,9 @@ import {
   PersonAdd,
   Search,
   StarBorder,
-  Timeline,
+  // Timeline,
   BarChart,
-  Refresh,
+  Message as MessageIcon,
 } from "@mui/icons-material";
 // import { io } from "socket.io-client";
 // import DialPad from "./DialPad";
@@ -103,7 +103,8 @@ import transferHistoryService from "../services/transferHistoryService";
 import { agentService } from "../services/agentService";
 import { useNavigate } from "react-router-dom";
 import CallPopup from "./CallPopup";
-
+import smsApi from "../services/smsService";
+import SmsView from "./SmsView";
 // Debug connection manager import - removed excessive logging
 
 const pulseAnimation = keyframes`
@@ -391,7 +392,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
             `${
               process.env.NODE_ENV === "development"
                 ? "http://localhost:8004"
-                : "https://hugamara.com"
+                : "https://cs.hugamara.com"
             }/api/users/agent-logout`,
             {
               method: "POST",
@@ -1896,7 +1897,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
           `${
             process.env.NODE_ENV === "development"
               ? "http://localhost:8004"
-              : "https://hugamara.com"
+              : "https://cs.hugamara.com"
           }/api/users/agent-presence`,
           {
             method: "POST",
@@ -1969,30 +1970,12 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       action: () => setActiveSection("transferHistory"),
       id: "transferHistory",
     },
-    // {
-    //   icon: <EmailIcon />,
-    //   text: "Email",
-    //   action: () => setActiveSection("email"),
-    //   id: "email",
-    // },
-    // {
-    //   icon: <FacebookIcon />,
-    //   text: "Facebook",
-    //   action: () => setActiveSection("facebook"),
-    //   id: "facebook",
-    // },
     {
       icon: <BarChart />,
       text: "Reports",
       action: () => setActiveSection("reports"),
       id: "reports",
     },
-    // {
-    //   icon: <Group />,
-    //   text: "Contacts",
-    //   action: () => setActiveSection("contacts"),
-    //   id: "contacts",
-    // },
     {
       icon: <SupportAgent />,
       text: "Agent Status",
@@ -2006,17 +1989,17 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       id: "whatsapp",
     },
     {
+      icon: <MessageIcon />,
+      text: "SMS",
+      action: () => setActiveSection("sms"),
+      id: "sms",
+    },
+    {
       icon: <EmailIcon />,
       text: "Email",
       action: () => setActiveSection("email"),
       id: "email",
     },
-    // {
-    //   icon: <Campaign />,
-    //   text: "Campaigns",
-    //   action: () => setActiveSection("campaigns"),
-    //   id: "campaigns",
-    // },
     {
       icon: <InfoIcon />,
       text: "Info",
@@ -2118,6 +2101,75 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       </Typography>
     );
   }, [isAttendedTransfer, consultationCall]);
+
+  // Registration duration from backend-provided start time
+  const [registrationDurationSec, setRegistrationDurationSec] = useState(0);
+  useEffect(() => {
+    if (!isRegistered) {
+      return;
+    }
+
+    // Prefer backend registrationStart, else fall back to lastSeen when registered
+    const startIso =
+      registeredAgent?.registrationStart || registeredAgent?.lastSeen || null;
+    if (!startIso) {
+      return;
+    }
+
+    const startMs = (() => {
+      try {
+        return new Date(startIso).getTime();
+      } catch (_) {
+        return null;
+      }
+    })();
+    if (!startMs || Number.isNaN(startMs)) {
+      return;
+    }
+
+    const update = () => {
+      const diff = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      setRegistrationDurationSec(diff);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [
+    isRegistered,
+    registeredAgent?.registrationStart,
+    registeredAgent?.lastSeen,
+  ]);
+
+  const RegistrationDuration = useCallback(() => {
+    if (!isRegistered || !registrationDurationSec) return null;
+    const hours = Math.floor(registrationDurationSec / 3600);
+    const minutes = Math.floor((registrationDurationSec % 3600) / 60);
+    const seconds = registrationDurationSec % 60;
+    const text =
+      hours > 0
+        ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+            .toString()
+            .padStart(2, "0")}`
+        : `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+    return (
+      <Typography
+        variant="caption"
+        sx={{
+          ml: 1,
+          color: "#0ca",
+          fontSize: "0.7rem",
+          fontFamily: "monospace",
+          backgroundColor: "rgba(255,255,255,0.08)",
+          borderRadius: "4px",
+          padding: "2px 4px",
+        }}
+        title="Time since registration (backend)"
+      >
+        {text}
+      </Typography>
+    );
+  }, [isRegistered, registrationDurationSec]);
 
   // Handler to close any active section
   const handleCloseSection = useCallback(() => {
@@ -2530,7 +2582,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
         const base =
           process.env.NODE_ENV === "development"
             ? "http://localhost:8004"
-            : "https://hugamara.com";
+            : "https://cs.hugamara.com";
         const resp = await fetch(`${base}/api/agent-status`, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -3896,6 +3948,20 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
     return () => clearInterval(interval);
   }, [isAttendedTransfer, consultationCall, isLoggingOut]);
 
+  // Add near other handlers
+  const handleQuickSms = async () => {
+    try {
+      const to = window.prompt("Send SMS to (E.164, e.g. +256...)");
+      if (!to) return;
+      const content = window.prompt("Message content");
+      if (!content) return;
+      await smsApi.send({ to, content });
+      window.alert("SMS sent");
+    } catch (e) {
+      window.alert(`Failed to send SMS: ${e.message}`);
+    }
+  };
+
   // ========== Component Rendering ==========
 
   return (
@@ -4283,6 +4349,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
                         : "Ready"
                       : "Not Ready"}
                   </Typography>
+                  <RegistrationDuration />
                   {isRegistered && (
                     <>
                       <IconButton
@@ -4391,7 +4458,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
                       >
                         |
                       </span>
-                      {registeredAgent?.username}
+                      {registeredAgent?.extension || user?.extension || ""}
                     </>
                   ) : user?.username ? (
                     <>
@@ -4749,23 +4816,11 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
         open={activeSection === "email"}
         onClose={handleCloseSection}
       />
-      {/* <Contacts
-        open={activeSection === "contacts"}
-        onClose={handleCloseSection}
-        onWhatsAppChat={handleWhatsAppChat}
-      /> */}
-      {/* <Campaigns
-        open={activeSection === "campaigns"}
-        onClose={handleCloseSection}
-      /> */}
+      <SmsView open={activeSection === "sms"} onClose={handleCloseSection} />
       <AgentStatus
         open={activeSection === "agentStatus"}
         onClose={handleCloseSection}
       />
-      {/* <FacebookView
-        open={activeSection === "facebook"}
-        onClose={handleCloseSection}
-      /> */}
       <PhonebarInfo
         open={activeSection === "info"}
         onClose={handleCloseSection}

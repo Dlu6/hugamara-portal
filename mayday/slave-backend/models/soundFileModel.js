@@ -13,7 +13,6 @@ const SoundFile = sequelize.define(
     filename: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      unique: true,
     },
     description: {
       type: DataTypes.STRING(255),
@@ -40,6 +39,13 @@ const SoundFile = sequelize.define(
     timestamps: true,
     createdAt: "created_at",
     updatedAt: "updated_at",
+    indexes: [
+      {
+        name: "ux_sound_files_filename",
+        unique: true,
+        fields: ["filename"],
+      },
+    ],
   }
 );
 

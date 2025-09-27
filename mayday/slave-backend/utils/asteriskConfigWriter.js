@@ -112,7 +112,7 @@ protocol=udp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 `;
@@ -127,7 +127,7 @@ protocol=tcp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 `;
@@ -160,9 +160,11 @@ websocket_write_timeout=10000
 method=tlsv1_2
 require_client_cert=no
 verify_client=no
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
+cert_file=/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem
+priv_key_file=/etc/letsencrypt/live/cs.hugamara.com/privkey.pem
 `;
     }
 
@@ -273,7 +275,7 @@ protocol=udp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 
@@ -283,7 +285,7 @@ protocol=tcp
 bind=0.0.0.0:5060
 external_media_address=${externalIp}
 external_signaling_address=${externalIp}
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
 
@@ -306,9 +308,11 @@ websocket_write_timeout=10000
 method=tlsv1_2
 require_client_cert=no
 verify_client=no
-local_net=172.31.0.0/16
+local_net=0.0.0.0/0
 symmetric_transport=yes
 allow_reload=yes
+cert_file=/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem
+priv_key_file=/etc/letsencrypt/live/cs.hugamara.com/privkey.pem
 `;
 
     // Find the right place to insert (after [general] section if it exists)
@@ -857,7 +861,22 @@ export const updateContextsConfig = async () => {
       "/etc/asterisk/mayday.d/extensions_mayday_contexts.conf";
     const tempFile = "/tmp/extensions_append.conf";
 
-    const contextsContent = `
+    // Load dynamic contexts from DB
+    let dynamicContexts = [];
+    try {
+      const DialplanContext = (
+        await import("../models/dialplanContextModel.js")
+      ).default;
+      dynamicContexts = await DialplanContext.findAll({
+        where: { active: true },
+        raw: true,
+      });
+    } catch (e) {
+      console.warn("Could not load dialplan contexts from DB:", e.message);
+    }
+
+    // Base contexts
+    let contextsContent = `
 [from-sip]
 include => from-sip-custom
 switch => Realtime
@@ -874,6 +893,23 @@ switch => Realtime
 switch => Realtime
 `;
 
+    // Append dynamic contexts: each includes optional include and switches to realtime key
+    if (dynamicContexts && dynamicContexts.length > 0) {
+      const rendered = dynamicContexts
+        .map((c) => {
+          const name = c.name?.trim();
+          if (!name) return null;
+          const include = c.include?.trim();
+          const rt = (c.realtimeKey || name).trim();
+          return `\n[${name}]\n${
+            include ? `include => ${include}\n` : ""
+          }switch => Realtime/${rt}@voice_extensions\n`;
+        })
+        .filter(Boolean)
+        .join("");
+      contextsContent += rendered;
+    }
+
     // Write to temp file
     await fs.writeFile(tempFile, contextsContent);
 
@@ -882,10 +918,23 @@ switch => Realtime
     await execAsync(`sudo chown asterisk:asterisk ${extensionsContextsPath}`);
     await execAsync(`sudo chmod 644 ${extensionsContextsPath}`);
 
-    // Append include directive to extensions.conf using tee
-    await execAsync(
-      `echo "#include mayday.d/extensions_mayday_contexts.conf" | sudo tee -a /etc/asterisk/extensions.conf`
-    );
+    // Append include directive to extensions.conf only if not already present
+    const includeLine = "#include mayday.d/extensions_mayday_contexts.conf";
+    try {
+      const { stdout } = await execAsync(
+        `sudo bash -lc 'grep -Fxq "${includeLine}" /etc/asterisk/extensions.conf && echo present || echo missing'`
+      );
+      if (!stdout || !stdout.toString().includes("present")) {
+        await execAsync(
+          `echo "${includeLine}" | sudo tee -a /etc/asterisk/extensions.conf`
+        );
+      }
+    } catch (e) {
+      // As a safe fallback, attempt an idempotent append using sed guard
+      await execAsync(
+        `sudo bash -lc 'grep -Fxq "${includeLine}" /etc/asterisk/extensions.conf || echo "${includeLine}" >> /etc/asterisk/extensions.conf'`
+      );
+    }
 
     // Reload dialplan
     await amiService.executeAction({

@@ -9,7 +9,6 @@ const Contact = sequelize.define(
     phoneNumber: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
       validate: {
         // E.164 format validation for WhatsApp
         is: /^\+[1-9]\d{1,14}$/,
@@ -111,75 +110,92 @@ const Contact = sequelize.define(
   },
   {
     timestamps: true, // enables createdAt and updatedAt
+    indexes: [
+      {
+        name: "ux_whatsapp_contact_phone_number",
+        unique: true,
+        fields: ["phoneNumber"],
+      },
+    ],
   }
 );
 
-const WhatsAppMessage = sequelize.define("whatsapp_messages", {
-  messageId: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-  },
-  from: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  sender: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  to: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  text: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-  mediaUrl: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  template: {
-    type: DataTypes.TEXT("long"),
-    allowNull: true,
-  },
-  timestamp: {
-    type: DataTypes.DATE,
-    allowNull: true,
-  },
-  status: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    defaultValue: "sent",
-  },
-  replyTo: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: "whatsapp_messages",
-      key: "id",
+const WhatsAppMessage = sequelize.define(
+  "whatsapp_messages",
+  {
+    messageId: {
+      type: DataTypes.STRING,
+      allowNull: false,
     },
-    onDelete: "SET NULL",
-    onUpdate: "CASCADE",
+    from: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    sender: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    to: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    text: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    mediaUrl: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    template: {
+      type: DataTypes.TEXT("long"),
+      allowNull: true,
+    },
+    timestamp: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: "sent",
+    },
+    replyTo: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "whatsapp_messages",
+        key: "id",
+      },
+      onDelete: "SET NULL",
+      onUpdate: "CASCADE",
+    },
+    type: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: "text",
+    },
+    errorCode: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    errorMessage: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
-  type: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    defaultValue: "text",
-  },
-  errorCode: {
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  errorMessage: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
-}, {
-  tableName: "whatsapp_messages",
-  timestamps: true,
-});
+  {
+    tableName: "whatsapp_messages",
+    timestamps: true,
+    indexes: [
+      {
+        name: "ux_whatsapp_messages_message_id",
+        unique: true,
+        fields: ["messageId"],
+      },
+    ],
+  }
+);
 
 WhatsAppMessage.belongsTo(WhatsAppMessage, {
   as: "replyMessage",
@@ -227,3 +243,95 @@ WhatsAppMessage.belongsTo(Contact, {
 });
 
 export { Contact, WhatsAppMessage, WhatsAppConfig };
+
+// New Conversation model to manage multi-agent interactions
+const Conversation = sequelize.define(
+  "whatsapp_conversations",
+  {
+    contactId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: { model: Contact.getTableName(), key: "id" },
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
+    },
+    provider: {
+      type: DataTypes.ENUM("lipachat"),
+      allowNull: false,
+      defaultValue: "lipachat",
+    },
+    providerConversationId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    assignedAgentId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: "users", key: "id" },
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
+    },
+    queueId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.ENUM(
+        "open",
+        "pending",
+        "snoozed",
+        "resolved",
+        "archived"
+      ),
+      defaultValue: "open",
+    },
+    priority: {
+      type: DataTypes.ENUM("low", "normal", "high", "urgent"),
+      defaultValue: "normal",
+    },
+    unreadCount: {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+    lastMessageAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    tags: {
+      type: DataTypes.JSON,
+      defaultValue: [],
+    },
+    metadata: {
+      type: DataTypes.JSON,
+      defaultValue: {},
+    },
+    lockOwnerId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    lockExpiresAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+  },
+  {
+    tableName: "whatsapp_conversations",
+    timestamps: true,
+  }
+);
+
+// Associate messages to conversations
+WhatsAppMessage.belongsTo(Conversation, { foreignKey: "conversationId" });
+Conversation.hasMany(WhatsAppMessage, { foreignKey: "conversationId" });
+
+// Associate conversation to contact
+Conversation.belongsTo(Contact, { foreignKey: "contactId" });
+Contact.hasMany(Conversation, { foreignKey: "contactId" });
+
+// Extend WhatsAppConfig with provider fields if not present
+if (!("provider" in WhatsAppConfig.getAttributes())) {
+  WhatsAppConfig.removeAttribute && WhatsAppConfig.removeAttribute("provider");
+}
+
+// Note: altering existing table columns is handled by sequelize sync with alter in config
+export { Conversation };

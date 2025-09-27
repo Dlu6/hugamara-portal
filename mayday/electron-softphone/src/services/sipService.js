@@ -80,15 +80,24 @@ async function connect(config) {
       process.env.NODE_ENV === "production" ||
       window.location.protocol === "https:"
     ) {
-      // Use /ws endpoint which nginx will handle with proper TLS
-      wsUrl = `wss://${server}/ws`;
+      // Use WSS directly to Asterisk on port 8089
+      wsUrl = `wss://${server}:8089/ws`;
     } else {
       // Development uses plain WebSocket
       wsUrl = `ws://${server}:8088/ws`;
     }
   }
 
-  console.log("Establishing SIP connection to:", wsUrl);
+  console.log("🔧 WebSocket Configuration Debug:", {
+    server: server,
+    wsUrl: wsUrl,
+    configWsServers: config?.pjsip?.ws_servers,
+    nodeEnv: process.env.NODE_ENV,
+    locationProtocol: window.location?.protocol,
+    isWss: wsUrl.startsWith("wss:"),
+    transportType: wsUrl.startsWith("wss:") ? "wss" : "ws",
+  });
+
   if (!wsUrl) {
     throw new Error("WebSocket servers configuration is missing");
   }
@@ -111,7 +120,7 @@ async function connect(config) {
     let iceServers = [];
 
     if (!isDev) {
-      const apiHost = "hugamara.com";
+      const apiHost = "cs.hugamara.com";
       const apiProtocol = "https";
       const stunConfigUrl = `${apiProtocol}://${apiHost}/api/users/network-config/stun`;
       const stunServers = await fetchStunConfigWithRetry(stunConfigUrl, 1);
@@ -136,24 +145,23 @@ async function connect(config) {
       authorizationPassword: password,
       displayName: extension,
       transportOptions: {
-        wsServers: [wsUrl],
-        traceSip: false,
-        maxReconnectionAttempts: 5, // 5 reconnection attempts
-        reconnectionTimeout: 10000, // 10 seconds between reconnection attempts
+        server: wsUrl,
+        traceSip: true, // Enable SIP tracing for debugging
         keepAliveInterval: 60, // Send keep-alive every 60 seconds
         keepAliveDebounce: 20, // Minimum 20 seconds between keep-alives
         connectionTimeout: 30000, // 30 seconds to establish connection
-        secure: process.env.NODE_ENV !== "development", // Use secure in production
+        secure: wsUrl.startsWith("wss:"), // Determine security from URL scheme
         rejectUnauthorized: false, // Similar to websocketService
       },
+      reconnectionAttempts: 5,
+      reconnectionDelay: 10,
       registerOptions: {
         expires: registerExpires,
-        extraContactHeaderParams: ["transport=ws"],
         instanceId: config?.pjsip?.instance_id || Date.now().toString(),
         regId: 1,
         registrarServer: `sip:${server}`,
         contactParams: {
-          transport: "ws",
+          transport: wsUrl.startsWith("wss:") ? "wss" : "ws",
           "reg-id": 1,
           "+sip.instance": `"<urn:uuid:${
             config?.pjsip?.instance_id || Date.now().toString()
@@ -175,10 +183,28 @@ async function connect(config) {
         level: "off",
         connector: () => {},
       },
-      hackViaTcp: true,
-      viaHost: server,
-      contactName: extension,
     };
+
+    // Log the complete UserAgent configuration for debugging
+    console.log("🔧 Complete UserAgent Configuration:", {
+      uri: userAgentConfig.uri?.toString(),
+      authorizationUsername: userAgentConfig.authorizationUsername,
+      displayName: userAgentConfig.displayName,
+      transportOptions: userAgentConfig.transportOptions,
+      registerOptions: userAgentConfig.registerOptions,
+      reconnectionAttempts: userAgentConfig.reconnectionAttempts,
+      reconnectionDelay: userAgentConfig.reconnectionDelay,
+    });
+
+    // Specifically log the transport configuration
+    console.log("🔧 Transport Configuration Details:", {
+      wsUrl: wsUrl,
+      isWss: wsUrl.startsWith("wss:"),
+      userAgentContactParams: userAgentConfig.contactParams,
+      registererContactParams: userAgentConfig.registerOptions.contactParams,
+      extraContactHeaderParams:
+        userAgentConfig.registerOptions.extraContactHeaderParams,
+    });
 
     // Enhanced WebSocket error handling
     const userAgent = new UserAgent(userAgentConfig);
@@ -186,6 +212,29 @@ async function connect(config) {
 
     // Apply enhanced WebSocket handlers
     setupWebSocketHandlers(userAgent.transport);
+
+    // 🔍 Verbose REGISTER logging: intercept outgoing messages and print Contact header
+    try {
+      const transport = userAgent.transport;
+      if (transport && typeof transport.send === "function") {
+        const originalSend = transport.send.bind(transport);
+        transport.send = (msg) => {
+          if (typeof msg === "string" && msg.startsWith("REGISTER")) {
+            const contactLine = msg
+              .split(/\r?\n/)
+              .find((l) => l.toLowerCase().startsWith("contact:"));
+            console.log(
+              "🛰️  [SIP.js → Asterisk] Outgoing REGISTER — Contact:",
+              contactLine || "<missing>"
+            );
+            console.log("📦  REGISTER payload (raw):\n" + msg);
+          }
+          return originalSend(msg);
+        };
+      }
+    } catch (e) {
+      console.warn("⚠️ Failed to attach REGISTER logger:", e?.message || e);
+    }
 
     console.log("🚀 Starting SIP UserAgent...");
     const connectionPromise = createConnectionPromise(userAgent);
@@ -198,24 +247,19 @@ async function connect(config) {
     console.log("✅ SIP UserAgent connected successfully");
     console.log("WebSocket connection established to:", wsUrl);
 
-    // Create registerer with specific configuration
-    const registerer = new Registerer(userAgent, {
+    // Create registerer with minimal configuration to avoid conflicts
+    const transportType = wsUrl.startsWith("wss:") ? "wss" : "ws";
+    const registererConfig = {
       expires: registerExpires,
       regId: 1,
       extraHeaders: [],
-      extraContactHeaderParams: [],
-      contactParams: {
-        transport: "ws",
-        "reg-id": 1,
-        "+sip.instance": `"<urn:uuid:${
-          config?.pjsip?.instance_id || Date.now().toString()
-        }>"`,
-      },
-      // Force a single contact registration
-      contact: `<sip:${extension}@${server};transport=ws;reg-id=1;+sip.instance="<urn:uuid:${
-        config?.pjsip?.instance_id || Date.now().toString()
-      }>">`,
-    });
+      // Don't set extraContactHeaderParams here — avoid duplicates
+      // Let SIP.js construct Contact from UserAgent config only
+    };
+
+    console.log("🔧 Registerer Configuration:", registererConfig);
+
+    const registerer = new Registerer(userAgent, registererConfig);
 
     // Set up registration state monitoring
     registerer.stateChange.addListener((newState) => {
@@ -242,9 +286,20 @@ async function connect(config) {
 
     state.registerer = registerer;
     console.log("🚀 Starting SIP registration...");
-    await registerer.register();
-    console.log("✅ SIP registration started successfully");
-    console.log("Registration state:", state.registrationState);
+
+    try {
+      await registerer.register();
+      console.log("✅ SIP registration started successfully");
+      console.log("Registration state:", state.registrationState);
+    } catch (error) {
+      console.error("❌ SIP registration failed:", error);
+      console.error("Registration error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      throw error;
+    }
 
     // Schedule a safety refresh slightly before expiry (Registerer auto-refreshes, this is a backup)
     if (state.registerRefreshTimer) {
@@ -2433,7 +2488,7 @@ export const sipCallService = {
       const apiHost =
         process.env.NODE_ENV === "development"
           ? "localhost:8004"
-          : "hugamara.com";
+          : "cs.hugamara.com";
       const apiProtocol =
         process.env.NODE_ENV === "development" ? "http" : "https";
 
@@ -2453,7 +2508,7 @@ export const sipCallService = {
       const apiHost =
         process.env.NODE_ENV === "development"
           ? "localhost:8004"
-          : "hugamara.com";
+          : "cs.hugamara.com";
       const apiProtocol =
         process.env.NODE_ENV === "development" ? "http" : "https";
 
@@ -2488,13 +2543,24 @@ function setupWebSocketHandlers(transport) {
 
   transport.onConnect = () => {
     console.log("✅ [SIP WebSocket] Connected successfully");
+    console.log("🔧 WebSocket connection details:", {
+      url: transport.server?.wsUri || "unknown",
+      readyState: transport.ws?.readyState || "unknown",
+      protocol: transport.ws?.protocol || "unknown",
+    });
     state.isConnected = true;
     reconnectAttempts = 0;
     state.eventEmitter.emit("ws:connected");
   };
 
   transport.onDisconnect = (error) => {
-    console.warn("[SIP WebSocket] Disconnected:", error);
+    console.warn("❌ [SIP WebSocket] Disconnected:", error);
+    console.warn("🔧 WebSocket disconnect details:", {
+      error: error?.message || error,
+      code: error?.code || "unknown",
+      reason: error?.reason || "unknown",
+      wasClean: error?.wasClean || false,
+    });
     state.isConnected = false;
     state.eventEmitter.emit("ws:disconnected", error);
 

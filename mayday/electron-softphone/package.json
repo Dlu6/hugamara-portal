@@ -39,7 +39,7 @@
   },
   "build": {
     "appId": "com.mayday.appbar",
-    "productName": "MHU Appbar",
+    "productName": "Mayday Desktop AppBar",
     "directories": {
       "output": "release/${version}"
     },
@@ -79,7 +79,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MHU Appbar"
+      "shortcutName": "Mayday Desktop AppBar"
     },
     "publish": {
       "provider": "generic",

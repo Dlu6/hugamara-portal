@@ -31,6 +31,7 @@ import redisClient, { initializeRedis } from "./config/redis.js";
 import RedisStore from "connect-redis";
 import bcrypt from "bcrypt";
 import sequelize, { syncDatabase } from "./config/sequelize.js";
+import contextRoutes from "./routes/contextRoutes.js";
 import UserModel from "./models/usersModel.js";
 import authRoutes from "./routes/UsersRoute.js";
 // import sipRoutes from "./routes/sipRoutes.js";
@@ -76,6 +77,7 @@ import cdrRoutes from "./routes/CdrRoute.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import recordingRoutes from "./routes/recordingRoutes.js";
 import emailRoutes from "./routes/emailRoutes.js";
+import smsRoutes from "./routes/smsRoutes.js";
 import { setupAssociations } from "./models/usersModel.js";
 import { setupIntegrationAssociations } from "./models/associations.js";
 import IntegrationModel from "./models/integrationModel.js";
@@ -286,7 +288,7 @@ app.get("/", (req, res) => {
       </style>
     </head>
     <body>
-      <h1>Reach-mi Backend Server</h1>
+      <h1>Mayday Backend Server</h1>
       
       <div id="status-container" class="status-container checking">
         <p id="status-text" class="status-text">Status: CHECKING...</p>
@@ -351,6 +353,8 @@ app.use("/api/balance-verification", balanceVerificationRoutes);
 app.use("/api/integrations", integrationRoutes);
 app.use("/api/agent-status", agentStatusRoutes);
 app.use("/api/emails", emailRoutes);
+app.use("/api/sms", smsRoutes);
+app.use("/api", contextRoutes);
 
 // app.use("/api/sip", sipRoutes);
 

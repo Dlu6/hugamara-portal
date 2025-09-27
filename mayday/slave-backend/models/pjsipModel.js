@@ -1,8 +1,9 @@
 // models/pjsipModel.js
 import sequelizePkg from "sequelize";
-const { DataTypes, Op } = sequelizePkg;
 import sequelize from "../config/sequelize.js";
 import UserModel from "./usersModel.js";
+
+const { DataTypes, Op } = sequelizePkg;
 
 // Common PJSIP data types
 const PJSIP_STRING = (length = 40) => ({
@@ -49,8 +50,8 @@ export const PJSIPEndpoint = sequelize.define(
       onDelete: "SET NULL",
       onUpdate: "CASCADE",
     },
-    send_pai: PJSIP_BOOL,
-    send_rpid: PJSIP_BOOL,
+    // Identity headers
+    send_pai: PJSIP_BOOL, // P-Asserted-Identity
     direct_media: {
       type: DataTypes.ENUM("yes", "no"),
       defaultValue: "no",
@@ -321,7 +322,7 @@ export const PJSIPAor = sequelize.define(
     },
     default_expiration: {
       type: DataTypes.INTEGER,
-      defaultValue: 3600, // 1 hour Default expiration time for the registration.
+      defaultValue: 600, // Shorter expiration for WebSocket
     },
     remove_existing: {
       type: DataTypes.ENUM("yes", "no"),
@@ -330,6 +331,39 @@ export const PJSIPAor = sequelize.define(
     max_contacts: {
       type: DataTypes.INTEGER,
       defaultValue: 1,
+    },
+    // CRITICAL: Missing fields required by Asterisk 20
+    minimum_expiration: {
+      type: DataTypes.INTEGER,
+      defaultValue: 60, // 1 minute minimum
+      allowNull: false,
+    },
+    maximum_expiration: {
+      type: DataTypes.INTEGER,
+      defaultValue: 7200, // 2 hours maximum
+      allowNull: false,
+    },
+    authenticate_qualify: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
+    },
+    outbound_proxy: PJSIP_STRING(255),
+    rewrite_contact: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
+    },
+    // WebSocket-specific AOR settings
+    websocket_enabled: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
+    },
+    media_websocket: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
     },
   },
   {
@@ -342,7 +376,7 @@ export const PJSIPContact = sequelize.define(
   "ps_contacts",
   {
     id: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.STRING(255),
       primaryKey: true,
     },
     uri: {
@@ -364,6 +398,18 @@ export const PJSIPContact = sequelize.define(
     qualify_timeout: {
       type: DataTypes.FLOAT,
       defaultValue: 3.0,
+    },
+    qualify_2xx_only: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "no",
+      allowNull: false,
+      comment: "Consider 2xx responses to qualify as successful",
+    },
+    prune_on_boot: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "no",
+      allowNull: false,
+      comment: "Prune this contact on Asterisk boot",
     },
     authenticate_qualify: {
       type: DataTypes.ENUM("yes", "no"),
@@ -424,36 +470,7 @@ export const PJSIPContact = sequelize.define(
   }
 );
 
-export const PJSIPIdentify = sequelize.define(
-  "ps_endpoint_id_ips",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      primaryKey: true,
-      autoIncrement: true,
-    },
-    endpoint: {
-      type: DataTypes.STRING(40),
-      allowNull: false,
-      references: {
-        model: "users",
-        key: "extension",
-      },
-    },
-    match_header: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
-    ip_match: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-  },
-  {
-    tableName: "ps_endpoint_id_ips",
-    timestamps: false,
-  }
-);
+// Removed legacy model that used non-standard "ip_match"; use PJSIPEndpointIdentifier below (with standard "match")
 
 export const PJSIPTransport = sequelize.define(
   "ps_transports",
@@ -618,6 +635,7 @@ export const generatePJSIPConfig = (
   // Base endpoint config
   const endpointConfig = {
     id: extension,
+    identify_by: "auth_username,username",
     // identify_by: "auth_username,username,ip",
     transport: "transport-wss",
     aors: extension,
@@ -640,8 +658,8 @@ export const generatePJSIPConfig = (
     bundle: "yes",
     webrtc: "yes",
     outbound_auth: extension,
-    dtls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
-    dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
+    dtls_cert_file: "/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem",
+    dtls_private_key: "/etc/letsencrypt/live/cs.hugamara.com/privkey.pem",
     dtls_auto_generate_cert: "no",
   };
 
@@ -657,8 +675,8 @@ export const generatePJSIPConfig = (
       bundle: "yes",
       webrtc: "yes",
       dtls_auto_generate_cert: "no",
-      tls_cert_file: "/etc/letsencrypt/live/hugamara.com/fullchain.pem",
-      dtls_private_key: "/etc/letsencrypt/live/hugamara.com/privkey.pem",
+      tls_cert_file: "/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem",
+      dtls_private_key: "/etc/letsencrypt/live/cs.hugamara.com/privkey.pem",
     });
   }
 
@@ -673,20 +691,20 @@ export const generatePJSIPConfig = (
     },
     aor: {
       id: extension,
+      contact: "", // Empty contact allows dynamic registration
       max_contacts: maxContacts || 1,
       remove_existing: "yes",
       qualify_frequency: 60,
       qualify_timeout: 3,
-      authenticate_qualify: "no",
-      maximum_expiration: 3600,
+      authenticate_qualify: "yes",
+      maximum_expiration: 7200,
       minimum_expiration: 60,
+      default_expiration: 600, // Shorter expiration for WebSocket
       support_path: "yes", // Keep yes for WebSocket
-    },
-    endpoint_identifier: {
-      endpoint: extension,
-      // ip_match: options.ip_match || process.env.PJSIP_IP_MATCH || "0.0.0.0/0",
-      ip_match: "0.0.0.0/0",
-      srv_lookups: "no",
+      rewrite_contact: "yes", // Important for WebSocket connections
+      outbound_proxy: null, // No proxy for WebSocket connections
+      websocket_enabled: "yes", // Enable WebSocket for this AOR
+      media_websocket: "yes", // Enable media over WebSocket
     },
   };
 };
@@ -698,16 +716,13 @@ export async function createPJSIPConfigs(
   transaction,
   options = {}
 ) {
-  const {
-    isWebRTC = false,
-    maxContacts = 1,
-    endpoint: endpointOverrides = {},
-  } = options;
+  const { maxContacts = 1, endpoint: endpointOverrides = {} } = options;
 
   // Base configurations for WebRTC user endpoint
   const config = {
     endpoint: {
       id: extension,
+      identify_by: "auth_username,username",
       transport: "transport-wss",
       aors: extension,
       auth: extension,
@@ -755,18 +770,29 @@ export async function createPJSIPConfigs(
       remove_existing: "yes",
       qualify_frequency: 60,
       user_id: userId,
-      maximum_expiration: 3600,
-      minimum_expiration: 60,
-      default_expiration: 300,
+      maximum_expiration: 7200, // 2 hours maximum
+      minimum_expiration: 60, // 1 minute minimum
+      default_expiration: 300, // 5 minutes default
+      support_path: "yes", // Critical for WebSocket/WebRTC Contact header handling
+      authenticate_qualify: "yes", // Required for WebSocket registrations
+      rewrite_contact: "yes", // Essential for WebSocket transport
+      outbound_proxy: null, // Will be set by Asterisk if needed
     },
   };
 
   try {
-    const [endpoint, auth, aor] = await Promise.all([
-      PJSIPEndpoint.create(config.endpoint, { transaction }),
-      PJSIPAuth.create(config.auth, { transaction }),
-      PJSIPAor.create(config.aor, { transaction }),
-    ]);
+    // Create dependent records first to satisfy FK constraints
+    const aor = await PJSIPAor.create(config.aor, { transaction });
+    const auth = await PJSIPAuth.create(config.auth, { transaction });
+
+    // Force endpoint to reference the exact newly created IDs to avoid race conditions
+    config.endpoint.aors = aor.id;
+    config.endpoint.auth = auth.id;
+    config.endpoint.identify_by = "auth_username,username";
+
+    const endpoint = await PJSIPEndpoint.create(config.endpoint, {
+      transaction,
+    });
 
     return { endpoint, auth, aor };
   } catch (error) {

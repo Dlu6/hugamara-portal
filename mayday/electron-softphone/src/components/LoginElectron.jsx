@@ -9,7 +9,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import { useNotification } from "../contexts/NotificationContext";
 import { storageService, clearLogoutFlag } from "../services/storageService";
-import mhulogo from "../../src/assets/mhu_logo.jpg";
+// import mhulogo from "../../src/assets/mhu_logo.jpg";
+import mhulogo from "../../src/assets/mayday-logo6.png";
 import {
   CircularProgress,
   Switch,
@@ -111,13 +112,13 @@ const clearEncryptedCredentials = () => {
   }
 };
 
-const Login = ({ onLoginSuccess }) => {
+const LoginElectron = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
   const [state, setState] = useState({
     host:
       process.env.NODE_ENV === "development"
         ? "http://localhost:8004"
-        : "https://hugamara.com",
+        : "https://cs.hugamara.com",
     email: "",
     password: "",
     rememberMe: false,
@@ -249,7 +250,26 @@ const Login = ({ onLoginSuccess }) => {
         progress: 20,
       }));
 
-      const loginResponse = await fetch(`${state.host}/api/users/agent-login`, {
+      // Determine correct API base path depending on environment/host
+      const hostname = (() => {
+        try {
+          return new URL(state.host).hostname;
+        } catch {
+          return state.host;
+        }
+      })();
+
+      const isHugamaraDomain = /(^|\.)cs.hugamara\.com$/i.test(hostname);
+      const apiBasePath =
+        process.env.NODE_ENV === "development"
+          ? "/api"
+          : isHugamaraDomain
+          ? "/mayday-api/api"
+          : "/api";
+
+      const loginUrl = `${state.host}${apiBasePath}/users/agent-login`;
+
+      const loginResponse = await fetch(loginUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -268,17 +288,15 @@ const Login = ({ onLoginSuccess }) => {
         throw new Error(responseData.message || "Login failed");
       }
 
-      const { user, mongoUser, tokens } = responseData.data;
+      const { user, tokens } = responseData.data;
 
       // Store user data immediately
       storageService.setUserData({
         user,
-        mongoUser,
         tokens,
       });
 
       storageService.setAuthToken(tokens.sip);
-      localStorage.setItem("mongoToken", tokens.mongo);
 
       // Clear logout flag on successful login
       clearLogoutFlag();
@@ -313,10 +331,11 @@ const Login = ({ onLoginSuccess }) => {
       console.log("🚀 Starting SIP service initialization...");
 
       // Use the same server for WebSocket as the SIP registrar
-      const wsUrl =
-        process.env.NODE_ENV === "development"
-          ? `ws://${user.pjsip.server}:8088/ws`
-          : "wss://hugamara.com/ws";
+      const isRemoteServer = user.pjsip.server.includes("cs.hugamara.com");
+
+      const wsUrl = isRemoteServer
+        ? `wss://${user.pjsip.server}/ws` // Use wss for remote server, proxied by nginx
+        : `ws://${user.pjsip.server}:8088/ws`; // Use ws for local dev
 
       console.log("SIP config:", {
         extension: user.extension,
@@ -324,6 +343,7 @@ const Login = ({ onLoginSuccess }) => {
         ws_servers: wsUrl,
       });
 
+      console.log("🔥🔥🔥🔥🔥🔥SIP Service config:", sipService);
       await sipService.initialize({
         extension: user.extension,
         pjsip: {
@@ -647,8 +667,8 @@ const Login = ({ onLoginSuccess }) => {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1 className="title">MENTAL HEALTH UGANDA</h1>
-        <img src={mhulogo} alt="Mental Health Uganda" className="logo" />
+        <h1 className="title">Mayday Phonebar</h1>
+        <img src={mhulogo} alt="Mayday Phonebar" className="logo" />
         <h2 className="subtitle">Sign In</h2>
 
         <form onSubmit={handleSubmit}>
@@ -819,14 +839,14 @@ const Login = ({ onLoginSuccess }) => {
 
         {state.error && <div className="error-message">{state.error}</div>}
 
-        <div className="version">MaydayBar v4.0.0</div>
+        <div className="version">MaydayBar v8.0.0</div>
       </div>
     </div>
   );
 };
 
-Login.propTypes = {
+LoginElectron.propTypes = {
   onLoginSuccess: PropTypes.func.isRequired,
 };
 
-export default Login;
+export default LoginElectron;

@@ -133,7 +133,7 @@ const IVRBuilder = () => {
   const [draggingBlock, setDraggingBlock] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasRef = useRef(null);
-  const [gridSize] = useState(20);
+  // const [gridSize] = useState(20);
   const [canvasSize, setCanvasSize] = useState({
     width: 2000, // Initial width
     height: 2000, // Initial height

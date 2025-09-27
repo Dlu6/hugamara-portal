@@ -12,7 +12,7 @@ const getSocketUrl = () => {
   }
 
   // In production or Electron, use the production URL
-  return "https://hugamara.com";
+  return "https://cs.hugamara.com";
 };
 
 const socket = io(getSocketUrl(), {

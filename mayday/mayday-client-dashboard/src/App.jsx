@@ -50,6 +50,8 @@ import SalesforceIntegration from "./components/SalesforceIntegration.jsx";
 import ZohoIntegration from "./components/ZohoIntegration.jsx";
 import OAuthCallback from "./components/OAuthCallback.jsx";
 import EmailManagement from "./components/EmailManagement.jsx";
+import Contexts from "./components/Contexts.jsx";
+import SmsConfig from "./components/SmsConfig.jsx";
 
 const App = () => {
   useWebSocket();
@@ -84,6 +86,7 @@ const App = () => {
                 <Route path="agents/edit/:agentId" element={<AgentEdit />} />
                 <Route path="voice" element={<Voice />} />
                 <Route path="voice/voiceQueues" element={<VoiceQueues />} />
+                <Route path="voice/contexts" element={<Contexts />} />
                 <Route path="voice/inboundRoutes" element={<InboundRoute />} />
                 <Route
                   path="voice/inboundRoutes/:inboundRouteId"
@@ -121,6 +124,7 @@ const App = () => {
                   path="settings/license"
                   element={<LicenseManagement />}
                 />
+                <Route path="integrations/sms" element={<SmsConfig />} />
                 <Route path="integrations" element={<Integrations />} />
                 <Route
                   path="integrations/salesforceAccount"

@@ -9,14 +9,23 @@
       "credentialsSource": "remote",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://cs.hugamara.com:8004/api",
-        "EXPO_PUBLIC_SIP_DOMAIN": "cs.hugamara.com"
+      }
+    },
+    "production": {
+      "developmentClient": false,
+      "distribution": "store",
+      "credentialsSource": "remote",
+      "android": {
+        "buildType": "app-bundle"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed"
+      }
+    }
   }
 }

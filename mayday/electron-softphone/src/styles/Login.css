@@ -143,15 +143,15 @@ body {
 }
 
 .logo {
-  width: 150px;
-  height: 150px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   object-fit: cover;
   display: block;
   margin: 0 auto 2rem;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
-  border: 3px solid #02406d;
-  padding: 5px;
+  border: 0px solid #02406d;
+  padding: 2px;
   background-color: white;
 }
 

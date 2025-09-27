@@ -335,3 +335,35 @@ export const updateSystem = async (req, res) => {
     });
   }
 };
+
+// Public, non-sensitive server configuration for UI defaults/placeholders
+export const getPublicConfig = async (req, res) => {
+  try {
+    const slaveUrl = process.env.SLAVE_SERVER_URL || "";
+    const slaveApiRoot = (process.env.SLAVE_SERVER_API_URL || "").replace(
+      /\/$/,
+      ""
+    );
+    const publicApiBase = slaveApiRoot ? `${slaveApiRoot}/api` : "";
+    const wsUrl = process.env.SLAVE_WEBSOCKET_URL || "";
+    const domain =
+      process.env.SLAVE_SERVER_DOMAIN || process.env.ASTERISK_HOST || "";
+
+    res.json({
+      success: true,
+      server: {
+        url: slaveUrl,
+        apiRoot: slaveApiRoot,
+        publicApiBase,
+        websocketUrl: wsUrl,
+        domain,
+        asteriskHost: process.env.ASTERISK_HOST || "",
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error?.message || "Failed to read config",
+    });
+  }
+};

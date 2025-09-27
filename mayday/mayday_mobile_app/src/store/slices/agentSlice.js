@@ -37,12 +37,22 @@ export const fetchAgentProfile = createAsyncThunk(
   }
 );
 
+export const fetchAllAgentsStatus = createAsyncThunk(
+  "agent/fetchAllAgentsStatus",
+  async (_, { getState }) => {
+    const { token } = getState().auth;
+    const response = await agentService.getAllAgentsStatus(token);
+    return response.data;
+  }
+);
+
 const initialState = {
   isPaused: false,
   pauseReason: null,
   status: "idle", // 'idle' | 'loading' | 'succeeded' | 'failed'
   error: null,
   profile: null,
+  agents: [],
 };
 
 const agentSlice = createSlice({
@@ -70,6 +80,9 @@ const agentSlice = createSlice({
       .addCase(fetchAgentProfile.fulfilled, (state, action) => {
         state.profile = action.payload;
       })
+      .addCase(fetchAllAgentsStatus.fulfilled, (state, action) => {
+        state.agents = action.payload?.agents || [];
+      })
       // Now handle generic matchers for pending/rejected
       .addMatcher(
         (action) =>
@@ -78,6 +91,7 @@ const agentSlice = createSlice({
             pauseAgent.pending,
             unpauseAgent.pending,
             fetchAgentProfile.pending,
+            fetchAllAgentsStatus.pending,
           ].includes(action.type),
         (state) => {
           state.status = "loading";
@@ -92,6 +106,7 @@ const agentSlice = createSlice({
             pauseAgent.rejected,
             unpauseAgent.rejected,
             fetchAgentProfile.rejected,
+            fetchAllAgentsStatus.rejected,
           ].includes(action.type),
         (state, action) => {
           state.status = "failed";

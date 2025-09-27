@@ -81,8 +81,10 @@ export const createTrunk = async (req, res) => {
         allow: codecs,
         auth: isP2P ? null : `${baseId}_auth`,
         aors: `${baseId}_aor`,
+        // Ensure identity headers are sent by default for trunks
         send_pai: "yes",
-        send_rpid: "yes",
+        trust_remote_party_id: "yes",
+        send_remote_party_id_header: "yes",
         endpoint_type,
         trunk_id: baseId,
         outbound_proxy: `sip:${cleanHost}:5060`,
@@ -229,6 +231,11 @@ export const updateTrunk = async (req, res) => {
         outbound_proxy: updates.outboundProxy || "",
         rewrite_contact: updates.rewriteContact || "yes",
         rtp_symmetric: updates.rtpSymmetric || "yes",
+        // Identity header controls (defaults to yes for trunks)
+        send_pai: updates.send_pai || "yes",
+        trust_remote_party_id: updates.trust_remote_party_id || "yes",
+        send_remote_party_id_header:
+          updates.send_remote_party_id_header || "yes",
         call_counter: updates.callCounter || "yes",
         encryption: updates.encryption || "no",
         account_number: updates.account_number || endpoint.account_number,

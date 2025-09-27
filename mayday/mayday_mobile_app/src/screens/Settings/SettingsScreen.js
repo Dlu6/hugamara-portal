@@ -1,6 +1,14 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from "react-native";
+import { Alert, ActivityIndicator } from "react-native";
 import Constants from "expo-constants";
+import { getApiBaseUrl } from "../../config/endpoints";
 import { useSelector } from "react-redux";
 // Dynamically require to avoid crashing when native module isn't present
 let RNWebRTC = null;
@@ -10,9 +18,27 @@ try {
 } catch (e) {
   RNWebRTC = null;
 }
-import { requestAudioPermission } from "../../services/webrtc";
+import {
+  requestAudioPermission,
+  getSavedMicPermission,
+} from "../../services/webrtc";
+import * as SecureStore from "expo-secure-store";
+import { useDispatch } from "react-redux";
+import { logout } from "../../store/slices/authSlice";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { disconnect as sipDisconnect } from "../../services/sipClient";
+// Safely read version from package.json
+let APP_VERSION = "dev";
+try {
+  // eslint-disable-next-line global-require
+  const pkg = require("../../../package.json");
+  APP_VERSION = pkg?.version || APP_VERSION;
+} catch {}
 
 export default function SettingsScreen() {
+  const dispatch = useDispatch();
+  const navigation = useNavigation();
   const extra = Constants?.expoConfig?.extra || {};
   const { registered, registering, domain } = useSelector((s) => s.sip);
   const { user } = useSelector((s) => s.auth);
@@ -25,6 +51,15 @@ export default function SettingsScreen() {
     wss: false,
     ice: false,
   });
+  const [micPref, setMicPref] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const saved = await getSavedMicPermission();
+      if (saved) setMicPref(saved);
+    })();
+  }, []);
 
   const webrtcUnavailableMsg =
     "WebRTC native module not found. Use an Expo Dev Client build that includes react-native-webrtc.";
@@ -55,19 +90,28 @@ export default function SettingsScreen() {
   };
 
   const testWSS = async () => {
-    const sipHost = extra.SIP_DOMAIN || domain || "cs.hugamara.com";
-    const wsUri = `wss://${sipHost}:8089/ws`;
+    const apiBase = getApiBaseUrl();
+    let derivedHost = "";
+    try {
+      derivedHost = new URL(apiBase).hostname;
+    } catch {}
+    const sipHost = domain || extra.SIP_DOMAIN || derivedHost || "";
+    const wsUri = sipHost ? `wss://${sipHost}:8089/ws` : "";
     return new Promise((resolve) => {
       setRunning((r) => ({ ...r, wss: true }));
       let done = false;
       const timer = setTimeout(() => {
         if (done) return;
         done = true;
-        setWssResult({ ok: false, message: `Timeout reaching ${wsUri}` });
+        setWssResult({
+          ok: false,
+          message: wsUri ? `Timeout reaching ${wsUri}` : "Missing SIP host",
+        });
         setRunning((r) => ({ ...r, wss: false }));
         resolve();
       }, 5000);
       try {
+        if (!wsUri) throw new Error("No SIP host configured");
         const ws = new WebSocket(wsUri, "sip");
         ws.onopen = () => {
           if (done) return;
@@ -132,8 +176,13 @@ export default function SettingsScreen() {
     }
   };
 
+  const year = new Date().getFullYear();
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 24 }}
+    >
       <Text style={styles.title}>Settings</Text>
 
       <View style={styles.card}>
@@ -154,9 +203,7 @@ export default function SettingsScreen() {
 
       <View style={styles.card}>
         <Text style={styles.label}>API Base URL</Text>
-        <Text style={styles.value}>
-          {extra.API_BASE_URL || "Auto (emulator/VM logic)"}
-        </Text>
+        <Text style={styles.value}>{getApiBaseUrl()}</Text>
       </View>
 
       <View style={styles.card}>
@@ -167,6 +214,15 @@ export default function SettingsScreen() {
       {/* Media Tests */}
       <View style={styles.card}>
         <Text style={styles.section}>Media Tests</Text>
+
+        <Text style={styles.label}>Microphone Permission</Text>
+        <Text style={styles.value}>
+          {micPref === "granted"
+            ? "Granted"
+            : micPref === "denied"
+            ? "Denied"
+            : "Not set"}
+        </Text>
 
         <TouchableOpacity
           onPress={testMicrophone}
@@ -214,10 +270,73 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.testBtn}>
-        <Text style={styles.testText}>Send Test Notification</Text>
-      </TouchableOpacity>
-    </View>
+      <View style={styles.card}>
+        <Text style={styles.section}>App Info</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Version</Text>
+          <Text style={styles.value}>{APP_VERSION}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Expo SDK</Text>
+          <Text style={styles.value}>{Constants?.expoVersion || "—"}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Project ID</Text>
+          <Text style={styles.value}>{extra?.eas?.projectId || "—"}</Text>
+        </View>
+      </View>
+
+      {/* Session */}
+      <View style={styles.card}>
+        <Text style={styles.section}>Session</Text>
+        <View style={styles.row}>
+          <Text style={styles.label}>Logged in as</Text>
+          <Text style={styles.value}>{user?.email || "—"}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            Alert.alert("Logout", "Are you sure you want to log out?", [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Logout",
+                style: "destructive",
+                onPress: async () => {
+                  setLoggingOut(true);
+                  try {
+                    // Clear saved auth prefs except host
+                    await SecureStore.deleteItemAsync("mayday_password");
+                    await SecureStore.deleteItemAsync("mayday_remember");
+                  } catch {}
+                  try {
+                    await sipDisconnect();
+                  } catch {}
+                  dispatch(logout());
+                  // Navigate back to Login and reset stack
+                  try {
+                    navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+                  } catch {}
+                  setLoggingOut(false);
+                },
+              },
+            ]);
+          }}
+          style={[styles.btn, styles.dangerBtn]}
+          disabled={loggingOut}
+        >
+          {loggingOut ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <View style={styles.inlineRow}>
+              <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+              <Text style={[styles.btnText, styles.dangerText]}>Logout</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.footnote}>Mayday Mobile</Text>
+      <Text style={styles.copy}>© {year} MM-iCT. All rights reserved.</Text>
+    </ScrollView>
   );
 }
 
@@ -254,6 +373,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   btnText: { color: "#FFFFFF", fontWeight: "700" },
+  inlineRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  dangerBtn: {
+    backgroundColor: "#B91C1C",
+    borderColor: "#7F1D1D",
+  },
+  dangerText: { color: "#FFFFFF", fontWeight: "700" },
   result: { marginTop: 6 },
   ok: { color: "#34D399" },
   err: { color: "#F87171" },
@@ -267,4 +392,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   testText: { color: "#FFFFFF", fontWeight: "700" },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  footnote: {
+    color: "#9CA3AF",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  copy: {
+    color: "#6B7280",
+    marginTop: 4,
+    textAlign: "center",
+  },
 });

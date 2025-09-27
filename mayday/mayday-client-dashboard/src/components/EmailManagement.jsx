@@ -67,7 +67,7 @@ const EmailManagement = () => {
     user: "",
     password: "",
     from: "",
-    domain: "hugamara.com",
+    domain: "cs.hugamara.com",
   });
 
   // User Configuration
@@ -284,7 +284,7 @@ const EmailManagement = () => {
                 }
                 margin="normal"
                 variant="outlined"
-                helperText="Your organization's domain (e.g., hugamara.com)"
+                helperText="Your organization's domain (e.g., cs.hugamara.com)"
               />
             </Grid>
 

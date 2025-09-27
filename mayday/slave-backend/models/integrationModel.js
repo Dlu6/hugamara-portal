@@ -12,7 +12,6 @@ const IntegrationModel = sequelize.define(
     name: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true,
     },
     type: {
       type: DataTypes.ENUM(
@@ -57,6 +56,13 @@ const IntegrationModel = sequelize.define(
   {
     tableName: "integrations",
     timestamps: true,
+    indexes: [
+      {
+        name: "ux_integrations_name",
+        unique: true,
+        fields: ["name"],
+      },
+    ],
   }
 );
 

@@ -6,7 +6,7 @@ const API = axios.create({
   baseURL:
     process.env.NODE_ENV === "development"
       ? "http://localhost:8004"
-      : "https://hugamara.com",
+      : "https://cs.hugamara.com",
 });
 
 // Add auth token to all requests

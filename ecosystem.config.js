@@ -37,8 +37,9 @@ module.exports = {
         DB_HOST: "127.0.0.1",
         DB_PORT: 3306,
         DB_NAME: "asterisk",
-        DB_USER: "hugamara_user",
+        DB_USER: "asterisk",
         DB_PASSWORD: "Pasword@256",
+        // DB_PASSWORD: "", // No password for root user on localhost
         DB_SSL: "false",
         // Recording files base directory (Asterisk monitor path)
         RECORDING_BASE_DIR: "/var/spool/asterisk/monitor",
@@ -51,6 +52,7 @@ module.exports = {
         // WebRTC/SIP hostnames for WSS registration
         PUBLIC_IP: "cs.hugamara.com",
         ASTERISK_HOST: "cs.hugamara.com",
+        ASTERISK_SIP_PORT: "8088",
 
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",
@@ -121,13 +123,27 @@ module.exports = {
         REDIS_SESSION_CLEANUP_INTERVAL: "300000",
 
         // External APIs
-        LIPACHAT_API_KEY: "lipachat_api_key",
-        LIPACHAT_PHONE_NUMBER: "lipachat_phone",
+        LIPACHAT_API_KEY:
+          "55d6305cf8e27aee1783b9e4f8b6ba7c-2f57ab67-4353-46f1-85cf-88ec6c7f75d6",
+        LIPACHAT_PHONE_NUMBER: "+15557612891",
+        LIPACHAT_GATEWAY_URL: "https://gateway.lipachat.com/api/v1/whatsapp",
+        LIPACHAT_WEBHOOK_SECRET: "",
 
         // Trunk Provider Configuration
         TRUNK_PROVIDER_AUTH_HEADER: "MDMyMDAwMDAwODoxMy4yMzQuMTguMg==",
         TRUNK_PROVIDER_VALIDATE_URL:
           "https://ug.cyber-innovative.com:444/cyber-api/cyber_validate.php",
+
+        // SMS Provider Configuration
+        SMS_PROVIDER_BASE_URL: "https://sms.cyber-innovative.com/secure",
+        SMS_PROVIDER_OVERRIDE_IP: "41.77.78.156", // optional; for DNS issues
+        SMS_PROVIDER_STRICT_TLS: "false", // "true" if not using override IP
+        // Use either USER/PASS or AUTH header (prefer user/pass)
+        SMS_PROVIDER_USERNAME: "medhi",
+        SMS_PROVIDER_PASSWORD: "Mayday@#1759!",
+        // SMS_PROVIDER_AUTH: "Basic bWVkaGk6THVzdWt1QCMyMDI1IQ==",
+        SMS_DEFAULT_SENDER: "Hugamara",
+        SMS_DLR_URL: "https://cs.hugamara.com/api/sms/dlr",
       },
       error_file: "./logs/mayday-backend-error.log",
       out_file: "./logs/mayday-backend-out.log",

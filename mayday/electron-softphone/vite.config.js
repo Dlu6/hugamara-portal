@@ -13,12 +13,12 @@ export default defineConfig(({ mode }) => {
       "process.env.VITE_API_URL": JSON.stringify(
         process.env.NODE_ENV === "development"
           ? "http://localhost:8004"
-          : "https://hugamara.com"
+          : "https://cs.hugamara.com"
       ),
       "process.env.VITE_WEBSOCKET_URL": JSON.stringify(
         process.env.NODE_ENV === "development"
           ? "http://localhost:8004"
-          : "https://hugamara.com"
+          : "https://cs.hugamara.com"
       ),
     },
     resolve: {

@@ -7,16 +7,26 @@ const BASE_URL = process.env.REACT_APP_API_URL;
 const getBaseUrl = () => {
   // Always prefer explicit env
   if (BASE_URL) return BASE_URL;
-  // If served under /callcenter, our API is proxied at /mayday
+
+  // Local development: talk directly to backend on 8004
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://localhost:8004/api";
+    }
+  }
+
+  // If served under /callcenter, our API is proxied at /mayday (nginx)
   if (
     typeof window !== "undefined" &&
     window.location.pathname.startsWith("/callcenter")
   ) {
     return "/mayday";
   }
+
   // Default by environment
   if (process.env.NODE_ENV === "production") return "/mayday";
-  return "/mayday"; // sensible fallback to work with nginx proxy in dev/prod
+  return "/api"; // sensible fallback
 };
 
 const apiClient = axios.create({

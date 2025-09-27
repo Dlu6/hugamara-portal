@@ -143,13 +143,19 @@ const StatCard = ({ title, value, icon, color, subtitle, trend }) => (
   </Paper>
 );
 
-// Queue Status Component
-const QueueStatus = ({ queue, timeRangeStats }) => {
-  // Calculate answered and abandoned calls from the time range stats
+// Queue Status Component (per-queue analytics)
+const QueueStatus = ({ queue }) => {
+  // Prefer per-queue metrics from backend
+  const totalCalls = Number(queue.totalCalls) || 0;
   const answeredCalls =
-    timeRangeStats?.totalCalls - timeRangeStats?.abandonedCalls || 0;
-  const abandonedCalls = timeRangeStats?.abandonedCalls || 0;
-  const abandonRate = timeRangeStats?.abandonRate || 0;
+    Number(queue.answeredCalls) ||
+    Math.max(totalCalls - (Number(queue.abandonedCalls) || 0), 0);
+  const abandonedCalls = Number(queue.abandonedCalls) || 0;
+  const abandonRate =
+    Number(queue.abandonRate) ||
+    (totalCalls > 0
+      ? Math.round((abandonedCalls / totalCalls) * 100 * 10) / 10
+      : 0);
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -176,7 +182,7 @@ const QueueStatus = ({ queue, timeRangeStats }) => {
       />
       <Box sx={{ display: "flex", justifyContent: "space-between", mt: 0.5 }}>
         <Typography variant="caption" component="div" color="text.secondary">
-          {`${queue.waiting} calls waiting`}
+          {`${Number(queue.waiting) || 0} calls waiting`}
         </Typography>
         <Typography variant="caption" component="div" color="text.secondary">
           {`Avg wait: ${queue.avgWaitTime || "0:00"}`}
@@ -1798,11 +1804,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
                 </Typography>
                 {queueStatus && queueStatus.length > 0 ? (
                   queueStatus.map((queue) => (
-                    <QueueStatus
-                      key={queue.name}
-                      queue={queue}
-                      timeRangeStats={getTimeRangeStats}
-                    />
+                    <QueueStatus key={queue.name} queue={queue} />
                   ))
                 ) : (
                   <Typography variant="body2" color="text.secondary">

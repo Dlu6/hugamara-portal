@@ -7,7 +7,7 @@ A React Native (Expo) mobile application for connecting to our Asterisk PBX for 
 The app is configured to connect to the production backend by default, but can be configured for local development. The API base URL is resolved as follows:
 
 1.  **Environment Variable:** If `EXPO_PUBLIC_API_BASE_URL` is set as an environment variable, its value is used. This is the recommended way to override the default for testing.
-2.  **Default Configuration:** If the environment variable is not set, the app defaults to the production backend: `https://cs.hugamara.com/mayday-api/api`.
+2.  **Default Configuration:** If the environment variable is not set, the app defaults to local emulator for development. In production, the runtime base URL is provided by the backend login response or `/api/system/public-config`.
 3.  **Local Development (Legacy):** The logic to auto-detect emulators (`http://10.0.2.2:8004/api`) still exists but is currently overridden by the default configuration in `app.config.js`. To use a local backend, you must use the environment variable.
 
 ### Example: Running Against a Local Backend
@@ -27,6 +27,34 @@ Simply running `npx expo start` will now default to the correct production URL. 
 npx expo start
 ```
 
+## Multi‑Tenancy Host Input (Mobile UI)
+
+- The login screen now includes a Host field where users enter their tenant backend root, e.g. `https://cs.hugamara.com/mayday-api`.
+- The app normalizes the value and guarantees the trailing `/api` segment (so the base becomes `https://cs.hugamara.com/mayday-api/api`).
+- This base is used for all API calls and Socket.IO connections during the session.
+
+If you see HTTP 404/405 on login, verify your Host is the tenant root (without `/api`) – the app will append `/api` for you.
+
+## Credentials, Preferences, and Persistence
+
+- Remember Me securely stores Host, Email, and Password using Expo SecureStore.
+- Show/Hide password preference is also persisted.
+- Android microphone permission state is persisted to SecureStore as `granted` or `denied` and shown in Settings → Media Tests.
+
+### Logout
+
+- Settings → Session now provides a Logout button.
+- On logout, SIP is disconnected, saved auth (email/password/remember) is cleared (Host is kept), and the navigation stack is reset to Login.
+
+## Dialer UX Enhancements
+
+- Dialpad now provides light haptic feedback and a short tone per keypress (DTMF‑like).
+- Requirements (already installed via `expo install`):
+  - `expo-haptics`
+  - `expo-av`
+
+No native config is needed for these packages on Expo SDK 52.
+
 ## Login Flow
 
 - **Endpoint:** `POST /users/agent-login`
@@ -40,6 +68,30 @@ npx expo start
 - **Dev Client is Mandatory:** Expo Go does not include native WebRTC modules. You must use a Development Client built via EAS (`eas build`) or locally (`expo run:android`) to bundle `react-native-webrtc` and `expo-asset`.
 - **WSS Reachability:** The WebSocket Secure endpoint must be reachable from the mobile device (e.g., `wss://cs.hugamara.com:8089/ws`) with a valid TLS certificate.
 - **TURN Server:** For reliable connections on cellular networks, it is highly recommended to include a TURN server in the `ice_servers` array provided by the backend.
+
+## Quick Start
+
+1. Install dependencies in the mobile package:
+   ```bash
+   cd mayday/mayday_mobile_app
+   npm install
+   npx expo install expo-haptics expo-av
+   ```
+2. Start the Dev Client bundler:
+   ```bash
+   npm run start
+   ```
+3. On the Login screen:
+   - Enter Host (e.g., `https://cs.hugamara.com/mayday-api`)
+   - Enter Email/Password
+   - Toggle Remember Me if you want the values saved securely
+   - Login
+
+## Troubleshooting
+
+- "Login failed (405)": The base URL likely missed `/api`. Enter `https://<tenant>/mayday-api` (the app will append `/api`).
+- "SIP registration failed": Ensure the login response contains a `user.pjsip` object with `server`, `password`, `ws_servers`, and `ice_servers`.
+- "Microphone Permission" keeps prompting: Grant permission once; the app will persist status on Android. You can verify under Settings → Media Tests.
 
 ## Scripts
 
@@ -58,9 +110,8 @@ npx expo start
 ## Troubleshooting
 
 - **Network request failed on login:**
-  - This almost always means the app can't reach the backend.
-  - Verify the `API_BASE_URL` in `app.config.js` is correct (`https://cs.hugamara.com/mayday-api/api`).
-  - If using a local backend, ensure you have started the bundler with the `EXPO_PUBLIC_API_BASE_URL` environment variable set correctly (e.g., `http://10.0.2.2:8004/api` for the Android emulator).
+  - Ensure the `API_BASE_URL` is set via `EXPO_PUBLIC_API_BASE_URL` for local dev, or that the backend exposes `/api/system/public-config` to advertise the correct base.
+  - If using a local backend, start the bundler with the `EXPO_PUBLIC_API_BASE_URL` environment variable set correctly (e.g., `http://10.0.2.2:8004/api` for the Android emulator).
 - **Cannot find native module 'ExpoAsset':**
   - Ensure the `expo-asset` plugin is in your `app.config.js`: `plugins: ["expo-asset"]`. Rebuild the dev client if you add it.
 - **SIP not Registered:**

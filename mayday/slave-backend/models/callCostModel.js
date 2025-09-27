@@ -112,6 +112,7 @@ const CallCost = sequelize.define(
     timestamps: true,
     indexes: [
       {
+        name: "ux_call_costs_uniqueid",
         fields: ["uniqueid"],
         unique: true,
       },

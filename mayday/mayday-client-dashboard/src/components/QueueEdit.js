@@ -112,7 +112,7 @@ const QueueEdit = () => {
 
   useEffect(() => {
     if (location.state) {
-      console.log("Received queue data:", location.state);
+      // console.log("Received queue data:", location.state);
 
       // Helper function to ensure array
       const ensureArray = (value) => {
