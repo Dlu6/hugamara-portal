@@ -397,44 +397,17 @@ export const PJSIPContact = sequelize.define(
       allowNull: true,
     },
     qualify_2xx_only: {
-      type: DataTypes.ENUM(
-        "0",
-        "1",
-        "off",
-        "on",
-        "false",
-        "true",
-        "no",
-        "yes"
-      ),
+      type: DataTypes.ENUM("0", "1", "off", "on", "false", "true", "no", "yes"),
       allowNull: true,
       comment: "Consider 2xx responses to qualify as successful",
     },
     prune_on_boot: {
-      type: DataTypes.ENUM(
-        "0",
-        "1",
-        "off",
-        "on",
-        "false",
-        "true",
-        "no",
-        "yes"
-      ),
+      type: DataTypes.ENUM("0", "1", "off", "on", "false", "true", "no", "yes"),
       allowNull: true,
       comment: "Prune this contact on Asterisk boot",
     },
     authenticate_qualify: {
-      type: DataTypes.ENUM(
-        "0",
-        "1",
-        "off",
-        "on",
-        "false",
-        "true",
-        "no",
-        "yes"
-      ),
+      type: DataTypes.ENUM("0", "1", "off", "on", "false", "true", "no", "yes"),
       allowNull: true,
     },
     outbound_proxy: {
