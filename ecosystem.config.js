@@ -37,8 +37,9 @@ module.exports = {
         DB_HOST: "127.0.0.1",
         DB_PORT: 3306,
         DB_NAME: "asterisk",
-        DB_USER: "root",
-        // DB_PASSWORD: "Pasword@256", Not needed for root user
+        DB_USER: "asterisk",
+        DB_PASSWORD: "Pasword@256",
+        // DB_PASSWORD: "", // No password for root user on localhost
         DB_SSL: "false",
         // Recording files base directory (Asterisk monitor path)
         RECORDING_BASE_DIR: "/var/spool/asterisk/monitor",
@@ -51,7 +52,7 @@ module.exports = {
         // WebRTC/SIP hostnames for WSS registration
         PUBLIC_IP: "cs.hugamara.com",
         ASTERISK_HOST: "cs.hugamara.com",
-        ASTERISK_SIP_PORT: "8089",
+        ASTERISK_SIP_PORT: "8088",
 
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",

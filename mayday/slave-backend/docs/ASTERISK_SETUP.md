@@ -42,8 +42,9 @@ Driver = MariaDB
 Server = cs.hugamara.com
 Port = 3306
 Database = asterisk
-User = root
-# Note: In production, the asterisk database is accessed using the root user
+User = asterisk
+Password = Pasword@256
+# Note: In production, the asterisk database is accessed using the asterisk user
 # The hugamara_user is used for the hugamara_db database only
 Option = 3
 ```

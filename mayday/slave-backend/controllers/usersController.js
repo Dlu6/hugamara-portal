@@ -229,8 +229,8 @@ export const registerAgent = async (req, res) => {
           minimum_expiration: 60,
           outbound_proxy: null, // No proxy for WebSocket connections
           rewrite_contact: "yes", // Important for WebSocket connections
-          // websocket_enabled: "yes", // Enable WebSocket for this AOR - temporarily disabled
-          // media_websocket: "yes", // Enable media over WebSocket - temporarily disabled
+          websocket_enabled: "yes", // Enable WebSocket for this AOR
+          media_websocket: "yes", // Enable media over WebSocket
         },
         { transaction: sqlTransaction }
       ),

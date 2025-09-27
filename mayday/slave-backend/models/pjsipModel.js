@@ -322,7 +322,7 @@ export const PJSIPAor = sequelize.define(
     },
     default_expiration: {
       type: DataTypes.INTEGER,
-      defaultValue: 3600, // 1 hour Default expiration time for the registration.
+      defaultValue: 600, // Shorter expiration for WebSocket
     },
     remove_existing: {
       type: DataTypes.ENUM("yes", "no"),
@@ -350,6 +350,17 @@ export const PJSIPAor = sequelize.define(
     },
     outbound_proxy: PJSIP_STRING(255),
     rewrite_contact: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
+    },
+    // WebSocket-specific AOR settings
+    websocket_enabled: {
+      type: DataTypes.ENUM("yes", "no"),
+      defaultValue: "yes",
+      allowNull: false,
+    },
+    media_websocket: {
       type: DataTypes.ENUM("yes", "no"),
       defaultValue: "yes",
       allowNull: false,
@@ -680,14 +691,20 @@ export const generatePJSIPConfig = (
     },
     aor: {
       id: extension,
+      contact: "", // Empty contact allows dynamic registration
       max_contacts: maxContacts || 1,
       remove_existing: "yes",
       qualify_frequency: 60,
       qualify_timeout: 3,
-      authenticate_qualify: "no",
-      maximum_expiration: 3600,
+      authenticate_qualify: "yes",
+      maximum_expiration: 7200,
       minimum_expiration: 60,
+      default_expiration: 600, // Shorter expiration for WebSocket
       support_path: "yes", // Keep yes for WebSocket
+      rewrite_contact: "yes", // Important for WebSocket connections
+      outbound_proxy: null, // No proxy for WebSocket connections
+      websocket_enabled: "yes", // Enable WebSocket for this AOR
+      media_websocket: "yes", // Enable media over WebSocket
     },
   };
 };
