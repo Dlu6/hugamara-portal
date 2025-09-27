@@ -26,6 +26,8 @@ cat > "$(dirname "$0")/../.env.local" << EOF
 # Copy this to .env for local development
 
 # Database Configuration
+# Note: For local development, we connect to production database
+# In production (ecosystem.config.js), the asterisk database uses root user
 DB_HOST=cs.hugamara.com
 DB_NAME=asterisk
 DB_USER=hugamara_user
