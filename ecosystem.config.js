@@ -37,8 +37,8 @@ module.exports = {
         DB_HOST: "127.0.0.1",
         DB_PORT: 3306,
         DB_NAME: "asterisk",
-        DB_USER: "hugamara_user",
-        DB_PASSWORD: "Pasword@256",
+        DB_USER: "asterisk",
+        DB_PASSWORD: "",
         // DB_PASSWORD: "", // No password for root user on localhost
         DB_SSL: "false",
         // Recording files base directory (Asterisk monitor path)
