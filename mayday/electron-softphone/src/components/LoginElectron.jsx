@@ -331,27 +331,36 @@ const LoginElectron = ({ onLoginSuccess }) => {
       console.log("🚀 Starting SIP service initialization...");
 
       // Use the same server for WebSocket as the SIP registrar
-      const isRemoteServer = user.pjsip.server.includes("cs.hugamara.com");
+      // Route all non-local hosts through Nginx WSS proxy to avoid TLS mismatches
+      const wsUrl = (() => {
+        const host = String(user.pjsip.server || "");
+        const isLocalHost = /^(localhost|127\.0\.0\.1|::1)$/i.test(host);
+        if (isLocalHost) {
+          return `ws://${host}:8088/ws`;
+        }
+        return `wss://cs.hugamara.com/ws`;
+      })();
 
-      const wsUrl = isRemoteServer
-        ? `wss://${user.pjsip.server}/ws` // Use wss for remote server, proxied by nginx
-        : `ws://${user.pjsip.server}:8088/ws`; // Use ws for local dev
-
-      console.log("SIP config:", {
-        extension: user.extension,
+      console.log("🤣🤣🤣🤣🤣🤣SIP config:", {
+        // user,
+        // extension: user.extension,
         server: user.pjsip.server,
-        ws_servers: wsUrl,
+        // password: user.pjsip.password,
+        ws_servers: user.pjsip.ws_servers,
+        ice_servers: user.pjsip.ice_servers,
+        // ws_servers: wsUrl,
       });
 
-      console.log("🔥🔥🔥🔥🔥🔥SIP Service config:", sipService);
+      // console.log("🔥🔥🔥🔥🔥🔥SIP Service config:", tokens);
       await sipService.initialize({
         extension: user.extension,
         pjsip: {
           server: user.pjsip.server,
           password: user.pjsip.password,
+          ws_servers: user.pjsip.ws_servers,
           ice_servers: user.pjsip.ice_servers,
-          ws_servers: wsUrl,
         },
+        registerExpires: 300,
         apiUrl: state.host,
         token: tokens.sip,
       });
@@ -385,10 +394,46 @@ const LoginElectron = ({ onLoginSuccess }) => {
       // Small delay to ensure SIP is fully registered
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Optional backend notification (disabled):
-      // Note: There is no /api/users/agent-online endpoint on the callcenter backend.
-      // Login proceeds without this call; if needed in future, implement an endpoint
-      // and re-enable a POST here.
+      // Notify backend that agent is online
+      try {
+        const response = await fetch(
+          `${
+            process.env.NODE_ENV === "development"
+              ? "http://localhost:8004"
+              : "https://cs.hugamara.com"
+          }/mayday-api/api/users/agent-online`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${tokens.sip}`,
+            },
+            body: JSON.stringify({
+              extension: user.extension,
+              contactUri: `sip:${user.extension}@${user.pjsip.server}`,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          console.warn(
+            "Backend notification failed, but continuing with login"
+          );
+        } else {
+          const data = await response.json();
+          if (data.success) {
+            console.log(
+              "✅ Backend notified of agent online status successfully"
+            );
+          }
+        }
+      } catch (backendError) {
+        console.warn(
+          "Backend notification failed, but continuing with login:",
+          backendError
+        );
+        // Continue with login even if backend notification fails
+      }
 
       // Complete login
       console.log("✅ Login process completed successfully");

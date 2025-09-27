@@ -377,14 +377,11 @@ export const PJSIPContact = sequelize.define(
   {
     id: {
       type: DataTypes.STRING(255),
-      primaryKey: true,
+      allowNull: true,
+      unique: true,
     },
     uri: {
       type: DataTypes.STRING(511),
-      allowNull: false,
-    },
-    contact: {
-      type: DataTypes.STRING(255),
       allowNull: true,
     },
     expiration_time: {
@@ -393,27 +390,52 @@ export const PJSIPContact = sequelize.define(
     },
     qualify_frequency: {
       type: DataTypes.INTEGER,
-      defaultValue: 30,
+      allowNull: true,
     },
     qualify_timeout: {
       type: DataTypes.FLOAT,
-      defaultValue: 3.0,
+      allowNull: true,
     },
     qualify_2xx_only: {
-      type: DataTypes.ENUM("yes", "no"),
-      defaultValue: "no",
-      allowNull: false,
+      type: DataTypes.ENUM(
+        "0",
+        "1",
+        "off",
+        "on",
+        "false",
+        "true",
+        "no",
+        "yes"
+      ),
+      allowNull: true,
       comment: "Consider 2xx responses to qualify as successful",
     },
     prune_on_boot: {
-      type: DataTypes.ENUM("yes", "no"),
-      defaultValue: "no",
-      allowNull: false,
+      type: DataTypes.ENUM(
+        "0",
+        "1",
+        "off",
+        "on",
+        "false",
+        "true",
+        "no",
+        "yes"
+      ),
+      allowNull: true,
       comment: "Prune this contact on Asterisk boot",
     },
     authenticate_qualify: {
-      type: DataTypes.ENUM("yes", "no"),
-      defaultValue: "no",
+      type: DataTypes.ENUM(
+        "0",
+        "1",
+        "off",
+        "on",
+        "false",
+        "true",
+        "no",
+        "yes"
+      ),
+      allowNull: true,
     },
     outbound_proxy: {
       type: DataTypes.STRING(255),
@@ -428,12 +450,8 @@ export const PJSIPContact = sequelize.define(
       allowNull: true,
     },
     endpoint: {
-      type: DataTypes.STRING(40),
+      type: DataTypes.STRING(255),
       allowNull: true,
-      references: {
-        model: "ps_endpoints",
-        key: "id",
-      },
     },
     via_addr: {
       type: DataTypes.STRING(40),
@@ -447,21 +465,9 @@ export const PJSIPContact = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
-    status: {
-      type: DataTypes.STRING(40),
-      allowNull: true,
-    },
     reg_server: {
       type: DataTypes.STRING(255),
       allowNull: true,
-    },
-    user_id: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      references: {
-        model: "users",
-        key: "id",
-      },
     },
   },
   {
