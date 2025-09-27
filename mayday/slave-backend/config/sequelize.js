@@ -45,12 +45,10 @@ const requiredEnvVars = [
   "DB_HOST",
   "DB_PORT",
   "DB_USER",
-  "DB_PASSWORD",
+  // DB_PASSWORD intentionally not required to support passwordless local/root
   "DB_NAME",
 ];
-const missingEnvVars = requiredEnvVars.filter(
-  (varName) => !process.env[varName]
-);
+const missingEnvVars = requiredEnvVars.filter((varName) => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
   throw new Error(
@@ -61,28 +59,23 @@ if (missingEnvVars.length > 0) {
 const { Op } = Sequelize;
 
 // Create Sequelize instance
-const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
-  {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    dialect: "mysql",
-    logging: false, // Disable SQL logging
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000,
-    },
-    define: {
-      timestamps: true,
-      underscored: false,
-      freezeTableName: true,
-    },
-  }
-);
+const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD || "", {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  dialect: "mysql",
+  logging: false, // Disable SQL logging
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,
+    idle: 10000,
+  },
+  define: {
+    timestamps: true,
+    underscored: false,
+    freezeTableName: true,
+  },
+});
 
 export { sequelize, Op };
 
