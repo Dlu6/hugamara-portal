@@ -196,6 +196,12 @@ export const registerAgent = async (req, res) => {
           timers: "yes",
           timers_min_se: "90",
           timers_sess_expires: "1800",
+          // Additional WebSocket-specific settings
+          trust_remote_party_id: "no",
+          send_remote_party_id_header: "no",
+          allow_overlap: "yes",
+          notify_early_inuse_ringing: "yes",
+          refer_blind_progress: "yes",
         },
         { transaction: sqlTransaction }
       ),
@@ -212,15 +218,19 @@ export const registerAgent = async (req, res) => {
       PJSIPAor.upsert(
         {
           id: user.extension,
+          contact: "", // Empty contact allows dynamic registration
           max_contacts: 1,
           remove_existing: "yes",
-          default_expiration: 3600,
-          qualify_frequency: 30,
+          default_expiration: 600, // Shorter expiration for WebSocket
+          qualify_frequency: 60, // Less frequent qualify for WebSocket
           support_path: "yes",
           authenticate_qualify: "yes",
           maximum_expiration: 7200,
           minimum_expiration: 60,
           outbound_proxy: null, // No proxy for WebSocket connections
+          rewrite_contact: "yes", // Important for WebSocket connections
+          // websocket_enabled: "yes", // Enable WebSocket for this AOR - temporarily disabled
+          // media_websocket: "yes", // Enable media over WebSocket - temporarily disabled
         },
         { transaction: sqlTransaction }
       ),

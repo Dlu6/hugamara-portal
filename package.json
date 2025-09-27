@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Comprehensive hospitality management dashboard for Hugamara's 6 outlets",
   "private": true,
+  "type": "module",
   "scripts": {
     "start": "cd client && react-scripts start",
     "build": "cd client && react-scripts build",
@@ -47,5 +48,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
   }
 }
