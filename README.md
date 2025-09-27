@@ -1590,6 +1590,430 @@ The application now includes comprehensive mobile optimization:
 - **Smooth Animations**: CSS transitions for better user experience
 - **Overlay Navigation**: Mobile sidebar slides over content with backdrop
 
+## Development Workflow
+
+### Prerequisites
+
+- Node.js >= 16.0.0
+- npm >= 8.0.0
+- MySQL/MariaDB
+- Redis
+- Asterisk (for call center)
+
+### Environment Configuration
+
+#### Frontend Applications
+
+1. **Hospitality Management System** (`client/`)
+   - Port: 3000 (pinned)
+   - URL: `http://localhost:3000`
+   - Environment: `client/.env.development`
+
+```env
+REACT_APP_API_URL=http://localhost:8000/api
+REACT_APP_ENV=development
+REACT_APP_VERSION=1.0.0
+REACT_APP_CALL_CENTER_URL=http://localhost:3002/login
+```
+
+2. **Call Center Dashboard** (`mayday/mayday-client-dashboard/`)
+   - Port: 3002 (pinned)
+   - URL: `http://localhost:3002`
+   - Environment: `mayday/mayday-client-dashboard/.env`
+
+#### Backend Services
+
+1. **Hospitality Backend** (`backend/`)
+   - Port: 8000
+   - URL: `http://localhost:8000/api`
+   - Purpose: Hospitality management API
+
+2. **Call Center Backend** (`mayday/slave-backend/`)
+   - Port: 8004
+   - URL: `http://localhost:8004/api`
+   - Purpose: Call center operations API
+
+### Port Configuration
+
+#### Pinned Ports (Prevents CRA Auto-Switch)
+
+- **Hospitality Frontend**: Port 3000 (pinned in `client/package.json`)
+- **Call Center Frontend**: Port 3002 (pinned in root `package.json`)
+
+#### Backend Ports
+
+- **Hospitality Backend**: Port 8000
+- **Call Center Backend**: Port 8004
+
+### Starting Development Servers
+
+#### Option 1: Separate Terminals (Recommended)
+
+```bash
+# Terminal A: Hospitality + Backend
+npm run server_client_hugamara
+
+# Terminal B: Call Center Stack
+npm run callcenter
+```
+
+#### Option 2: Individual Services
+
+```bash
+# Hospitality Backend
+cd backend && npm run dev
+
+# Hospitality Frontend
+cd client && npm start
+
+# Call Center Backend
+cd mayday/slave-backend && npm run start
+
+# Call Center Frontend
+cd mayday/mayday-client-dashboard && PORT=3002 npm start
+```
+
+### User Flow
+
+#### 1. Hospitality Login Flow
+
+1. User visits `http://localhost:3000`
+2. Sees `LoginHospitality.js` with outlet selection
+3. Can select regular outlets or "Mayday Call Center"
+4. For regular outlets: Standard email/password login
+5. For call center: Opens new tab to `http://localhost:3002/login`
+
+#### 2. Call Center Login Flow
+
+1. User clicks "Open Mayday Call Center" in hospitality app
+2. New tab opens to `http://localhost:3002/login`
+3. Shows `LoginMayday.js` component
+4. User enters username/password
+5. Authenticates against call center backend (`http://localhost:8004/api`)
+
+## Production Deployment
+
+This section outlines the definitive steps to deploy both applications to a production VM using Nginx and PM2.
+
+### Final URL Mapping
+
+- `https://cs.hugamara.com/` → Serves the **Hospitality Frontend**.
+- `https://cs.hugamara.com/callcenter/` → Serves the **Call Center Frontend**.
+- `https://cs.hugamara.com/api/` → Proxies to the **Hospitality Backend** on `localhost:5000`.
+- `https://cs.hugamara.com/mayday-api/` → Proxies to the **Call Center Backend** on `localhost:5001`.
+
+### 1. Backend Setup with PM2
+
+- **User:** All PM2 commands **must** be run as the dedicated `mayday` user. This is a security best practice.
+- **Configuration:** The backends are managed by `/home/admin/hugamara-portal/ecosystem.config.js`.
+  - `hugamara-backend` runs on port `5000`.
+  - `mayday-callcenter-backend` runs on port `5001`.
+  - Log files are written to a relative `./logs` directory within the project folder.
+
+**Key Commands on VM (One-Time Setup):**
+
+```bash
+# 1. Stop all existing PM2 processes for all users
+sudo pm2 kill
+sudo -u admin pm2 kill
+
+# 2. Create the dedicated 'mayday' user (if it doesn't exist)
+# Note: This user may already exist. If so, this command will safely fail.
+sudo useradd -m -s /bin/bash mayday
+
+# 3. Give the 'mayday' user ownership of the project files
+sudo chown -R mayday:mayday /home/admin/hugamara-portal
+
+# 4. Start applications as the 'mayday' user
+sudo -u mayday -H bash -c "cd /home/admin/hugamara-portal && pm2 start ecosystem.config.js --update-env"
+
+# 5. Save the process list to automatically restart on reboot
+sudo -u mayday -H bash -c "pm2 save"
+```
+
+### 2. Updating the Application
+
+When pulling new code from GitHub, you may need to forcefully overwrite local changes on the server.
+
+```bash
+# 1. Connect to the VM and navigate to the project directory
+cd /home/admin/hugamara-portal
+
+# 2. Force-pull the latest changes from the 'development' branch
+sudo git fetch origin
+sudo git reset --hard origin/development
+
+# 3. Ensure permissions are still correct
+sudo chown -R mayday:mayday /home/admin/hugamara-portal
+
+# 4. Rebuild frontends (see section below)
+
+# 5. Restart the backends with the new code
+sudo -u mayday pm2 restart all --update-env
+```
+
+### 3. Frontend Build Process
+
+It is critical to build both frontends on the VM with the correct environment variables. Run these commands as `root` or `admin` since `npm` may require elevated permissions for installation.
+
+**A. Build Hospitality Frontend:**
+
+```bash
+cd /home/admin/hugamara-portal/client
+rm -rf build
+npm ci
+# This variable ensures the 'Open Call Center' button points to the correct URL
+REACT_APP_CALL_CENTER_URL=/callcenter/login npm run build
+```
+
+**B. Build Call Center Frontend:**
+
+```bash
+cd /home/admin/hugamara-portal/mayday/mayday-client-dashboard
+rm -rf build
+npm ci
+# This variable ensures all asset paths (JS, CSS) are relative to /callcenter/
+PUBLIC_URL=/callcenter npm run build
+```
+
+### 4. Nginx Configuration
+
+The complete and correct configuration for `/etc/nginx/sites-available/hugamara`. This version is confirmed to work.
+
+```nginx
+server {
+    listen 80;
+    server_name cs.hugamara.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name cs.hugamara.com;
+
+    ssl_certificate /etc/letsencrypt/live/cs.hugamara.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/cs.hugamara.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # --- Headers & Gzip ---
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' wss://cs.hugamara.com wss://cs.hugamara.com:8000 wss://cs.hugamara.com:8089;" always;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied expired no-cache no-store private no_last_modified no_etag auth;
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/javascript;
+
+    # --- API PROXIES (High Priority) ---
+    # The ^~ modifier ensures these rules are matched before the static file rule.
+
+    location ^~ /api/ {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    location ^~ /mayday-api/ {
+        proxy_pass http://localhost:5001/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # --- FRONTEND APPLICATIONS ---
+
+    # Call Center Assets (must be before /callcenter/)
+    location ^~ /callcenter/static/ {
+        alias /home/admin/hugamara-portal/mayday/mayday-client-dashboard/build/static/;
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+
+    # Call Center Main App
+    location /callcenter/ {
+        alias /home/admin/hugamara-portal/mayday/mayday-client-dashboard/build/;
+        try_files $uri $uri/ /callcenter/index.html;
+    }
+
+    # Hospitality Main App (Catch-all)
+    location / {
+        root /home/admin/hugamara-portal/client/build;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # WebSocket support for call center backend (scoped path)
+    location ^~ /mayday-api/socket.io/ {
+        proxy_pass http://localhost:5001/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    # WebSocket support for hospitality backend (default)
+    location /socket.io/ {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+
+    # WebSocket proxy - terminate TLS at Nginx and speak plain WS to Asterisk (8088)
+    location /ws {
+        proxy_pass http://127.0.0.1:8088/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+        proxy_connect_timeout 60s;
+    }
+
+    # Serve Asterisk Recordings directly
+    location /recordings/ {
+        alias /var/spool/asterisk/monitor/;
+        autoindex off;
+    }
+}
+```
+
+### 5. Database Setup
+
+```bash
+sudo mysql -e "CREATE DATABASE IF NOT EXISTS hugamara_db; \
+CREATE USER IF NOT EXISTS 'hugamara_user'@'localhost' IDENTIFIED BY 'Pasword@256'; \
+GRANT ALL PRIVILEGES ON hugamara_db.* TO 'hugamara_user'@'localhost'; FLUSH PRIVILEGES;"
+
+# The asterisk database is accessed using the root user in production
+```
+
+### 6. SSL Certificates (Let's Encrypt)
+
+```bash
+sudo systemctl stop nginx
+sudo certbot certonly --standalone -d cs.hugamara.com --non-interactive --agree-tos -m admin@hugamara.com
+sudo systemctl start nginx
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 7. Useful PM2 Commands
+
+```bash
+pm2 status
+pm2 logs --lines 100
+pm2 restart hugamara-backend --update-env
+pm2 restart mayday-callcenter-backend --update-env
+pm2 stop hugamara-backend
+pm2 save
+```
+
+### Troubleshooting
+
+#### Common Issues
+
+**1. Wrong Login Page Shows**
+- **Symptom**: Call center opens but shows hospitality login
+- **Cause**: Port collision or wrong URL
+- **Solution**:
+  - Ensure ports are pinned correctly
+  - Check `REACT_APP_CALL_CENTER_URL` in `.env.development`
+  - Hard refresh browser (Cmd/Cmd+Shift+R)
+
+**2. Call Center Page Blank with MIME Error**
+- **Symptom**: Console shows: `Refused to execute script ... MIME type 'text/html'` and 404s at `/static/js/...`
+- **Cause**: Call center bundle emitted asset paths under `/static/...` (root) instead of `/callcenter/static/...`
+- **Fix**:
+  1. Set `homepage: "/callcenter/"` in `mayday/mayday-client-dashboard/package.json`
+  2. Use `<Router basename="/callcenter">` in `mayday/mayday-client-dashboard/src/App.jsx`
+  3. Rebuild with `PUBLIC_URL=/callcenter npm run build`
+  4. Verify `build/index.html` references `/callcenter/static/...`
+
+**3. JWT Secret Error**
+- **Symptom**: `"secretOrPrivateKey must be a symmetric key when using HS256"`
+- **Cause**: Mismatch between JWT algorithm and key type
+- **Solution**: Fixed in `licenseService.js` (HS256 → RS256)
+
+**4. API Connection Issues**
+- **Symptom**: Frontend can't connect to backend
+- **Solution**:
+  - Verify backend is running on correct port
+  - Check CORS configuration
+  - Verify environment variables
+
+**5. Port Conflicts (EADDRINUSE: :::5000)**
+- **Symptom**: Hospitality backend restarts repeatedly with `EADDRINUSE` errors.
+- **Cause**: Another Node/PM2 instance using port 5000, possibly under a different user.
+- **Fix**:
+  - Stop PM2 as both `root` and `admin` users
+  - Kill residual Node processes: `sudo pkill -9 -f node`
+  - Verify: `sudo lsof -i :5000` shows nothing, then restart PM2 as `admin`.
+
+**6. Redis Authentication Error (Call Center)**
+- **Symptom**: `ERR AUTH <password> called without any password configured` in logs.
+- **Cause**: App configured a Redis password but Redis server has none.
+- **Fix**:
+  - Either configure `requirepass` in `/etc/redis/redis.conf` and restart Redis, or
+  - Remove `REDIS_PASSWORD` from the call center app environment in `ecosystem.config.js`.
+
+**7. Nginx Fails to Reload**
+- **Symptom**: Nginx fails to reload with an `invalid parameter "immutable"` error.
+- **Cause**: The server's Nginx version is older.
+- **Fix**: Change `add_header Cache-Control "public, immutable";` to `add_header Cache-Control "public";`.
+
+**8. PM2 Permission Issues**
+- **Symptom**: PM2 fails to start with `EACCES: permission denied` on log files.
+- **Cause**: The `ecosystem.config.js` on the server has incorrect absolute log paths, and the `mayday` user doesn't have permission to write to them.
+- **Fix**: Force-pull from git (`git reset --hard`) to get the updated config with relative `./logs` paths, then ensure `mayday` owns the project directory.
+
+**9. Database Connection Issues**
+- **Symptom**: Backend cannot connect to asterisk database
+- **Cause**: Wrong database user configuration
+- **Fix**: The mayday-callcenter-backend uses `root` user for asterisk database, not `hugamara_user`
+
+**10. Creating a Trunk Fails**
+- **Symptom**: Database errors like `Unknown column 'match'` or `a foreign key constraint fails`.
+- **Cause**: The `asterisk` database schema for PJSIP tables is incorrect or outdated.
+- **Fix**: Connect to the `asterisk` database and manually run SQL commands to fix the `ps_endpoint_id_ips` table.
+
+```sql
+-- Add missing columns
+ALTER TABLE ps_endpoint_id_ips ADD COLUMN `match` VARCHAR(255) NULL;
+ALTER TABLE ps_endpoint_id_ips ADD COLUMN srv_lookups VARCHAR(3) NULL;
+ALTER TABLE ps_endpoint_id_ips ADD COLUMN match_request_uri VARCHAR(3) NULL;
+
+-- Fix incorrect columns
+ALTER TABLE ps_endpoint_id_ips MODIFY COLUMN ip_match VARCHAR(80) NULL;
+ALTER TABLE ps_endpoint_id_ips MODIFY COLUMN id VARCHAR(80) NOT NULL;
+
+-- Fix incorrect foreign key relationship
+ALTER TABLE ps_endpoint_id_ips DROP FOREIGN KEY ps_endpoint_id_ips_ibfk_1;
+ALTER TABLE ps_endpoint_id_ips ADD CONSTRAINT fk_endpoint_id FOREIGN KEY (endpoint) REFERENCES ps_endpoints(id) ON DELETE CASCADE ON UPDATE CASCADE;
+```
+
 ## Contributing
 
 1. Fork the repository

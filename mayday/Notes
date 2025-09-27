@@ -29,4 +29,5 @@ Notes:
 ~ Check processes/logs - pm2 status - pm2 logs
 ~ nginx is running from /etc/nginx/sites-available/hugamara
 ~ ecosystem.config.js is where production environment variables are saved (not .env). Only the frontend dashboards use .env (REACT*APP*\*)
+~ Database: mayday-callcenter-backend uses 'root' user for asterisk database, not 'hugamara_user'
 ~ If needed, you can run the script directly: bash ./deploy-vm.sh
