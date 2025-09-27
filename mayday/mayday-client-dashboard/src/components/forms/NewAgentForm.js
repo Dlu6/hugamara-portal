@@ -98,12 +98,39 @@ const NewAgentForm = ({ open, handleClose }) => {
 
       handleClose(); // Close the dialog on successful submit
     } catch (error) {
+      // error can be a string or a structured object from rejectWithValue
       console.error("Failed to create agent:", error);
-      // console.log("Failed to create agent:", error)
-      enqueueSnackbar(
-        error || "Failed to create agent due to unexpected error",
-        { variant: "error" }
-      );
+
+      const friendly =
+        typeof error === "string"
+          ? { message: error }
+          : error || { message: "Failed to create agent" };
+
+      // Field-level hints for quick fixes
+      if (friendly.field === "email") {
+        enqueueSnackbar(
+          friendly.message || "Email already exists. Use a different email.",
+          { variant: "error" }
+        );
+      } else if (friendly.field === "username") {
+        enqueueSnackbar(
+          friendly.message || "Username already exists. Choose another.",
+          { variant: "error" }
+        );
+      } else if (friendly.field === "extension") {
+        enqueueSnackbar(
+          friendly.message ||
+            "Internal number is already in use. Try a different one or enable auto-generate.",
+          { variant: "error" }
+        );
+      } else {
+        // Generic fallback with guidance
+        enqueueSnackbar(
+          friendly.message ||
+            "Could not create agent. Please verify inputs and try again.",
+          { variant: "error" }
+        );
+      }
     }
   };
 

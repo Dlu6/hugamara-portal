@@ -10,9 +10,34 @@ export const createAgent = createAsyncThunk(
       await dispatch(fetchAgents());
       return response.data;
     } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Could not create agent"
-      );
+      // Build a richer, user-friendly error payload
+      const data = error?.response?.data || {};
+      const rawDetail = typeof data.error === "string" ? data.error : "";
+      let message = data.message || "Could not create agent";
+      let field = null;
+      let code = null;
+
+      // Detect common DB/Sequelize duplicate key errors and map to fields
+      if (/Duplicate entry/i.test(rawDetail)) {
+        code = "DUPLICATE";
+        const keyMatch = rawDetail.match(/key '([^']+)'/i);
+        const key = keyMatch?.[1] || "";
+        if (/email/i.test(key)) {
+          field = "email";
+          message = "Email already exists. Use a different email.";
+        } else if (/username|user_name/i.test(key)) {
+          field = "username";
+          message = "Username already exists. Choose another username.";
+        } else if (/extension|internal/i.test(key)) {
+          field = "extension";
+          message = "Internal number already in use. Try a different one.";
+        }
+      }
+
+      // Fallback to generic network/server errors
+      if (!message && error.message) message = error.message;
+
+      return rejectWithValue({ message, code, field });
     }
   }
 );
@@ -227,7 +252,7 @@ const agentsSlice = createSlice({
       .addCase(createAgent.rejected, (state, action) => {
         state.status = "failed";
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload?.message || action.payload || "Failed";
       });
 
     // Get agents

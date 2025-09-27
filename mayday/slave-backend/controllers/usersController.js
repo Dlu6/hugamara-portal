@@ -603,10 +603,63 @@ export const createPJSIPUser = async (req, res) => {
   } catch (error) {
     await transaction.rollback();
     console.error("Error creating agent:", error);
-    res.status(error.status || 500).json({
+    // Normalize Sequelize/MySQL errors into friendly, actionable responses
+    const isDev = NODE_ENV === "development";
+    const errName = error?.name || "";
+    const sqlMsg =
+      error?.original?.sqlMessage ||
+      error?.parent?.sqlMessage ||
+      error?.message ||
+      "";
+
+    let statusCode = error.status || 500;
+    let message = error.message || "Failed to create agent";
+    let field = null;
+    let code = null;
+
+    // Duplicate entry (unique constraint)
+    if (
+      /SequelizeUniqueConstraintError/i.test(errName) ||
+      /ER_DUP_ENTRY/i.test(error?.original?.code || "") ||
+      /Duplicate entry/i.test(sqlMsg)
+    ) {
+      statusCode = 409;
+      code = "DUPLICATE";
+      const lower = sqlMsg.toLowerCase();
+      if (lower.includes("email") || lower.includes("ux_users_email")) {
+        field = "email";
+        message = "Email already exists. Use a different email.";
+      } else if (
+        lower.includes("username") ||
+        lower.includes("ux_users_username")
+      ) {
+        field = "username";
+        message = "Username already exists. Choose another username.";
+      } else if (lower.includes("extension") || lower.includes("internal")) {
+        field = "extension";
+        message = "Internal number already in use. Try a different one.";
+      } else {
+        message = "Duplicate value for a unique field.";
+      }
+    }
+
+    // Validation errors
+    if (/SequelizeValidationError/i.test(errName)) {
+      statusCode = 400;
+      code = code || "VALIDATION";
+      const first = Array.isArray(error?.errors) ? error.errors[0] : null;
+      if (first?.message) message = first.message;
+      if (first?.path) field = first.path;
+      // Reasonable fallback
+      if (!message) message = "Invalid data provided.";
+    }
+
+    res.status(statusCode).json({
       success: false,
-      message: error.message || "Failed to create agent",
-      error: NODE_ENV === "development" ? error.stack : undefined,
+      message,
+      field,
+      code,
+      error: isDev ? sqlMsg : undefined,
     });
   }
 };

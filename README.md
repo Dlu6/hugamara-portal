@@ -1703,6 +1703,23 @@ This section outlines the definitive steps to deploy both applications to a prod
 - `https://cs.hugamara.com/api/` → Proxies to the **Hospitality Backend** on `localhost:5000`.
 - `https://cs.hugamara.com/mayday-api/` → Proxies to the **Call Center Backend** on `localhost:5001`.
 
+### Backends and Databases
+
+- Hospitality Management System (Main Backend)
+
+  - Service: `hugamara-backend` (PM2)
+  - Default internal port: `5000`
+  - Database: `hugamara_db`
+  - DB user: `hugamara_user`
+
+- Mayday Call Center Backend
+  - Service: `mayday-callcenter-backend` (PM2)
+  - Default internal port: `5001`
+  - Database: `asterisk`
+  - DB user: `root` (in production for Asterisk realtime)
+
+These environments are configured via `ecosystem.config.js` and loaded by PM2 in production. Frontends use `.env` at build time, but backends rely on `ecosystem.config.js`.
+
 ### 1. Backend Setup with PM2
 
 - **User:** All PM2 commands **must** be run as the dedicated `mayday` user. This is a security best practice.
@@ -1779,7 +1796,7 @@ PUBLIC_URL=/callcenter npm run build
 
 ### 4. Nginx Configuration
 
-The complete and correct configuration for `/etc/nginx/sites-available/hugamara`. This version is confirmed to work.
+The main nginx configuration lives at `/etc/nginx/sites-available/hugamara` (symlinked to `sites-enabled`). This version is confirmed to work.
 
 ```nginx
 server {
@@ -1930,6 +1947,35 @@ pm2 restart hugamara-backend --update-env
 pm2 restart mayday-callcenter-backend --update-env
 pm2 stop hugamara-backend
 pm2 save
+```
+
+### 8. Debugging and Logs
+
+- Backend service logs (Call Center backend):
+
+```bash
+pm2 logs mayday-callcenter-backend --lines 200
+```
+
+- Backend service logs (Hospitality backend):
+
+```bash
+pm2 logs hugamara-backend --lines 200
+```
+
+- Nginx logs and live follow (on the VM):
+
+```bash
+sudo tail -n 200 /var/log/nginx/error.log
+sudo tail -n 200 /var/log/nginx/access.log
+sudo tail -f /var/log/nginx/error.log /var/log/nginx/access.log
+```
+
+- If you changed `ecosystem.config.js`, always restart with updated env:
+
+```bash
+pm2 restart mayday-callcenter-backend --update-env
+pm2 restart hugamara-backend --update-env
 ```
 
 ### Troubleshooting
