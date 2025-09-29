@@ -618,6 +618,20 @@ export const getTrunkById = async (req, res) => {
       });
     }
 
+    // Fetch identify mappings (provider IPs / header rules)
+    const identifies = await PJSIPEndpointIdentifier.findAll({
+      where: { endpoint: endpoint.id },
+      attributes: [
+        "id",
+        "endpoint",
+        "match",
+        "match_header",
+        "match_request_uri",
+      ],
+    });
+
+    const identifyMatches = identifies.map((i) => i.match).filter(Boolean);
+
     res.json({
       success: true,
       trunk: {
@@ -625,6 +639,8 @@ export const getTrunkById = async (req, res) => {
         endpoint: endpoint.get(),
         auth: endpoint.authConfig,
         aor: endpoint.aorConfig,
+        identify: identifies?.[0] || null,
+        identifyMatches,
       },
     });
   } catch (error) {
