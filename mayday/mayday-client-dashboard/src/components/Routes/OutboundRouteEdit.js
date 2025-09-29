@@ -404,10 +404,11 @@ const OutboundRouteEdit = () => {
     const handleDragEnd = (result) => {
       if (!result.destination) return;
 
-      if (
-        result.source.droppableId === "available-apps" &&
-        result.destination.droppableId === "configured-apps"
-      ) {
+      const src = result.source.droppableId;
+      const dst = result.destination.droppableId;
+
+      // Add from palette → configured list
+      if (src === "available-apps" && dst === "configured-apps") {
         const app = initialApps[result.source.index];
         const newApp = {
           ...app,
@@ -424,11 +425,25 @@ const OutboundRouteEdit = () => {
             arguments: "",
           },
         };
-        setConfiguredApps([...configuredApps, newApp]);
+        const next = [...configuredApps, newApp];
+        // Reindex priorities to be explicit
+        const reindexed = next.map((a, i) => ({ ...a, priority: i + 1 }));
+        setConfiguredApps(reindexed);
 
         // Open dialog for configuration
         setEditableApp(newApp);
         setOpenDialog(true);
+        return;
+      }
+
+      // Reorder within configured list
+      if (src === "configured-apps" && dst === "configured-apps") {
+        const items = Array.from(configuredApps);
+        const [moved] = items.splice(result.source.index, 1);
+        items.splice(result.destination.index, 0, moved);
+        // Normalize priorities so top row is highest priority (1)
+        const reindexed = items.map((a, i) => ({ ...a, priority: i + 1 }));
+        setConfiguredApps(reindexed);
       }
     };
 
@@ -444,9 +459,9 @@ const OutboundRouteEdit = () => {
     };
 
     const handleRemoveApp = () => {
-      const newConfiguredApps = configuredApps.filter(
-        (app) => app.uniqueId !== currentEditingAppId
-      );
+      const newConfiguredApps = configuredApps
+        .filter((app) => app.uniqueId !== currentEditingAppId)
+        .map((a, i) => ({ ...a, priority: i + 1 }));
       setConfiguredApps(newConfiguredApps);
       handleApplicationMenuClose();
     };

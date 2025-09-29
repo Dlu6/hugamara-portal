@@ -47,6 +47,7 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
     active: 1,
     fromUser: "",
     fromDomain: "",
+    providerIPs: "",
   });
 
   const { enqueueSnackbar } = useSnackbar();
@@ -275,6 +276,18 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
             value={formData.host || ""}
             onChange={handleInputChange}
             disabled={isSubmitting}
+          />
+          <TextField
+            margin="dense"
+            label="Provider IPs (comma-separated)"
+            type="text"
+            fullWidth
+            name="providerIPs"
+            variant="standard"
+            value={formData.providerIPs || ""}
+            onChange={handleInputChange}
+            disabled={isSubmitting}
+            helperText="Optional: e.g. 41.77.78.155/32 or 41.77.78.155,41.77.78.156"
           />
           {/* From User */}
           <TextField

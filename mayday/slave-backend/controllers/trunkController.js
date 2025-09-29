@@ -1,4 +1,6 @@
 import sequelize, { Op } from "../config/sequelize.js";
+import dns from "dns";
+import { promisify } from "util";
 import {
   PJSIPEndpoint,
   PJSIPAuth,
@@ -26,6 +28,7 @@ export const createTrunk = async (req, res) => {
       endpoint_type = "trunk",
       isP2P = false,
       fromUser,
+      providerIPs, // optional CSV from UI for identify match
     } = req.body;
 
     // Validate required fields
@@ -70,6 +73,26 @@ export const createTrunk = async (req, res) => {
 
     const baseId = name;
     const cleanHost = host.replace(/^sip:/, "").replace(/:\d+$/, "");
+
+    // Resolve provider IPs for identify mapping (prefer explicit input)
+    const lookup = promisify(dns.lookup);
+    let ipList = [];
+    try {
+      if (typeof providerIPs === "string" && providerIPs.trim() !== "") {
+        ipList = providerIPs
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      } else {
+        const results = await lookup(cleanHost, { all: true, family: 4 });
+        ipList = Array.from(new Set(results.map((r) => r.address)));
+      }
+    } catch (e) {
+      // Fallback: leave empty, but continue; match_header will still help
+      ipList = [];
+    }
+    const matchValue =
+      ipList.length > 0 ? ipList.map((ip) => `${ip}/32`).join(",") : cleanHost;
 
     // 1. Create Endpoint
     await PJSIPEndpoint.create(
@@ -131,7 +154,7 @@ export const createTrunk = async (req, res) => {
       {
         id: `${baseId}_identify`,
         endpoint: baseId,
-        match: cleanHost,
+        match: matchValue,
         srv_lookups: "no",
         match_header: `P-Asserted-Identity: <sip:.*@${cleanHost}>`,
         match_request_uri: "yes",
@@ -139,17 +162,21 @@ export const createTrunk = async (req, res) => {
       { transaction }
     );
 
-    // Update the PJSIP configuration file
-    await updatePJSIPConfig({
-      name: baseId,
-      username: defaultUser,
-      password,
-      host: cleanHost,
-      transport,
-      context,
-      codecs,
-      isP2P,
-    });
+    // Best-effort PJSIP conf update (do not fail transaction if remote-managed)
+    try {
+      await updatePJSIPConfig({
+        name: baseId,
+        username: defaultUser,
+        password,
+        host: cleanHost,
+        transport,
+        context,
+        codecs,
+        isP2P,
+      });
+    } catch (confErr) {
+      console.warn("PJSIP conf update skipped:", confErr?.message || confErr);
+    }
 
     await transaction.commit();
 
@@ -175,7 +202,7 @@ export const createTrunk = async (req, res) => {
         },
         identify: {
           endpoint: baseId,
-          match: cleanHost,
+          match: matchValue,
           srv_lookups: "no",
         },
       },
@@ -274,13 +301,27 @@ export const updateTrunk = async (req, res) => {
       }
     );
 
-    // Update the Endpoint Identifier
-    await PJSIPEndpointIdentifier.update(
-      {
-        match: updates.host,
-      },
-      { where: { endpoint: trunkId }, transaction }
-    );
+    // Update the Endpoint Identifier: prefer explicit providerIPs, else resolve host
+    if (updates.providerIPs || updates.host) {
+      let matchValue = updates.host;
+      try {
+        if (updates.providerIPs && typeof updates.providerIPs === "string") {
+          const ips = updates.providerIPs
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((ip) => `${ip}/32`);
+          if (ips.length > 0) matchValue = ips.join(",");
+        }
+      } catch (_) {}
+
+      await PJSIPEndpointIdentifier.update(
+        {
+          match: matchValue,
+        },
+        { where: { endpoint: trunkId }, transaction }
+      );
+    }
     // Reload PJSIP configurations via AMI
     await amiService.executeAction({
       Action: "Command",
@@ -289,16 +330,20 @@ export const updateTrunk = async (req, res) => {
 
     await transaction.commit();
 
-    // Update the PJSIP configuration File in the server
-    await updatePJSIPConfig({
-      name: trunkId,
-      username: updates.defaultUser,
-      password: updates.password,
-      host: updates.host,
-      context: updates.context,
-      codecs: updates.codecs,
-      transport: updates.transport,
-    });
+    // Best-effort PJSIP conf update post-commit
+    try {
+      await updatePJSIPConfig({
+        name: trunkId,
+        username: updates.defaultUser,
+        password: updates.password,
+        host: updates.host,
+        context: updates.context,
+        codecs: updates.codecs,
+        transport: updates.transport,
+      });
+    } catch (confErr) {
+      console.warn("PJSIP conf update skipped:", confErr?.message || confErr);
+    }
 
     // Fetch updated configurations
     const [updatedEndpoint, updatedAuth, updatedAor] = await Promise.all([

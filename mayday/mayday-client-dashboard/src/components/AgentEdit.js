@@ -272,8 +272,9 @@ const AgentEdit = () => {
             ? "yes"
             : "no",
 
-          // Transport configuration - critical fix
+          // Transport & context configuration - critical fix
           transport: formAgentDetails.transport || "transport-ws",
+          context: formAgentDetails.context || "from-internal",
 
           // Other PJSIP fields
           nat: Array.isArray(formAgentDetails.nat)

@@ -83,6 +83,7 @@ const TrunkEdit = () => {
     enabled: false,
     account_number: "",
     phone_number: "",
+    providerIPs: "",
     ...(location.state && {
       ...location.state,
       enabled: Boolean(location.state.enabled || location.state.active === 1),
@@ -102,6 +103,7 @@ const TrunkEdit = () => {
         : location.state.insecure?.split(",").filter(Boolean) || [],
       account_number: location.state.account_number || "",
       phone_number: location.state.phone_number || "",
+      providerIPs: location.state.providerIPs || "",
     }),
   });
 
@@ -241,6 +243,7 @@ const TrunkEdit = () => {
         active: formData.enabled ? 1 : 0,
         account_number: formData.account_number,
         phone_number: formData.phone_number,
+        providerIPs: formData.providerIPs,
       };
 
       await dispatch(updateTrunkDetailsAsync(dataToSend)).unwrap();
