@@ -136,11 +136,12 @@ export const createTrunk = async (req, res) => {
       );
     }
 
-    // 3. Create AOR
+    // 3. Create AOR (prefer IP contact if available to avoid DNS issues)
+    const contactHost = ipList.length > 0 ? ipList[0] : cleanHost;
     await PJSIPAor.create(
       {
         id: `${baseId}_aor`,
-        contact: `sip:${cleanHost}:5060`,
+        contact: `sip:${contactHost}:5060`,
         qualify_frequency: 60,
         max_contacts: 1,
         remove_existing: "yes",
@@ -198,7 +199,7 @@ export const createTrunk = async (req, res) => {
         auth: isP2P ? null : { id: `${baseId}_auth`, username: defaultUser },
         aor: {
           id: `${baseId}_aor`,
-          contact: `sip:${cleanHost}:5060`,
+          contact: `sip:${contactHost}:5060`,
         },
         identify: {
           endpoint: baseId,
@@ -288,9 +289,17 @@ export const updateTrunk = async (req, res) => {
     // Update the PJSIP AOR
     await PJSIPAor.update(
       {
-        contact: updates.host.startsWith("sip:")
-          ? updates.host
-          : `sip:${updates.host}:5060`,
+        // If providerIPs provided, prefer first IP for contact to avoid DNS failures
+        contact:
+          updates.providerIPs &&
+          typeof updates.providerIPs === "string" &&
+          updates.providerIPs.split(",").filter(Boolean).length > 0
+            ? `sip:${
+                updates.providerIPs.split(",").map((s) => s.trim())[0]
+              }:5060`
+            : updates.host.startsWith("sip:")
+            ? updates.host
+            : `sip:${updates.host}:5060`,
         qualify_frequency: updates.qualifyFrequency || 60,
         max_contacts: updates.maxContacts || 1,
         remove_existing: updates.removeExisting || "yes",
