@@ -128,6 +128,13 @@ const TrunkEdit = () => {
           const trunkData = result.trunk || result;
           const endpointData = trunkData.endpoint || {};
 
+          // Debug: inspect provider IPs structure from backend
+          console.log("[TrunkEdit] trunkData:", {
+            name: trunkData?.name,
+            identifyMatches: trunkData?.identifyMatches,
+            identify: trunkData?.identify,
+          });
+
           setFormData((prev) => ({
             ...prev,
             ...endpointData,

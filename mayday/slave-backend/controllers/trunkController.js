@@ -91,8 +91,12 @@ export const createTrunk = async (req, res) => {
       // Fallback: leave empty, but continue; match_header will still help
       ipList = [];
     }
+    // Sanitize any CIDR suffixes in input and build proper /32 CIDRs
+    const sanitizedIps = ipList.map((ip) => ip.replace(/\/.+$/, ""));
     const matchValue =
-      ipList.length > 0 ? ipList.map((ip) => `${ip}/32`).join(",") : cleanHost;
+      sanitizedIps.length > 0
+        ? sanitizedIps.map((ip) => `${ip}/32`).join(",")
+        : cleanHost;
 
     // 1. Create Endpoint
     await PJSIPEndpoint.create(
@@ -138,7 +142,7 @@ export const createTrunk = async (req, res) => {
     }
 
     // 3. Create AOR (prefer IP contact if available to avoid DNS issues)
-    const contactHost = ipList.length > 0 ? ipList[0] : cleanHost;
+    const contactHost = sanitizedIps.length > 0 ? sanitizedIps[0] : cleanHost;
     await PJSIPAor.create(
       {
         id: `${baseId}_aor`,
@@ -159,7 +163,7 @@ export const createTrunk = async (req, res) => {
         match: matchValue,
         srv_lookups: "no",
         match_header: `P-Asserted-Identity: <sip:.*@${cleanHost}>`,
-        match_request_uri: "yes",
+        match_request_uri: "no",
       },
       { transaction }
     );
@@ -291,17 +295,23 @@ export const updateTrunk = async (req, res) => {
     // Update the PJSIP AOR
     await PJSIPAor.update(
       {
-        // If providerIPs provided, prefer first IP for contact to avoid DNS failures
-        contact:
-          updates.providerIPs &&
-          typeof updates.providerIPs === "string" &&
-          updates.providerIPs.split(",").filter(Boolean).length > 0
-            ? `sip:${
-                updates.providerIPs.split(",").map((s) => s.trim())[0]
-              }:5060`
-            : updates.host.startsWith("sip:")
-            ? updates.host
-            : `sip:${updates.host}:5060`,
+        // If providerIPs provided, prefer first IP for contact; strip CIDR if present
+        contact: (() => {
+          if (
+            updates.providerIPs &&
+            typeof updates.providerIPs === "string" &&
+            updates.providerIPs.split(",").filter(Boolean).length > 0
+          ) {
+            const first = updates.providerIPs
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)[0];
+            const ip = first.replace(/\/.+$/, "");
+            return `sip:${ip}:5060`;
+          }
+          const host = (updates.host || "").replace(/^sip:/, "");
+          return host ? `sip:${host}:5060` : null;
+        })(),
         qualify_frequency: updates.qualifyFrequency || 60,
         max_contacts: updates.maxContacts || 1,
         remove_existing: updates.removeExisting || "yes",

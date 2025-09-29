@@ -55,6 +55,16 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
 
   useEffect(() => {
     if (mode === "edit" && trunkData) {
+      // Debug: inspect provider IPs structure from backend
+      console.log(
+        "[TrunkDialog] trunkData:",
+        {
+          name: trunkData?.name,
+          identifyMatches: trunkData?.identifyMatches,
+          identify: trunkData?.identify,
+        },
+        trunkData
+      );
       const enhancedTrunkData = {
         name: trunkData.name || "",
         host: trunkData.host || trunkData.endpoint?.from_domain || "",
