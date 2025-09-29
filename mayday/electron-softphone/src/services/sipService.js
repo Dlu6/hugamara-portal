@@ -2424,44 +2424,11 @@ export const sipCallService = {
   },
 
   // Register call with AMI for monitoring and management
-  registerCallWithAMI: async (callData) => {
-    try {
-      const apiHost =
-        process.env.NODE_ENV === "development"
-          ? "localhost:8004"
-          : "mhuhelpline.com";
-      const apiProtocol =
-        process.env.NODE_ENV === "development" ? "http" : "https";
-
-      const response = await fetch(
-        `${apiProtocol}://${apiHost}/api/ami/call-events`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${storageService.getAuthToken() || ""}`,
-          },
-          body: JSON.stringify({
-            callId: callData.callId,
-            extension: callData.extension,
-            remoteNumber: callData.remoteNumber,
-            direction: callData.direction,
-            timestamp: new Date().toISOString(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        console.warn("Failed to register call with AMI:", response.statusText);
-        return false;
-      }
-
-      console.log("Call registered with AMI for monitoring");
-      return true;
-    } catch (error) {
-      console.warn("Error registering call with AMI:", error.message);
-      return false;
-    }
+  // Note: The backend no longer exposes /api/ami/call-events. This is now a no-op
+  // to avoid 404 errors during calls. Call monitoring is handled via WebSocket/AMI
+  // services server-side.
+  registerCallWithAMI: async (_callData) => {
+    return true;
   },
 
   // Get available agents for transfer

@@ -628,7 +628,7 @@ export const generatePJSIPConfig = (
     rtp_symmetric: "yes",
     dtls_verify: "no",
     dtls_setup: "actpass",
-    media_encryption: "sdes",
+    media_encryption: "dtls",
     ice_support: "yes",
     use_avpf: "yes",
     force_avp: "no",
@@ -646,7 +646,7 @@ export const generatePJSIPConfig = (
   if (isWebRTC) {
     Object.assign(endpointConfig, {
       dtls_verify: "fingerprint",
-      media_encryption: "sdes",
+      media_encryption: "dtls",
       ice_support: "yes",
       use_avpf: "yes",
       media_use_received_transport: "yes",
@@ -718,7 +718,7 @@ export async function createPJSIPConfigs(
       rtcp_mux: "yes",
       webrtc: "yes",
       dtls_verify: "fingerprint",
-      media_encryption: "sdes",
+      media_encryption: "dtls",
       dtls_setup: "actpass",
       bundle: "yes",
       user_id: userId,

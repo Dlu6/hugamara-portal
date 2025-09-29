@@ -34,9 +34,17 @@ export const getAgentStatus = async (req, res) => {
 export const getAgentStatusByExtension = async (req, res) => {
   try {
     const { extension } = req.params;
-    const allStatus = await agentStatusService.getCurrentStatus();
+    let allStatus = await agentStatusService.getCurrentStatus();
+    let agent = allStatus.agents.find((a) => a.extension === extension);
 
-    const agent = allStatus.agents.find((a) => a.extension === extension);
+    // Durable fallback: refresh agents from DB once if not found
+    if (!agent) {
+      const refreshed = await agentStatusService.refreshAgents();
+      if (refreshed) {
+        allStatus = await agentStatusService.getCurrentStatus();
+        agent = allStatus.agents.find((a) => a.extension === extension);
+      }
+    }
 
     if (!agent) {
       return res.status(404).json({

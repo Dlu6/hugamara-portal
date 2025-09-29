@@ -10,6 +10,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
 import sequelize from "../config/sequelize.js";
+import agentStatusService from "../services/agentStatusService.js";
 import VoiceExtension from "../models/voiceExtensionModel.js";
 import QueueMember from "../models/queueMemberModel.js";
 import { deletePjsipUser } from "../services/userService.js";
@@ -585,6 +586,11 @@ export const createPJSIPUser = async (req, res) => {
         console.error("❌ Failed to reload dialplan:", err);
       }
     }, 2000); // Allow DB commit to complete before AMI request
+
+    // Trigger agent-status service to refresh its in-memory list (non-blocking)
+    try {
+      setImmediate(() => agentStatusService.refreshAgents());
+    } catch (_) {}
 
     res.status(201).json({
       success: true,

@@ -112,10 +112,10 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
               ? t.identifyMatches.join(",")
               : t.identify?.match || "";
             setFormData((prev) => ({ ...prev, providerIPs: matches }));
-            console.log("[TrunkDialog] detail identify:", {
-              identifyMatches: t.identifyMatches,
-              identify: t.identify,
-            });
+            // console.log("[TrunkDialog] detail identify:", {
+            //   identifyMatches: t.identifyMatches,
+            //   identify: t.identify,
+            // });
           } catch (e) {
             console.warn("Failed to load trunk identify details:", e);
           }

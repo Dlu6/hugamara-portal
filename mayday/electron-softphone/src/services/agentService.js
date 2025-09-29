@@ -147,7 +147,7 @@ const getAgentStatus = async () => {
 
   try {
     // Use the AMI endpoint to get all extension statuses
-    const response = await fetch(`${baseUrl}/api/agent-status`, {
+    const response = await fetch(`${baseUrl}/agent-status`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },

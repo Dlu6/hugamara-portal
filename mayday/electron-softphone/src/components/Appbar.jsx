@@ -2558,7 +2558,8 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       if (
         s.includes("available") ||
         s.includes("ready") ||
-        s.includes("registered")
+        s.includes("registered") ||
+        s.includes("online")
       )
         return "Registered";
       if (s.includes("paused") || s.includes("break")) return "Paused";
@@ -2666,6 +2667,65 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       if (interval) clearInterval(interval);
     };
   }, [transferDialogOpen, isLoggingOut, canInitServices]);
+
+  // Single-source-of-truth for own presence: listen to agentService WS for my extension
+  useEffect(() => {
+    if (isLoggingOut || !canInitServices()) return;
+    const userData = storageService.getUserData();
+    const myExt = String(userData?.user?.extension || "");
+    if (!myExt) return;
+
+    const normalizeStatus = (raw) => {
+      const s = (raw || "").toString().toLowerCase();
+      if (s.includes("oncall") || s.includes("on_call") || s.includes("busy"))
+        return "On Call";
+      if (s.includes("available") || s.includes("ready") || s.includes("registered") || s.includes("online"))
+        return "Registered";
+      if (s.includes("paused") || s.includes("break")) return "Paused";
+      return "Offline";
+    };
+
+    // Seed from dashboard stats if available for instant paint
+    try {
+      const stats = callMonitoringService.getStats();
+      const mine = (stats?.activeAgentsList || []).find((a) => String(a.extension) === myExt);
+      if (mine) {
+        const status = normalizeStatus(mine.status);
+        const isOnline = status === "Registered" || status === "On Call";
+        setRegisteredAgent((prev) => ({
+          ...(prev || {}),
+          extension: myExt,
+          status,
+          online: isOnline,
+          isRegistered: isOnline,
+          amiStatus: status,
+        }));
+      }
+    } catch (_) {}
+
+    const onSelf = (payload) => {
+      const ext = String(payload?.extension || "");
+      if (ext !== myExt) return;
+      const status = normalizeStatus(payload?.status || payload?.deviceState || payload?.presence);
+      const isOnline = status === "Registered" || status === "On Call";
+      setRegisteredAgent((prev) => ({
+        ...(prev || {}),
+        extension: myExt,
+        status,
+        online: isOnline,
+        isRegistered: isOnline,
+        amiStatus: payload?.status || status,
+      }));
+    };
+
+    try { agentService.on("extension:status", onSelf); } catch (_) {}
+    try { agentService.on("statusChange", onSelf); } catch (_) {}
+
+    return () => {
+      try { agentService.off("extension:status", onSelf); } catch (_) {}
+      try { agentService.off("statusChange", onSelf); } catch (_) {}
+    };
+  }, [isLoggingOut, canInitServices]);
 
   // Filter agents based on search and status
   const filteredAvailableAgents = useMemo(() => {

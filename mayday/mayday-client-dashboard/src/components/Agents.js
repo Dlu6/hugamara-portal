@@ -20,6 +20,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import { useSnackbar } from "notistack";
+import { flushSync } from "react-dom";
 import {
   Dialog,
   DialogTitle,
@@ -271,7 +272,8 @@ const AgentsComponent = () => {
       }
     );
 
-    setEndingSessions(true);
+    // Force immediate paint so the button shows "Ending..." without waiting for async work
+    flushSync(() => setEndingSessions(true));
 
     try {
       console.log(
