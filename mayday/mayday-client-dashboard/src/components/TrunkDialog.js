@@ -76,6 +76,12 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
         fromUser: trunkData.fromUser || trunkData.endpoint?.from_user || "",
         fromDomain:
           trunkData.fromDomain || trunkData.endpoint?.from_domain || "",
+        providerIPs:
+          (Array.isArray(trunkData.identifyMatches)
+            ? trunkData.identifyMatches.join(",")
+            : trunkData.identify?.match) ||
+          trunkData.providerIPs ||
+          "",
       };
       setFormData(enhancedTrunkData);
       setEnabled(enhancedTrunkData.active);

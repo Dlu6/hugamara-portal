@@ -148,6 +148,12 @@ const TrunkEdit = () => {
               : endpointData.insecure?.split(",").filter(Boolean) || [],
             account_number: endpointData.account_number || "",
             phone_number: endpointData.phone_number || "",
+            providerIPs:
+              (Array.isArray(trunkData.identifyMatches)
+                ? trunkData.identifyMatches.join(",")
+                : trunkData.identify?.match) ||
+              prev.providerIPs ||
+              "",
           }));
         } catch (error) {
           console.error("Error fetching trunk data:", error);
