@@ -287,7 +287,7 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
             value={formData.providerIPs || ""}
             onChange={handleInputChange}
             disabled={isSubmitting}
-            helperText="Optional: e.g. 41.77.78.155/32 or 41.77.78.155,41.77.78.156"
+            helperText="Optional: e.g. 41.77.10.100/32 or 41.77.10.10,41.77.10.11"
           />
           {/* From User */}
           <TextField
