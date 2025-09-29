@@ -26,6 +26,7 @@ import {
 } from "../features/trunks/trunkSlice.js";
 
 const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
+  console.log("🔥🔥🔥🔥trunkData", trunkData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enabled, setEnabled] = useState(() => {
     if (mode === "edit" && trunkData && trunkData.active !== undefined) {

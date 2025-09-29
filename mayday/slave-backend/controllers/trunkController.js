@@ -324,21 +324,26 @@ export const updateTrunk = async (req, res) => {
 
     // Update the Endpoint Identifier: prefer explicit providerIPs, else resolve host
     if (updates.providerIPs || updates.host) {
-      let matchValue = updates.host;
+      let matchValue = updates.host || "";
       try {
         if (updates.providerIPs && typeof updates.providerIPs === "string") {
           const ips = updates.providerIPs
             .split(",")
             .map((s) => s.trim())
             .filter(Boolean)
+            .map((ip) => ip.replace(/\/.+$/, "")) // strip any existing CIDR
             .map((ip) => `${ip}/32`);
           if (ips.length > 0) matchValue = ips.join(",");
+        } else if (matchValue) {
+          matchValue = matchValue.replace(/^sip:/, "");
         }
       } catch (_) {}
 
       await PJSIPEndpointIdentifier.update(
         {
           match: matchValue,
+          match_request_uri: "no",
+          srv_lookups: "no",
         },
         { where: { endpoint: trunkId }, transaction }
       );
