@@ -571,19 +571,44 @@ export const getTrunks = async (req, res) => {
           required: false,
           attributes: ["id", "auth_type", "password", "username"],
         },
+        {
+          model: PJSIPEndpointIdentifier,
+          as: "identifies",
+          required: false,
+          attributes: ["id", "match", "match_request_uri", "srv_lookups"],
+        },
       ],
     });
 
-    const formattedTrunks = trunks.map((trunk) => ({
-      trunkId: trunk.trunk_id,
-      name: trunk.id,
-      endpoint: {
-        ...trunk.get(),
-        registration: trunk.registration ? trunk.registration.get() : null,
-      },
-      aor: trunk.aorConfig || null,
-      auth: trunk.authConfig || null,
-    }));
+    const formattedTrunks = trunks.map((trunk) => {
+      const identifyMatches = Array.isArray(trunk.identifies)
+        ? trunk.identifies.map((i) => i.match).filter(Boolean)
+        : [];
+      const identify = Array.isArray(trunk.identifies)
+        ? trunk.identifies[0] || null
+        : null;
+
+      // Server-side debug for structure
+      try {
+        console.log("[getTrunks]", trunk.id, {
+          identifyMatches,
+          identify,
+        });
+      } catch (_) {}
+
+      return {
+        trunkId: trunk.trunk_id,
+        name: trunk.id,
+        endpoint: {
+          ...trunk.get(),
+          registration: trunk.registration ? trunk.registration.get() : null,
+        },
+        aor: trunk.aorConfig || null,
+        auth: trunk.authConfig || null,
+        identifyMatches,
+        identify,
+      };
+    });
 
     res.json({
       success: true,
