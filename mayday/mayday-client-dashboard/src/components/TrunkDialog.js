@@ -23,10 +23,10 @@ import { useDispatch } from "react-redux";
 import {
   createTrunk,
   updateTrunkDetailsAsync,
+  fetchTrunkById,
 } from "../features/trunks/trunkSlice.js";
 
 const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
-  console.log("🔥🔥🔥🔥trunkData", trunkData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enabled, setEnabled] = useState(() => {
     if (mode === "edit" && trunkData && trunkData.active !== undefined) {
@@ -97,6 +97,30 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
       setFormData(enhancedTrunkData);
       setEnabled(enhancedTrunkData.active);
       setIsP2P(enhancedTrunkData.isP2P || true);
+
+      // Fallback: if providerIPs not available on list row, fetch detail
+      if (
+        !enhancedTrunkData.providerIPs &&
+        (trunkData.name || trunkData.endpoint?.id)
+      ) {
+        const id = trunkData.name || trunkData.endpoint?.id;
+        (async () => {
+          try {
+            const res = await dispatch(fetchTrunkById(id)).unwrap();
+            const t = res.trunk || res;
+            const matches = Array.isArray(t.identifyMatches)
+              ? t.identifyMatches.join(",")
+              : t.identify?.match || "";
+            setFormData((prev) => ({ ...prev, providerIPs: matches }));
+            console.log("[TrunkDialog] detail identify:", {
+              identifyMatches: t.identifyMatches,
+              identify: t.identify,
+            });
+          } catch (e) {
+            console.warn("Failed to load trunk identify details:", e);
+          }
+        })();
+      }
     }
   }, [trunkData, mode]);
 

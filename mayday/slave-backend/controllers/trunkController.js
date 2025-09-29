@@ -593,14 +593,6 @@ export const getTrunks = async (req, res) => {
         ? trunk.identifies[0] || null
         : null;
 
-      // Server-side debug for structure
-      try {
-        console.log("[getTrunks]", trunk.id, {
-          identifyMatches,
-          identify,
-        });
-      } catch (_) {}
-
       return {
         trunkId: trunk.trunk_id,
         name: trunk.id,
