@@ -766,7 +766,7 @@ export const getAgentPerformance = async (req, res) => {
     // Sort by number of calls (descending)
     agentPerformance.sort((a, b) => b.calls - a.calls);
 
-    console.log("Agent performance response:", agentPerformance);
+    // console.log("Agent performance response:", agentPerformance);
 
     res.json(agentPerformance);
   } catch (error) {

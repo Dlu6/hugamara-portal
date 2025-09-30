@@ -480,7 +480,7 @@ const getActiveSessions = async () => {
       }
     });
 
-    console.log(`📱 Found ${sessionsMap.size} active client sessions`);
+    // console.log(`📱 Found ${sessionsMap.size} active client sessions`);
     return sessionsMap;
   } catch (error) {
     console.error("❌ Error getting active sessions:", error.message);

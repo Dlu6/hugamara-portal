@@ -77,13 +77,13 @@ async function connect(config) {
     throw new Error("WebSocket servers configuration is missing");
   }
 
-  console.log("✅ Configuration validation passed:", {
-    server,
-    extension,
-    hasPassword: !!password,
-    wsUrl,
-    configKeys: Object.keys(config.pjsip || {}),
-  });
+  // console.log("✅ Configuration validation passed:", {
+  //   server,
+  //   extension,
+  //   hasPassword: !!password,
+  //   wsUrl,
+  //   configKeys: Object.keys(config.pjsip || {}),
+  // });
 
   try {
     // Resolve registration expiration strictly from top-level config.registerExpires (Phonebar setting)
@@ -2532,6 +2532,7 @@ function createUserAgentDelegate() {
 
       state.eventEmitter.emit("call:incoming", {
         remoteIdentity: invitation.remoteIdentity?.uri?.user,
+        session: invitation,
       });
     },
   };

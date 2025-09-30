@@ -594,12 +594,24 @@ const handleQueueCallerLeave = async (event) => {
 
   // Remove from queue calls map
   queueCallsMap.delete(uniqueid);
+  // Also try removing by linkedid in case the queue assigned a different channel id
+  const linkedid = event.linkedid || event.Linkedid;
+  if (linkedid) {
+    queueCallsMap.delete(linkedid);
+  }
 
   // Update queue stats
   if (queueName) {
     const queueStats = queueStatsMap.get(queueName) || { name: queueName };
     queueStats.waiting = Math.max(0, (queueStats.waiting || 0) - 1);
     queueStatsMap.set(queueName, queueStats);
+  }
+
+  // Ensure the waiting call is cleared from active calls
+  if (activeCallsMap.has(uniqueid)) {
+    activeCallsMap.delete(uniqueid);
+  } else if (linkedid && activeCallsMap.has(linkedid)) {
+    activeCallsMap.delete(linkedid);
   }
 
   // Broadcast updated stats immediately
@@ -625,11 +637,25 @@ const handleHangup = async (event) => {
     direction: "inbound",
   };
 
-  // Immediately remove from active calls map for UI consistency
-  const wasActive = activeCallsMap.has(uniqueid);
-  if (wasActive) {
+  // Immediately remove from active calls map for UI consistency.
+  // Also try linkedid in case the channel uniqueid changed during the call lifecycle.
+  let removedKey = null;
+  if (activeCallsMap.has(uniqueid)) {
     activeCallsMap.delete(uniqueid);
     queueCallsMap.delete(uniqueid);
+    removedKey = uniqueid;
+  } else {
+    const linkedid = event.linkedid || event.Linkedid;
+    if (linkedid && activeCallsMap.has(linkedid)) {
+      activeCallsMap.delete(linkedid);
+      queueCallsMap.delete(linkedid);
+      removedKey = linkedid;
+    }
+  }
+
+  // Push an immediate update so the UI clears stale waiting entries
+  if (removedKey) {
+    broadcastStats();
   }
 
   try {
@@ -759,7 +785,7 @@ const handleHangup = async (event) => {
     ) {
       log.info("Broadcasting stats update for abandoned call");
       setTimeout(() => broadcastStats(), 500);
-    } else if (wasActive) {
+    } else if (removedKey) {
       // If the call was in the active map but not an abandoned call
       // still broadcast stats after a slight delay
       setTimeout(() => broadcastStats(), 100);

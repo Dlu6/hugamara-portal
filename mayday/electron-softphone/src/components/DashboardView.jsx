@@ -1376,7 +1376,26 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
   // Ensure unique calls based on uniqueid
   const uniqueActiveCallsList = useMemo(() => {
     const uniqueCallsMap = new Map();
-    stats?.activeCallsList?.forEach((call) => {
+    const now = Date.now();
+    const RINGING_STALE_MS = 2 * 60 * 1000; // Auto-remove ringing calls older than 2 minutes
+    const NEW_STALE_MS = 30 * 1000; // Safety for lingering 'new' state
+
+    (stats?.activeCallsList || []).forEach((call) => {
+      if (!call || !call.uniqueid) return;
+
+      // Guard against stale entries if hangup wasn't received
+      const startedAt = call.startTime
+        ? new Date(call.startTime).getTime()
+        : null;
+      const age = startedAt ? now - startedAt : 0;
+
+      if (
+        (call.status === "ringing" && startedAt && age > RINGING_STALE_MS) ||
+        (call.status === "new" && startedAt && age > NEW_STALE_MS)
+      ) {
+        return; // skip stale waiting entries
+      }
+
       if (!uniqueCallsMap.has(call.uniqueid)) {
         uniqueCallsMap.set(call.uniqueid, call);
       }

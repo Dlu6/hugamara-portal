@@ -450,6 +450,11 @@ class WebSocketService extends EventEmitter {
   // Send heartbeat
   sendHeartbeat() {
     if (this.isConnected) {
+      // Prefer Socket.IO event for heartbeat echo from server
+      if (this.socket && this.socket.connected) {
+        this.socket.emit("heartbeat");
+      }
+      // Also emit generic message for backward compatibility
       this.send({ type: "heartbeat", timestamp: Date.now() });
     }
   }
@@ -460,7 +465,15 @@ class WebSocketService extends EventEmitter {
       isConnected: this.isConnected,
       isConnecting: this.isConnecting,
       isReconnecting: this.isReconnecting,
-      readyState: this.socket ? this.socket.readyState : null,
+      // Socket.IO client does not expose WebSocket readyState; synthesize:
+      // 0=Connecting, 1=Open, 2=Closing, 3=Closed
+      readyState: this.socket
+        ? this.socket.connected
+          ? 1
+          : this.isConnecting
+          ? 0
+          : 3
+        : 3,
       reconnectAttempts: this.reconnectState.attempts,
       consecutiveFailures: this.reconnectState.consecutiveFailures,
       lastError: this.reconnectState.lastError,
