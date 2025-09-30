@@ -692,12 +692,13 @@ const handleHangup = async (event) => {
     const cdrRecord = await CDR.findOne({ where: { uniqueid: uniqueid } });
 
     // Determine if this is a normal hangup (causes 16 and 19) vs abandoned call
+    // Use Asterisk's standard CDR disposition values
     const isNormal =
       event.Cause === "16" ||
       event.cause === "16" ||
       event.Cause === "19" ||
       event.cause === "19";
-    const disposition = isNormal ? "NORMAL" : "NO ANSWER";
+    const disposition = isNormal ? "ANSWERED" : "NO ANSWER";
 
     if (cdrRecord) {
       // Calculate duration based on start time

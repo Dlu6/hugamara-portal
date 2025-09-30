@@ -23,10 +23,11 @@ export const getCallStats = async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
 
     // Get answered calls count
+    // Handle both "ANSWERED" (Asterisk standard) and "NORMAL" (legacy) for compatibility
     const answeredCalls = await CDR.count({
       where: {
         start: { [Op.gte]: todayStart },
-        disposition: "ANSWERED",
+        disposition: { [Op.in]: ["ANSWERED", "NORMAL"] },
         billsec: { [Op.gt]: 0 }, // Only count calls with a billable duration
       },
     });
@@ -41,7 +42,10 @@ export const getCallStats = async (req, res) => {
           { disposition: "BUSY" },
           { disposition: "FAILED" },
           {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
+            [Op.and]: [
+              { disposition: { [Op.in]: ["ANSWERED", "NORMAL"] } },
+              { billsec: 0 },
+            ],
           },
         ],
         start: { [Op.gte]: todayStart },
@@ -345,7 +349,10 @@ export const getAbandonRateStats = async (req, res) => {
             { disposition: "BUSY" },
             { disposition: "FAILED" },
             {
-              [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
+              [Op.and]: [
+                { disposition: { [Op.in]: ["ANSWERED", "NORMAL"] } },
+                { billsec: 0 },
+              ],
             },
           ],
           start: { [Op.gte]: startDate },
@@ -380,7 +387,7 @@ export const getAbandonRateStats = async (req, res) => {
             "SUM",
             sequelize.literal(
               `CASE WHEN disposition IN ('NO ANSWER', 'BUSY', 'FAILED') 
-               OR (disposition = 'ANSWERED' AND billsec = 0) 
+               OR (disposition IN ('ANSWERED', 'NORMAL') AND billsec = 0) 
                THEN 1 ELSE 0 END`
             )
           ),
@@ -434,10 +441,11 @@ async function getPreviousHourStats(previousHourStart, todayStart) {
     const previousTalking = 0;
 
     // Get answered calls from previous hour
+    // Handle both "ANSWERED" (Asterisk standard) and "NORMAL" (legacy) for compatibility
     const previousAnswered = await CDR.count({
       where: {
         start: { [Op.between]: [previousHourStart, todayStart] },
-        disposition: "ANSWERED",
+        disposition: { [Op.in]: ["ANSWERED", "NORMAL"] },
       },
     });
 

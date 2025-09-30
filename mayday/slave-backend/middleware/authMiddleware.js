@@ -81,7 +81,7 @@ const authMiddleware = (req, res, next) => {
       `[AuthMiddleware] Token verified successfully for user:`,
       decoded.id || decoded.userId || decoded.username || "unknown"
     );
-    console.log(`[AuthMiddleware] Decoded token structure:`, decoded);
+    // console.log(`[AuthMiddleware] Decoded token structure:`, decoded);
 
     // Normalize the user object - handle different token formats
     req.user = {
