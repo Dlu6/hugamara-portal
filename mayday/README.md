@@ -196,6 +196,85 @@ Main Hugamara System          Mayday Call Center
 - **Chrome Extension**: Multi-tenant softphone extension with dynamic configuration
 - **Trunk Provider Integration**: External API integration for call validation
 
+## 📞 Outbound Dialing: Default DID, DID Inventory, and Helper Context
+
+- Default DID per agent: Stored in `users.callerid` and editable in the dashboard (Agents → Voice → “Default DID (no‑prefix CLI)”). No‑prefix calls will use this DID unless an explicit route overrides it.
+- DID Inventory (DB): Table `did_inventory` contains your outlet DIDs and metadata (outlet name, allow_inbound/outbound, etc.). The dashboard uses it to populate DID dropdowns (endpoint: `/api/users/inbound_route/dids`).
+- File-based helper: Asterisk dialplan defines `outbound-dial` in your file include. It receives `${ARG1}` = destination, `${ARG2}` = DID and:
+  - Sets `CALLERID(num)` and `CALLERID(name)` from `${ARG2}`
+  - Dials `PJSIP/${ARG1}@Hugamara_Trunk`
+- Usage patterns:
+  - Prefix dialing (recommended for ad‑hoc DID choice): agents dial 2‑digit prefix (43–49) + number; the file dialplan forces the corresponding DID and jumps into `outbound-dial`.
+  - No‑prefix dialing (fixed/default): the helper uses the agent’s `DEFAULT_DID` (from endpoint) or a UI route can set a specific DID via a “Set CALLERID(all)=...” prior to the Dial.
+
+## 🧭 Contexts
+
+- Per‑agent context selection is no longer used in the UI. Agents are provisioned into standard contexts server‑side; the Agent Edit form does not expose context.
+- The file include `extensions_mayday_context.conf` is the single source of truth for outbound logic (prefixes and `outbound-dial`). The server does not auto‑generate this context to avoid conflicts.
+
+## 🖥️ Dashboard Workflows
+
+### Set Default DID per Agent
+
+1. Agents → select agent → Voice tab
+2. “Default DID (no‑prefix CLI)” → choose from dropdown (pulled from `did_inventory`)
+3. Save (writes `users.callerid`)
+
+### Configure a Fixed Outbound Route (optional)
+
+Use when you want a route that always presents one DID without agent prefixes.
+
+1. Voice → Outbound Routes → Edit (or Create)
+2. Actions tab → drag “Outbound Dial” into the flow
+3. In the dialog:
+   - Trunk: `Hugamara_Trunk`
+   - Caller ID (DID): select from dropdown (labels like `LaCueva (0323300245)`)
+   - Prefix: leave blank unless provider needs a prepend
+4. Save. The UI auto‑inserts a “Custom → Set CALLERID(all)="<DID> <DID>"” immediately above Dial, mirroring the helper’s behavior
+
+Notes:
+
+- You don’t need a UI Outbound Route for prefix use cases; the file dialplan already handles 43–49.
+- For per‑agent defaults (no prefix), setting `users.callerid` is enough; no UI route is required.
+
+## 🔌 API Endpoints (DID Dropdown)
+
+- List DIDs (inventory first, fallback to inbound routes):
+  - `GET /api/users/inbound_route/dids` → `[{ did: "0323300245", label: "LaCueva (0323300245)" }, ...]`
+
+## ✅ Verification
+
+On the PBX:
+
+- Reload dialplan after editing your file include:
+  - `asterisk -rx 'dialplan reload'`
+- Show helper context:
+  - `asterisk -rx 'dialplan show outbound-dial'`
+- Quick call test flow (agent 1009):
+  - No prefix: expect `Gosub(outbound-dial,s,1(0700...,<DEFAULT_DID>))`
+  - Prefix 45: expect `Gosub(outbound-dial,s,1(0700...,0323300245))`
+
+## 🧪 Troubleshooting Outbound Calls
+
+Symptoms: `Everyone is busy/congested` immediately after Dial.
+
+Checklist:
+
+1. Endpoint name matches dial string:
+   - Dial uses `PJSIP/${ARG1}@Hugamara_Trunk` → endpoint id must be `Hugamara_Trunk`.
+2. Registration/peer status:
+   - Registration: `asterisk -rx 'pjsip show registrations'` → Status: Registered
+   - Peer/IP: `pjsip show endpoint Hugamara_Trunk` → AOR Contacts > 0, `pjsip show identify` matches provider IP
+3. Number format:
+   - Some providers require E.164 (e.g., `256700…`). Add a Prefix in the Outbound Dial dialog to prepend country code
+4. See actual SIP error:
+   - `asterisk -rx 'pjsip set logger on'` → place call → check 403/404/480 codes from provider
+
+Provider requirements:
+
+- Ensure trunk has `send_pai=yes` and `send_rpid=yes` so the asserted CLI is honored.
+- Provider must allow the DID you present as CLI.
+
 ## 🛠️ Development
 
 ### Available Scripts

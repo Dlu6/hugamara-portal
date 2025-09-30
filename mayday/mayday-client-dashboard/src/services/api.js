@@ -20,3 +20,8 @@ export const contextsAPI = {
   remove: (id) => apiClient.delete(`/contexts/${id}`),
   sync: () => apiClient.post("/contexts/sync"),
 };
+
+// DID inventory API (derived from inbound routes list)
+export const didsAPI = {
+  list: () => apiClient.get("/users/inbound_route/dids"),
+};

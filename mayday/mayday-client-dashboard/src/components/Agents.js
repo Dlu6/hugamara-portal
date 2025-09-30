@@ -542,7 +542,7 @@ const AgentsComponent = () => {
                       color: "rgba(0, 0, 0, 0.54)",
                     }}
                   >
-                    Context
+                    Default DID
                   </TableCell>
                   <TableCell
                     sx={{
@@ -588,7 +588,13 @@ const AgentsComponent = () => {
                       <TableCell>{agent.typology || "N/A"}</TableCell>
                       <TableCell>{agent.email}</TableCell>
                       <TableCell>{agent?.extension}</TableCell>
-                      <TableCell>{agent?.context || "N/A"}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const v = agent?.callerid;
+                          if (!v || v === '"" <>' || v === '""<>') return "-";
+                          return v;
+                        })()}
+                      </TableCell>
                       <TableCell>{sessionCounts[agent.id] || 0}</TableCell>
                       <TableCell>{renderAgentMenu(agent)}</TableCell>
                     </TableRow>
