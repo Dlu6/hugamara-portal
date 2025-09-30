@@ -542,6 +542,14 @@ const AgentsComponent = () => {
                       color: "rgba(0, 0, 0, 0.54)",
                     }}
                   >
+                    Context
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      color: "rgba(0, 0, 0, 0.54)",
+                    }}
+                  >
                     Active Sessions
                   </TableCell>
                   <TableCell
@@ -580,6 +588,7 @@ const AgentsComponent = () => {
                       <TableCell>{agent.typology || "N/A"}</TableCell>
                       <TableCell>{agent.email}</TableCell>
                       <TableCell>{agent?.extension}</TableCell>
+                      <TableCell>{agent?.context || "N/A"}</TableCell>
                       <TableCell>{sessionCounts[agent.id] || 0}</TableCell>
                       <TableCell>{renderAgentMenu(agent)}</TableCell>
                     </TableRow>
