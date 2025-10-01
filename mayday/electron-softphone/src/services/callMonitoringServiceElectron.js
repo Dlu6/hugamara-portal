@@ -1100,63 +1100,33 @@ const isReadyToConnect = () => {
 
 // Enhanced heartbeat with connection health monitoring
 const sendHeartbeat = () => {
-  // CRITICAL: Check authentication before sending heartbeat
-  const token =
-    localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-  if (!token) {
-    console.warn("🔐 sendHeartbeat: No auth token, skipping heartbeat");
+  // DEPRECATED: Heartbeat now handled by centralized websocketService
+  // This function is kept for backward compatibility but delegates to websocketService
+
+  // Check if websocketService is available and connected
+  if (websocketService && websocketService.isConnected) {
+    // Heartbeat is automatically handled by websocketService
     return;
   }
 
-  if (socket && socket.connected) {
-    try {
-      socket.emit("heartbeat");
-
-      // Update connection quality based on successful heartbeat
-      if (connectionState.lastSuccess) {
-        const timeSinceLastSuccess =
-          Date.now() - connectionState.lastSuccess.getTime();
-        if (timeSinceLastSuccess < 60000) {
-          connectionState.connectionQuality = "excellent";
-        } else if (timeSinceLastSuccess < 300000) {
-          connectionState.connectionQuality = "good";
-        }
-      }
-
-      console.log(
-        "💓 Heartbeat sent (quality: " + connectionState.connectionQuality + ")"
-      );
-    } catch (error) {
-      console.error("❌ Failed to send heartbeat:", error);
-
-      // Update connection quality on heartbeat failure
-      connectionState.connectionQuality = "poor";
-
-      // Emit heartbeat failure event
-      window.dispatchEvent(
-        new CustomEvent("websocket:heartbeat_failed", {
-          detail: {
-            error: error.message,
-            quality: connectionState.connectionQuality,
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-    }
-  } else {
-    console.warn(
-      "🔐 sendHeartbeat: Socket not connected, cannot send heartbeat"
-    );
-
-    // Update connection quality
-    connectionState.connectionQuality = "failed";
-  }
+  // If for some reason we still have a direct socket reference, don't send heartbeat
+  // as it should be managed by websocketService
+  return;
 };
 
 // Enhanced connection health monitoring with automatic recovery
+// DEPRECATED: Health monitoring now handled by centralized websocketService
 const startHealthMonitoring = () => {
-  console.log("🏥 Starting connection health monitoring...");
+  console.log(
+    "🏥 Call Monitoring Service: Health monitoring delegated to websocketService"
+  );
 
+  // Health monitoring is now handled by the centralized websocketService
+  // Disabling local health checks to prevent duplicate heartbeats and monitoring
+  return () => {}; // Return empty cleanup function
+
+  // Original health monitoring code (now disabled):
+  /*
   const healthCheckInterval = setInterval(() => {
     try {
       // CRITICAL: Check if we should be monitoring
@@ -1253,6 +1223,7 @@ const startHealthMonitoring = () => {
     console.log("🏥 Stopping connection health monitoring");
     clearInterval(healthCheckInterval);
   };
+  */
 };
 
 // Assess connection health

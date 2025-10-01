@@ -47,6 +47,7 @@ import {
 } from "recharts";
 import { callMonitoringService } from "../services/callMonitoringServiceElectron";
 import { agentService } from "../services/agentService";
+import websocketService from "../services/websocketService";
 import { getAgentPerformanceData } from "../api/reportsApi"; // Import the API function
 import callHistoryService from "../services/callHistoryService";
 import { canInitializeServices } from "../services/storageService";
@@ -980,12 +981,39 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       setStats((prev) => upsertAgent(prev, payload));
     };
 
+    // Listen to the same agent_status event that AgentStatus.jsx uses successfully
+    const agentStatusHandler = (data) => {
+      // console.log("[DashboardView] Received agent_status update:", data);
+
+      if (data && data.agents && Array.isArray(data.agents)) {
+        // Update stats with the agents list
+        setStats((prevStats) => {
+          const activeAgents = data.agents.filter(
+            (a) =>
+              a.status === "Available" ||
+              a.status === "Registered" ||
+              a.status === "online" ||
+              a.queueStatus === "available"
+          ).length;
+
+          return {
+            ...prevStats,
+            activeAgentsList: data.agents,
+            activeAgents,
+          };
+        });
+      }
+    };
+
+    // Subscribe to both event sources
     agentService.on("extension:status", onExtensionStatus);
     agentService.on("statusChange", onStatusChange);
+    websocketService.on("agent_status", agentStatusHandler);
 
     return () => {
       agentService.off("extension:status", onExtensionStatus);
       agentService.off("statusChange", onStatusChange);
+      websocketService.off("agent_status", agentStatusHandler);
     };
   }, [open]);
 

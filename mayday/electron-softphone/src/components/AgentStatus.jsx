@@ -240,6 +240,7 @@ const AgentStatus = ({ open, onClose }) => {
 
     let loadingTimeout = null;
     let mounted = true;
+    let agentStatusHandler = null;
 
     const initializeAgentStatus = async () => {
       try {
@@ -260,7 +261,7 @@ const AgentStatus = ({ open, onClose }) => {
         await websocketService.connect();
 
         // Listen for agent status updates
-        const handleAgentStatusUpdate = (data) => {
+        agentStatusHandler = (data) => {
           if (!mounted) return;
 
           console.log("[AgentStatus] Received agent status update:", data);
@@ -274,7 +275,7 @@ const AgentStatus = ({ open, onClose }) => {
         };
 
         // Subscribe to agent_status event
-        websocketService.on("agent_status", handleAgentStatusUpdate);
+        websocketService.on("agent_status", agentStatusHandler);
 
         // Also connect to call monitoring for general stats (optional)
         callMonitoringService.connect((newStats) => {
@@ -338,8 +339,10 @@ const AgentStatus = ({ open, onClose }) => {
       if (loadingTimeout) {
         clearTimeout(loadingTimeout);
       }
-      // Remove event listener
-      websocketService.off("agent_status");
+      // Remove event listener with proper handler reference
+      if (agentStatusHandler) {
+        websocketService.off("agent_status", agentStatusHandler);
+      }
     };
   }, [open]);
 

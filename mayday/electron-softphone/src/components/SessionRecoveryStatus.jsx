@@ -198,7 +198,7 @@ const SessionRecoveryStatus = ({ recoveryManager, onForceRecovery }) => {
           bottom: 16,
           right: 16,
           zIndex: 9999,
-          width: 400,
+          width: 320,
         }}
       >
         <Paper elevation={8} sx={{ overflow: "hidden" }}>
@@ -224,14 +224,14 @@ const SessionRecoveryStatus = ({ recoveryManager, onForceRecovery }) => {
         bottom: 16,
         right: 16,
         zIndex: 9999,
-        width: 400,
+        width: 320,
       }}
     >
       <Paper elevation={8} sx={{ overflow: "hidden" }}>
         {/* Header */}
         <Box
           sx={{
-            p: 2,
+            p: 0.5,
             bgcolor: status.isRecovering
               ? "info.main"
               : status.recoveryPhase === "complete"

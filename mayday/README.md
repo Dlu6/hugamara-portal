@@ -221,6 +221,171 @@ Main Hugamara System          Mayday Call Center
 - **Chrome Extension**: Multi-tenant softphone extension with dynamic configuration
 - **Trunk Provider Integration**: External API integration for call validation
 
+## 📊 Agent Availability & Status Logic
+
+### Overview
+
+The Mayday Call Center system determines agent availability through a **hybrid approach** combining multiple data sources with a priority-based system. This ensures accurate agent status even when individual data sources are unavailable or unreliable.
+
+### Data Sources & Priority System
+
+Agent online/offline status is determined using a **three-tier priority system**:
+
+#### Priority 1: Active Client Sessions (Most Reliable)
+
+**Source**: `client_session` database table  
+**Checked via**: `agentStatusService.getActiveSessions()`
+
+This is the **primary source of truth** for agent availability. When an agent logs into any client (Chrome Extension, Electron Softphone, WebRTC), an active session record is created with:
+
+- Session token and expiration
+- SIP username (extension)
+- Client fingerprint and IP address
+- User agent and feature (e.g., "chrome_softphone", "electron_softphone")
+- Last heartbeat timestamp
+
+**Why Priority 1**: Client sessions are application-managed and include heartbeat monitoring, making them the most reliable indicator that an agent is actively logged in and ready to receive calls.
+
+**Status Determination**:
+
+- If an active, non-expired session exists → Agent is `online`
+- Session typology (chrome_softphone, electron_softphone, webRTC) is detected from user agent
+- Session IP address and last heartbeat are used for connection tracking
+
+#### Priority 2: PJSIP Contact Registration
+
+**Source**: Multiple sources with fallback chain  
+**Checked via**:
+
+1. Database realtime table (`ps_contacts`) - if Asterisk realtime is enabled
+2. Per-endpoint AMI query (`pjsip show endpoint <ext>`)
+3. Bulk AMI query (`pjsip show contacts`)
+
+**Why Priority 2**: PJSIP contacts indicate active SIP registration. If no client session exists but the agent's SIP endpoint is registered, the agent is still considered online.
+
+**Status Determination**:
+
+- Contact status "Avail" or "Reachable" → Agent is `online`
+- Extracts IP address, port, and transport (UDP/TCP/WebSocket)
+- Provides RTT (Round Trip Time) for connection quality
+
+**Fallback Chain Logic**:
+
+```javascript
+// 1. Try database realtime contacts (fastest, most reliable if enabled)
+let contactsData = await getPJSIPContactsFromDB();
+
+// 2. If DB has no contacts, try precise per-endpoint AMI query
+if (Object.keys(contactsData).length === 0) {
+  contactsData = await getContactsByEndpoints();
+}
+
+// 3. Fallback to bulk AMI contacts
+if (Object.keys(contactsData).length === 0) {
+  contactsData = await getPJSIPContacts();
+}
+```
+
+#### Priority 3: PJSIP Endpoint Configuration
+
+**Source**: AMI command `pjsip show endpoints`  
+**Checked via**: `agentStatusService.getPJSIPEndpoints()`
+
+**Why Priority 3**: Endpoints that are configured in Asterisk but have no active contact or session are marked as `registered` rather than `online`. This indicates the agent is set up but not currently connected.
+
+**Status Determination**:
+
+- Endpoint exists in Asterisk configuration → Agent is `registered`
+- Provides Asterisk status text (e.g., "Not in use", "In use")
+
+### Queue-Specific Availability
+
+Separate from online/offline status, the system tracks **queue-specific availability** through AMI events:
+
+**Source**: AMI events (`QueueMemberStatus`, `QueueMemberPause`, `QueueMemberUnpause`)  
+**Tracked via**: Real-time event listeners in `agentStatusService`
+
+**Queue Status Codes** (from Asterisk device state):
+
+- `1` = **Available** (AST_DEVICE_NOT_INUSE) - Agent is free and can receive calls
+- `2` = **In Use** (AST_DEVICE_INUSE) - Agent is on a call
+- `3` = **Busy** (AST_DEVICE_BUSY) - Agent is busy (manual status or multiple calls)
+- `4` = **Invalid** (AST_DEVICE_INVALID) - Invalid device state
+- `5` = **Unavailable** (AST_DEVICE_UNAVAILABLE) - Agent is unavailable
+- `6` = **Ringing** (AST_DEVICE_RINGING) - Agent's phone is ringing
+- `7` = **On Hold** (AST_DEVICE_ONHOLD) - Agent has call on hold
+
+**Additional Queue Metrics**:
+
+- `paused`: Boolean indicating if agent is paused from receiving queue calls
+- `pauseReason`: Reason for pause (e.g., "Break", "Lunch", "Training")
+- `callsTaken`: Total calls taken by this queue member
+- `lastCall`: Timestamp of last call handled
+
+### Real-Time Updates
+
+The system provides real-time status updates through two mechanisms:
+
+#### 1. AMI Event Listeners (Immediate)
+
+Event-driven updates for instant status changes:
+
+```javascript
+// Contact status events (registration changes)
+amiClient.on("ContactStatus", updateFromContactEvent);
+amiClient.on("ContactStatusDetail", updateFromContactEvent);
+
+// Queue member events (availability changes)
+amiClient.on("QueueMemberStatus", handleQueueMemberStatus);
+amiClient.on("QueueMemberPause", handleQueueMemberPause);
+amiClient.on("QueueMemberUnpause", handleQueueMemberUnpause);
+```
+
+#### 2. Periodic Polling (Every 15 seconds)
+
+Fallback mechanism to catch missed events and ensure consistency:
+
+```javascript
+const pollFrequency = 15000; // 15 seconds
+```
+
+Polling aggregates all data sources and broadcasts updates via WebSocket to all connected dashboard clients.
+
+### Combined Status Example
+
+An agent's complete status includes data from all sources:
+
+```json
+{
+  "extension": "1005",
+  "username": "john.doe",
+  "fullName": "John Doe",
+  "status": "online", // Priority 1-3: Overall connectivity
+  "sessionActive": true, // Priority 1: Client session exists
+  "clientType": "electron_softphone", // From session
+  "ip": "102.214.151.191", // From session or contact
+  "port": 57467, // From contact
+  "transport": "websocket", // From contact
+  "lastSeen": "2025-10-01T10:30:45Z",
+  "queueStatus": "available", // From queue events
+  "paused": false, // From queue events
+  "pauseReason": null,
+  "callsTaken": 15, // From queue events
+  "queues": ["support", "sales"] // From queue events
+}
+```
+
+### Summary: Source of Truth
+
+| Status Type            | Source of Truth    | Fallback                        | Update Method                |
+| ---------------------- | ------------------ | ------------------------------- | ---------------------------- |
+| **Online/Offline**     | Client Session DB  | PJSIP Contact → Endpoint Config | Session heartbeats + Polling |
+| **Queue Availability** | AMI Queue Events   | Polling queue status            | Real-time AMI events         |
+| **Call State**         | AMI Channel Events | CDR records                     | Real-time AMI events         |
+| **Registration**       | PJSIP Contacts     | Endpoint configuration          | AMI events + Polling         |
+
+**Key Principle**: The system uses a **defense in depth** approach with multiple redundant data sources, ensuring agent status remains accurate even if individual components (database, AMI, sessions) experience issues.
+
 ## 📞 Outbound Dialing: Default DID, DID Inventory, and Helper Context
 
 - Default DID per agent: Stored in `users.callerid` and editable in the dashboard (Agents → Voice → “Default DID (no‑prefix CLI)”). No‑prefix calls will use this DID unless an explicit route overrides it.
