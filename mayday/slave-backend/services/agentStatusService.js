@@ -189,6 +189,168 @@ const setupAmiEventListeners = () => {
   amiClient.on("ContactStatus", updateFromContactEvent);
   amiClient.on("ContactStatusDetail", updateFromContactEvent);
 
+  // Queue member status events for agent availability
+  amiClient.on("QueueMemberStatus", (evt) => {
+    try {
+      const memberInterface = evt.Interface || evt.MemberName;
+      if (!memberInterface) return;
+
+      const extension = String(memberInterface).match(/\d{3,}/)?.[0];
+      if (!extension || !agents.has(extension)) return;
+
+      const isPaused = evt.Paused === "1" || evt.Paused === true;
+      const callsTaken = parseInt(evt.CallsTaken || 0);
+      const lastCall = evt.LastCall || 0;
+
+      // Map Asterisk status codes to readable status
+      const statusMap = {
+        1: "available", // AST_DEVICE_NOT_INUSE
+        2: "in_use", // AST_DEVICE_INUSE
+        3: "busy", // AST_DEVICE_BUSY
+        4: "invalid", // AST_DEVICE_INVALID
+        5: "unavailable", // AST_DEVICE_UNAVAILABLE
+        6: "ringing", // AST_DEVICE_RINGING
+        7: "on_hold", // AST_DEVICE_ONHOLD
+      };
+
+      const deviceStatus = statusMap[evt.Status] || "unknown";
+
+      const current = statusCache.get(extension) || {};
+      statusCache.set(extension, {
+        ...current,
+        queueStatus: deviceStatus,
+        paused: isPaused,
+        pauseReason: isPaused ? evt.PausedReason || "Break" : null,
+        callsTaken: callsTaken,
+        lastCall: lastCall > 0 ? new Date(lastCall * 1000).toISOString() : null,
+        queues: evt.Queue ? [evt.Queue] : current.queues || [],
+        lastSeen: new Date().toISOString(),
+      });
+
+      broadcast("agent_status_update", {
+        type: "agent_queue_status",
+        timestamp: new Date().toISOString(),
+        agents: [
+          {
+            ...agents.get(extension),
+            ...statusCache.get(extension),
+            changed: true,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("Error handling QueueMemberStatus:", err);
+    }
+  });
+
+  // Queue member pause/unpause events
+  amiClient.on("QueueMemberPause", (evt) => {
+    try {
+      const memberInterface = evt.Interface || evt.MemberName;
+      if (!memberInterface) return;
+
+      const extension = String(memberInterface).match(/\d{3,}/)?.[0];
+      if (!extension || !agents.has(extension)) return;
+
+      const isPaused = evt.Paused === "1" || evt.Paused === true;
+      const pauseReason =
+        evt.Reason || evt.PausedReason || (isPaused ? "Break" : null);
+
+      const current = statusCache.get(extension) || {};
+      statusCache.set(extension, {
+        ...current,
+        paused: isPaused,
+        pauseReason: pauseReason,
+        lastSeen: new Date().toISOString(),
+      });
+
+      broadcast("agent_status_update", {
+        type: "agent_pause_status",
+        timestamp: new Date().toISOString(),
+        agents: [
+          {
+            ...agents.get(extension),
+            ...statusCache.get(extension),
+            changed: true,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("Error handling QueueMemberPause:", err);
+    }
+  });
+
+  // Queue member added event
+  amiClient.on("QueueMemberAdded", (evt) => {
+    try {
+      const memberInterface = evt.Interface || evt.MemberName;
+      if (!memberInterface) return;
+
+      const extension = String(memberInterface).match(/\d{3,}/)?.[0];
+      if (!extension || !agents.has(extension)) return;
+
+      const current = statusCache.get(extension) || {};
+      const queues = current.queues || [];
+      if (evt.Queue && !queues.includes(evt.Queue)) {
+        queues.push(evt.Queue);
+      }
+
+      statusCache.set(extension, {
+        ...current,
+        queues: queues,
+        lastSeen: new Date().toISOString(),
+      });
+
+      broadcast("agent_status_update", {
+        type: "agent_queue_added",
+        timestamp: new Date().toISOString(),
+        agents: [
+          {
+            ...agents.get(extension),
+            ...statusCache.get(extension),
+            changed: true,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("Error handling QueueMemberAdded:", err);
+    }
+  });
+
+  // Queue member removed event
+  amiClient.on("QueueMemberRemoved", (evt) => {
+    try {
+      const memberInterface = evt.Interface || evt.MemberName;
+      if (!memberInterface) return;
+
+      const extension = String(memberInterface).match(/\d{3,}/)?.[0];
+      if (!extension || !agents.has(extension)) return;
+
+      const current = statusCache.get(extension) || {};
+      const queues = (current.queues || []).filter((q) => q !== evt.Queue);
+
+      statusCache.set(extension, {
+        ...current,
+        queues: queues,
+        lastSeen: new Date().toISOString(),
+      });
+
+      broadcast("agent_status_update", {
+        type: "agent_queue_removed",
+        timestamp: new Date().toISOString(),
+        agents: [
+          {
+            ...agents.get(extension),
+            ...statusCache.get(extension),
+            changed: true,
+          },
+        ],
+      });
+    } catch (err) {
+      console.error("Error handling QueueMemberRemoved:", err);
+    }
+  });
+
   // Registry events (useful for trunks)
   amiClient.on("Registry", (evt) => {
     // ignore user endpoints; mostly for trunks

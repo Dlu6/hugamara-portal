@@ -322,10 +322,11 @@ async function disconnect() {
       state.userAgent = null;
     }
 
-    // Step 4: Clear state
+    // Step 4: Clear state (preserve lastConfig for reconnection)
     state.isConnected = false;
     state.isInitializing = false;
-    state.lastConfig = null;
+    // Note: NOT clearing state.lastConfig here to allow reconnection
+    // state.lastConfig will be cleared only on explicit logout
 
     // Step 5: Emit disconnect event
     state.eventEmitter.emit("disconnected");

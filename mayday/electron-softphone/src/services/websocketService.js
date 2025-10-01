@@ -122,7 +122,28 @@ class WebSocketService extends EventEmitter {
       this.socket = io(url, options);
       this.setupEventHandlers();
 
-      return true;
+      // Wait for connection to be established or fail
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          if (!this.isConnected) {
+            console.warn("⚠️ WebSocket: Connection timeout");
+            resolve(false);
+          }
+        }, this.config.connectionTimeout);
+
+        const onConnect = () => {
+          clearTimeout(timeout);
+          resolve(true);
+        };
+
+        const onError = () => {
+          clearTimeout(timeout);
+          resolve(false);
+        };
+
+        this.socket.once("connect", onConnect);
+        this.socket.once("connect_error", onError);
+      });
     } catch (error) {
       console.error("❌ WebSocket: Connection error:", error);
       this.handleConnectionFailure(error.message);

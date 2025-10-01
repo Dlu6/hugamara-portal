@@ -184,6 +184,31 @@ Main Hugamara System          Mayday Call Center
 - **Asterisk AMI Integration**: Full Asterisk Manager Interface connectivity
 - **WebSocket Real-time Updates**: Live status updates to dashboard
 
+### Recent Improvements (October 2025)
+
+#### Dashboard Analytics Fixes (Oct 1, 2025)
+
+- **✅ Weekly > Monthly Stats Bug (CRITICAL)**: Fixed illogical data where weekly stats (123 calls) exceeded monthly stats (8 calls) by capping week start at current month start when Sunday falls in previous month
+- **✅ Timezone Bug (UTC+3)**: Fixed agent call statistics showing wrong day's data from midnight-3AM due to UTC conversion issues
+- **✅ Monthly Range Fix**: Changed from "last 30 days" to actual current month (Oct 1 - today)
+- **✅ Loading Indicator Fix**: Added 5-second timeout to prevent infinite loading spinner
+- **✅ Answered Calls Calculation**: Fixed week/month answered calls calculation (total - abandoned)
+
+#### Session Recovery & Reliability
+
+- **Session Recovery System**: Automatic recovery of SIP, WebSocket, and dashboard connections after network issues or page refresh
+- **Connection Health Monitoring**: Real-time connection status indicators with automatic reconnection
+- **Grace Period Handling**: Prevents premature disconnections during authentication and logout flows
+
+#### Call Center Features
+
+- **CDR Standardization**: Fixed disposition values to align with Asterisk standard (`ANSWERED` instead of `NORMAL`)
+- **Accurate Metrics**: Fixed abandon rate calculation to exclude internal Asterisk queue records
+- **Chrome Extension**: Auto re-registration after page refresh for seamless user experience
+- **Timezone Consistency**: System-wide timezone configuration (Africa/Nairobi - UTC+3)
+
+📚 **[View CDR Fix Documentation](slave-backend/docs/CDR_AND_METRICS_FIX.md)**
+
 ### Integration Features
 
 - **Asterisk AMI**: Full Asterisk Manager Interface integration

@@ -33,10 +33,23 @@ import {
 } from "@mui/icons-material";
 import ContentFrame from "./ContentFrame";
 import { callMonitoringService } from "../services/callMonitoringServiceElectron";
+import websocketService from "../services/websocketService";
 import { formatDistanceToNow } from "date-fns";
 
-// Status configuration
+// Status configuration - supports both frontend and Asterisk AMI formats
 const statusConfig = {
+  // Asterisk queue status (from AMI events)
+  available: { color: "#4caf50", icon: CheckCircle, label: "Available" },
+  in_use: { color: "#2196f3", icon: Phone, label: "On Call" },
+  busy: { color: "#f44336", icon: PhoneDisabled, label: "Busy" },
+  unavailable: { color: "#9e9e9e", icon: Block, label: "Unavailable" },
+  ringing: { color: "#ffa726", icon: Phone, label: "Ringing" },
+  on_hold: { color: "#ff9800", icon: PauseCircle, label: "On Hold" },
+  // PJSIP registration status
+  online: { color: "#4caf50", icon: CheckCircle, label: "Online" },
+  registered: { color: "#4caf50", icon: CheckCircle, label: "Registered" },
+  offline: { color: "#9e9e9e", icon: Block, label: "Offline" },
+  // Legacy formats
   "On Call": { color: "#2196f3", icon: Phone, label: "On Call" },
   Available: { color: "#4caf50", icon: CheckCircle, label: "Available" },
   Offline: { color: "#9e9e9e", icon: Block, label: "Offline" },
@@ -45,12 +58,30 @@ const statusConfig = {
 };
 
 // Helper function to get status config with fallbacks
-const getStatusConfig = (status) => {
+const getStatusConfig = (agent) => {
+  // Prioritize queueStatus (from AMI queue events) over general status
+  let statusKey = agent.queueStatus || agent.status;
+
+  // If agent is paused, override with Break status
+  if (agent.paused) {
+    return {
+      color: "#ff9800",
+      icon: PauseCircle,
+      label: agent.pauseReason || "On Break",
+    };
+  }
+
+  // Normalize status key
+  if (statusKey) {
+    statusKey = String(statusKey).toLowerCase();
+  }
+
   return (
-    statusConfig[status] || {
+    statusConfig[statusKey] ||
+    statusConfig[agent.status] || {
       color: "#9e9e9e",
       icon: Block,
-      label: status || "Unknown",
+      label: agent.status || "Unknown",
     }
   );
 };
@@ -66,12 +97,16 @@ const formatLastSeen = (lastSeen) => {
 };
 
 const AgentStatusCard = ({ agent }) => {
-  const status = getStatusConfig(agent.status);
+  const status = getStatusConfig(agent);
   const StatusIcon = status.icon;
 
+  // Get agent name from either name or fullName field
+  const agentName =
+    agent.name || agent.fullName || agent.username || "Unknown Agent";
+
   // Generate initials from name for avatar
-  const initials = agent.name
-    ? agent.name
+  const initials = agentName
+    ? agentName
         .split(" ")
         .map((word) => word[0])
         .join("")
@@ -97,7 +132,7 @@ const AgentStatusCard = ({ agent }) => {
           <Avatar sx={{ bgcolor: status.color, mr: 2 }}>{initials}</Avatar>
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6" sx={{ fontSize: "1rem", fontWeight: 500 }}>
-              {agent.name}
+              {agentName}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Ext: {agent.extension}
@@ -134,15 +169,17 @@ const AgentStatusCard = ({ agent }) => {
           </Grid>
           <Grid item xs={6}>
             <Typography variant="caption" color="text.secondary">
-              Calls Handled
+              Calls Taken
             </Typography>
-            <Typography variant="body2">{agent.callsDone || 0}</Typography>
+            <Typography variant="body2">
+              {agent.callsTaken || agent.callsDone || 0}
+            </Typography>
           </Grid>
           <Grid item xs={6}>
             <Typography variant="caption" color="text.secondary">
-              Queue
+              Queue{agent.queues && agent.queues.length > 1 ? "s" : ""}
             </Typography>
-            <Typography variant="body2">
+            <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
               {agent.queues && agent.queues.length > 0
                 ? agent.queues.join(", ")
                 : "None"}
@@ -150,14 +187,40 @@ const AgentStatusCard = ({ agent }) => {
           </Grid>
           <Grid item xs={6}>
             <Typography variant="caption" color="text.secondary">
-              Last Seen
+              Connection
             </Typography>
-            <Typography variant="body2">
-              {agent.status === "Offline"
-                ? formatLastSeen(agent.lastSeen)
-                : "Currently Online"}
+            <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
+              {agent.ip || agent.transport === "websocket"
+                ? "WebRTC"
+                : agent.status === "offline" ||
+                  agent.status === "Offline" ||
+                  agent.queueStatus === "unavailable"
+                ? "Disconnected"
+                : "Connected"}
             </Typography>
           </Grid>
+          {agent.lastCall && (
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary">
+                Last Call
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
+                {formatLastSeen(agent.lastCall)}
+              </Typography>
+            </Grid>
+          )}
+          {agent.status === "offline" ||
+          agent.status === "Offline" ||
+          agent.queueStatus === "unavailable" ? (
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary">
+                Last Seen
+              </Typography>
+              <Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
+                {formatLastSeen(agent.lastSeen)}
+              </Typography>
+            </Grid>
+          ) : null}
         </Grid>
       </CardContent>
     </Card>
@@ -168,34 +231,161 @@ const AgentStatus = ({ open, onClose }) => {
   const [agents, setAgents] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState(callMonitoringService.getDefaultStats());
 
-  // Initialize socket connection
+  // Initialize socket connection and listen for agent status updates
   useEffect(() => {
-    if (open) {
-      // Connect to socket service if not already connected
-      callMonitoringService.connect((newStats) => {
-        setStats(newStats);
-        if (newStats.activeAgentsList) {
-          setAgents(newStats.activeAgentsList);
-          setIsLoading(false);
+    if (!open) return;
+
+    let loadingTimeout = null;
+    let mounted = true;
+
+    const initializeAgentStatus = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Set hard timeout for loading indicator (5 seconds)
+        loadingTimeout = setTimeout(() => {
+          console.warn(
+            "[AgentStatus] Loading timeout - stopping loading indicator"
+          );
+          if (mounted) {
+            setIsLoading(false);
+          }
+        }, 5000);
+
+        // Connect to websocket if not already connected
+        await websocketService.connect();
+
+        // Listen for agent status updates
+        const handleAgentStatusUpdate = (data) => {
+          if (!mounted) return;
+
+          console.log("[AgentStatus] Received agent status update:", data);
+
+          // Handle the agent status update payload
+          if (data && data.agents) {
+            setAgents(data.agents);
+            setIsLoading(false);
+            clearTimeout(loadingTimeout);
+          }
+        };
+
+        // Subscribe to agent_status event
+        websocketService.on("agent_status", handleAgentStatusUpdate);
+
+        // Also connect to call monitoring for general stats (optional)
+        callMonitoringService.connect((newStats) => {
+          if (!mounted) return;
+          setStats(newStats);
+
+          // Handle legacy format if activeAgentsList is provided
+          if (newStats.activeAgentsList) {
+            setAgents(newStats.activeAgentsList);
+            setIsLoading(false);
+            clearTimeout(loadingTimeout);
+          }
+        });
+
+        // Request initial agent status via HTTP fallback
+        try {
+          const response = await fetch(
+            `${
+              process.env.REACT_APP_API_URL || "http://localhost:8004"
+            }/api/agent-status`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data && result.data.agents) {
+              setAgents(result.data.agents);
+              setIsLoading(false);
+              clearTimeout(loadingTimeout);
+            }
+          }
+        } catch (fetchError) {
+          console.warn("[AgentStatus] HTTP fallback failed:", fetchError);
         }
-      });
-    }
+
+        // Fallback: stop loading after 2 seconds even if no data received
+        setTimeout(() => {
+          if (mounted) {
+            setIsLoading(false);
+            clearTimeout(loadingTimeout);
+          }
+        }, 2000);
+      } catch (err) {
+        console.error("[AgentStatus] Error initializing:", err);
+        if (mounted) {
+          setError("Failed to load agent status");
+          setIsLoading(false);
+          clearTimeout(loadingTimeout);
+        }
+      }
+    };
+
+    initializeAgentStatus();
 
     return () => {
-      // No need to disconnect when closing, as other components might be using it
+      mounted = false;
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+      // Remove event listener
+      websocketService.off("agent_status");
     };
   }, [open]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsLoading(true);
-    // Re-fetch agent data
-    // This will trigger the socket to send updated data
-    setTimeout(() => {
-      // If no update received after timeout, stop loading indicator
+    setError(null);
+
+    // Set timeout to stop loading after 3 seconds if no response
+    const refreshTimeout = setTimeout(() => {
+      console.warn(
+        "[AgentStatus] Refresh timeout - stopping loading indicator"
+      );
       setIsLoading(false);
     }, 3000);
+
+    try {
+      // Request fresh agent status
+      const response = await fetch(
+        `${
+          process.env.REACT_APP_API_URL || "http://localhost:8004"
+        }/api/agent-status`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data && result.data.agents) {
+          setAgents(result.data.agents);
+          setIsLoading(false);
+          clearTimeout(refreshTimeout);
+          return;
+        }
+      }
+    } catch (fetchError) {
+      console.warn("[AgentStatus] Refresh failed:", fetchError);
+    }
+
+    // Fallback: stop loading after timeout
+    setTimeout(() => {
+      setIsLoading(false);
+      clearTimeout(refreshTimeout);
+    }, 2000);
   };
 
   const filteredAgents = useMemo(() => {
@@ -210,11 +400,43 @@ const AgentStatus = ({ open, onClose }) => {
   const summary = useMemo(() => {
     return {
       total: agents.length,
-      available: agents.filter(
-        (a) => a.status === "Available" || a.status === "Registered"
-      ).length,
-      onCall: agents.filter((a) => a.status === "On Call").length,
-      offline: agents.filter((a) => a.status === "Offline").length,
+      available: agents.filter((a) => {
+        // Agent is available if: online/registered AND not paused AND not in use
+        if (a.paused) return false;
+        const queueStatus = a.queueStatus?.toLowerCase();
+        const status = a.status?.toLowerCase();
+        return (
+          queueStatus === "available" ||
+          status === "available" ||
+          status === "online" || // Added online check
+          status === "registered" ||
+          a.status === "Available" ||
+          a.status === "Online" || // Added Online check
+          a.status === "Registered"
+        );
+      }).length,
+      onCall: agents.filter((a) => {
+        const queueStatus = a.queueStatus?.toLowerCase();
+        const status = a.status?.toLowerCase();
+        return (
+          queueStatus === "in_use" ||
+          queueStatus === "busy" ||
+          queueStatus === "ringing" ||
+          status === "on call" ||
+          a.status === "On Call"
+        );
+      }).length,
+      offline: agents.filter((a) => {
+        const queueStatus = a.queueStatus?.toLowerCase();
+        const status = a.status?.toLowerCase();
+        return (
+          queueStatus === "unavailable" ||
+          queueStatus === "offline" ||
+          status === "offline" ||
+          a.status === "Offline" ||
+          (!a.status && !a.queueStatus)
+        );
+      }).length,
     };
   }, [agents]);
 
@@ -342,7 +564,13 @@ const AgentStatus = ({ open, onClose }) => {
           />
         </Box>
 
-        {isLoading && agents.length === 0 ? (
+        {error ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <Typography variant="body1" color="error" textAlign="center">
+              {error}
+            </Typography>
+          </Box>
+        ) : isLoading && agents.length === 0 ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
             <CircularProgress />
           </Box>

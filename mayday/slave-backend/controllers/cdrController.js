@@ -340,16 +340,18 @@ export const getCallCountsByExtension = async (req, res) => {
       whereConditions.start = {};
 
       if (startDate) {
-        // Parse the date and set to midnight
-        const startDateTime = new Date(startDate);
-        startDateTime.setHours(0, 0, 0, 0);
+        // FIXED: Parse date components to avoid timezone conversion issues
+        // Create Date at midnight local time using date components
+        const [year, month, day] = startDate.split("-").map(Number);
+        const startDateTime = new Date(year, month - 1, day, 0, 0, 0, 0);
         whereConditions.start[Op.gte] = startDateTime;
       }
 
       if (endDate) {
-        // Parse the date and set to end of day
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
+        // FIXED: Parse date components to avoid timezone conversion issues
+        // Create Date at end of day local time using date components
+        const [year, month, day] = endDate.split("-").map(Number);
+        const endDateTime = new Date(year, month - 1, day, 23, 59, 59, 999);
         whereConditions.start[Op.lte] = endDateTime;
       }
     } else {

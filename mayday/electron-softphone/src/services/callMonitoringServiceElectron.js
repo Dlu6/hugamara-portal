@@ -138,7 +138,10 @@ const handleAmiEvent = (event) => {
 
 // Enhanced connection management with progressive timeout handling
 const connect = async (callback) => {
-  statsUpdateCallback = callback;
+  // Only update callback if a new one is provided (preserve existing during recovery)
+  if (callback !== undefined) {
+    statsUpdateCallback = callback;
+  }
 
   // Initialize currentStats with default stats if not already set
   if (!currentStats) {
@@ -1081,9 +1084,11 @@ const getStats = () => {
   return currentStats;
 };
 
-// Enhanced isConnected method
+// Enhanced isConnected method - Check the single source of truth
 const isConnected = () => {
-  return socket && socket.connected;
+  // CRITICAL: Always check websocketService as the single source of truth
+  // This prevents stale socket references after WebSocket reconnects
+  return websocketService.isConnected;
 };
 
 // Check if service is ready to connect (has authentication)

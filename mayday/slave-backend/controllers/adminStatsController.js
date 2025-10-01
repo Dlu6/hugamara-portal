@@ -32,7 +32,9 @@ export const getCallStats = async (req, res) => {
       },
     });
 
-    // Get abandoned calls count using the same logic as callMonitoringService
+    // Get abandoned calls count
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (NORMAL/ANSWERED with billsec=0)
     const abandonedCalls = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -41,12 +43,6 @@ export const getCallStats = async (req, res) => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [
-              { disposition: { [Op.in]: ["ANSWERED", "NORMAL"] } },
-              { billsec: 0 },
-            ],
-          },
         ],
         start: { [Op.gte]: todayStart },
       },
@@ -340,6 +336,10 @@ export const getAbandonRateStats = async (req, res) => {
         },
       });
 
+      // Only count true abandoned calls:
+      // - NO ANSWER, BUSY, FAILED dispositions
+      // - For Queue calls: only those with lastapp='Queue' and disposition='NO ANSWER'
+      // - Exclude internal queue records (NORMAL/ANSWERED with billsec=0 are often internal records)
       const abandonedCalls = await CDR.count({
         distinct: true,
         col: "uniqueid",
@@ -348,12 +348,6 @@ export const getAbandonRateStats = async (req, res) => {
             { disposition: "NO ANSWER" },
             { disposition: "BUSY" },
             { disposition: "FAILED" },
-            {
-              [Op.and]: [
-                { disposition: { [Op.in]: ["ANSWERED", "NORMAL"] } },
-                { billsec: 0 },
-              ],
-            },
           ],
           start: { [Op.gte]: startDate },
         },
@@ -387,7 +381,6 @@ export const getAbandonRateStats = async (req, res) => {
             "SUM",
             sequelize.literal(
               `CASE WHEN disposition IN ('NO ANSWER', 'BUSY', 'FAILED') 
-               OR (disposition IN ('ANSWERED', 'NORMAL') AND billsec = 0) 
                THEN 1 ELSE 0 END`
             )
           ),

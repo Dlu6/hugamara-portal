@@ -277,6 +277,144 @@ odbcinst -q -s
 isql -v "asterisk" -b
 ```
 
+## CDR Configuration
+
+### CSV CDR Setup (Recommended)
+
+Asterisk writes CDR records to both CSV files and MySQL database. The CSV files serve as the single source of truth for CDR disposition values.
+
+#### 1. Enable CSV CDR Module
+
+```bash
+# On Asterisk server
+sudo asterisk -rx "module load cdr_csv.so"
+```
+
+#### 2. Configure CDR CSV (`/etc/asterisk/cdr.conf`)
+
+```ini
+[general]
+enable=yes
+
+[csv]
+usegmtime=no    ; Use local time (Africa/Nairobi)
+loguniqueid=yes
+loguserfield=yes
+accountlogs=yes
+```
+
+#### 3. Verify CDR Location
+
+Default location: `/var/log/asterisk/cdr-csv/Master.csv`
+
+```bash
+# Check CDR file permissions
+ls -la /var/log/asterisk/cdr-csv/Master.csv
+
+# View recent CDR entries
+tail -n 20 /var/log/asterisk/cdr-csv/Master.csv
+```
+
+#### 4. Standard CDR Disposition Values
+
+Asterisk uses these standard disposition values in CSV:
+
+- **ANSWERED**: Call was answered and connected
+- **NO ANSWER**: Call was not answered (abandoned in queue)
+- **BUSY**: Destination was busy
+- **FAILED**: Call failed to complete
+- **CONGESTION**: Network congestion
+
+**Important**: The Node.js application must use `"ANSWERED"` (not `"NORMAL"`) to align with Asterisk's standard.
+
+#### 5. CDR Timezone Configuration
+
+Ensure consistent timezone across all components:
+
+```bash
+# Check system timezone
+timedatectl
+
+# Should show: Time zone: Africa/Nairobi (EAT, +0300)
+
+# Check MySQL timezone
+mysql -e "SELECT @@global.time_zone, @@session.time_zone;"
+
+# Should show: SYSTEM, SYSTEM (uses Africa/Nairobi)
+```
+
+#### 6. MySQL CDR Table (`/etc/asterisk/cdr_mysql.conf`)
+
+```ini
+[global]
+hostname=cs.hugamara.com
+dbname=asterisk
+user=asterisk
+password=Pasword@256
+port=3306
+table=cdr
+charset=utf8mb4
+
+; Timezone handling
+; Ensure MySQL uses same timezone as system
+cdrzone=local
+```
+
+### CDR Data Integrity
+
+#### Multiple CDR Records Per Call
+
+Asterisk creates multiple CDR records for queue calls:
+
+1. **Customer call record** (billsec > 0):
+
+   ```
+   src: "Maze_Bistro ~ 0700771301"  (external caller)
+   lastapp: "Queue"
+   disposition: "ANSWERED"
+   billsec: 24  ✅ Real customer call
+   ```
+
+2. **Internal queue record** (billsec = 0):
+   ```
+   src: "0323300249"  (queue number)
+   lastapp: "Queue"
+   disposition: "ANSWERED"
+   billsec: 0  ⚠️ System bookkeeping, not a real call
+   ```
+
+**Important for Metrics**: Only count records with `billsec > 0` for customer-facing statistics.
+
+#### Verification Queries
+
+```sql
+-- Check CDR disposition distribution
+SELECT disposition, COUNT(*) as count
+FROM cdr
+WHERE DATE(start) = CURDATE()
+GROUP BY disposition;
+
+-- Verify answered calls (with talk time)
+SELECT COUNT(*) as answered_calls
+FROM cdr
+WHERE DATE(start) = CURDATE()
+  AND disposition IN ('ANSWERED', 'NORMAL')
+  AND billsec > 0;
+
+-- Find internal queue records
+SELECT uniqueid, src, dst, disposition, billsec, lastapp
+FROM cdr
+WHERE DATE(start) = CURDATE()
+  AND disposition = 'ANSWERED'
+  AND billsec = 0
+LIMIT 10;
+```
+
+### Related Documentation
+
+- **[CDR and Metrics Fix](CDR_AND_METRICS_FIX.md)**: Detailed fix documentation for CDR disposition and abandon rate issues
+- **[Asterisk CDR Documentation](https://wiki.asterisk.org/wiki/display/AST/CDR+CSV)**: Official Asterisk CDR CSV format
+
 ## Security Notes
 
 - Change default passwords in production

@@ -153,14 +153,20 @@ const getWeeklyTotalCallsCount = async () => {
     startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
     startOfWeek.setHours(0, 0, 0, 0);
 
-    // log.info(`Getting weekly total calls since: ${startOfWeek.toISOString()}`);
+    // FIXED: If Sunday is in previous month, cap at start of current month
+    // This ensures weekly stats <= monthly stats (logical consistency)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const weekStart = startOfWeek < startOfMonth ? startOfMonth : startOfWeek;
+
+    // log.info(`Getting weekly total calls since: ${weekStart.toISOString()}`);
 
     const count = await CDR.count({
       distinct: true,
       col: "uniqueid",
       where: {
         start: {
-          [Op.gte]: startOfWeek,
+          [Op.gte]: weekStart,
         },
       },
     });
@@ -205,6 +211,8 @@ const getAbandonedCallsCount = async () => {
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0); // Just set to beginning of day, no timezone adjustment
 
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (ANSWERED/NORMAL with billsec=0)
     const abandonedCount = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -213,9 +221,6 @@ const getAbandonedCallsCount = async () => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-          },
         ],
         start: {
           [Op.gte]: todayMidnight,
@@ -239,6 +244,14 @@ const getWeeklyAbandonedCallsCount = async () => {
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
 
+    // FIXED: If Sunday is in previous month, cap at start of current month
+    // This ensures weekly stats <= monthly stats (logical consistency)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const weekStart = startOfWeek < startOfMonth ? startOfMonth : startOfWeek;
+
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (ANSWERED/NORMAL with billsec=0)
     const count = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -247,11 +260,8 @@ const getWeeklyAbandonedCallsCount = async () => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-          },
         ],
-        start: { [Op.gte]: startOfWeek },
+        start: { [Op.gte]: weekStart },
       },
     });
     return count;
@@ -268,6 +278,8 @@ const getMonthlyAbandonedCallsCount = async () => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
 
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (ANSWERED/NORMAL with billsec=0)
     const count = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -276,9 +288,6 @@ const getMonthlyAbandonedCallsCount = async () => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-          },
         ],
         start: { [Op.gte]: startOfMonth },
       },
@@ -347,20 +356,24 @@ const broadcastStats = async () => {
     // Get date ranges for weekly and monthly views
     const now = new Date();
 
-    // Weekly date range
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-
     // Monthly date range
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
+    // Weekly date range
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // FIXED: If Sunday is in previous month, cap at start of current month
+    // This ensures weekly stats <= monthly stats (logical consistency)
+    const weekStart = startOfWeek < startOfMonth ? startOfMonth : startOfWeek;
+    const endOfWeek = new Date(now); // End is today, not Sunday + 6 days
+
     const stats = {
       timestamp: now.toISOString(),
       todayDate: new Date().setHours(0, 0, 0, 0),
-      weekStartDate: startOfWeek.getTime(),
+      weekStartDate: weekStart.getTime(),
       weekEndDate: endOfWeek.getTime(),
       monthStartDate: startOfMonth.getTime(),
       monthEndDate: endOfMonth.getTime(),

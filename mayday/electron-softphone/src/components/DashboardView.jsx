@@ -52,6 +52,7 @@ import callHistoryService from "../services/callHistoryService";
 import { canInitializeServices } from "../services/storageService";
 import { useNotification } from "../contexts/NotificationContext";
 import WebSocketStatus from "./WebSocketStatus";
+import sessionRecoveryManager from "../services/sessionRecoveryManager";
 
 // Format seconds to mm:ss
 const formatDuration = (seconds) => {
@@ -411,7 +412,7 @@ const ActiveCallsList = ({ calls }) => {
 };
 
 // Find the ActiveAgentsList component and update it to include a call button
-const ActiveAgentsList = ({ agents, onCallAgent }) => {
+const ActiveAgentsList = ({ agents, onCallAgent, timeRangeStats }) => {
   return (
     <List
       sx={{
@@ -447,29 +448,38 @@ const ActiveAgentsList = ({ agents, onCallAgent }) => {
 
           // Get detailed tooltip content based on call stats
           const getDetailedStats = () => {
-            const stats = agent.callStats || {};
+            const callStats = agent.callStats || {};
+            // Debug log to see what data we have
+            // console.log(
+            //   `Agent ${agent.name} (${agent.extension}) call stats:`,
+            //   callStats
+            // );
+
             return (
               <>
                 <Typography
                   variant="subtitle2"
                   sx={{ fontWeight: "bold", mb: 0.5 }}
                 >
-                  Call Statistics
+                  Call Statistics ({timeRangeStats?.subtitle || "Today"})
                 </Typography>
                 <Box
                   sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}
                 >
                   <Typography variant="body2">
-                    Answered: {stats.answeredCalls || 0}
+                    Answered: {callStats.answeredCalls || 0}
                   </Typography>
                   <Typography variant="body2">
-                    Missed: {stats.missedCalls || 0}
+                    Missed: {callStats.missedCalls || 0}
                   </Typography>
                   <Typography variant="body2">
-                    Outbound: {stats.outboundCalls || 0}
+                    Outbound: {callStats.outboundCalls || 0}
                   </Typography>
                   <Typography variant="body2">
-                    Inbound: {stats.inboundCalls || 0}
+                    Inbound: {callStats.inboundCalls || 0}
+                  </Typography>
+                  <Typography variant="body2">
+                    Total: {callStats.totalCalls || 0}
                   </Typography>
                   <Typography variant="body2">
                     Avg. Duration: {agent.avgHandleTime || "0:00"}
@@ -659,29 +669,54 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
     }
 
     try {
+      // FIXED: Helper function to format date without timezone conversion
+      const formatDateStr = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
       // Get date range based on selected time range
       const today = new Date();
       let startDate, endDate;
 
       switch (timeRange) {
         case 0: // Today
-          startDate = today.toISOString().split("T")[0];
+          startDate = formatDateStr(today);
           endDate = startDate;
           break;
         case 1: // Week
-          const weekAgo = new Date(today);
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          startDate = weekAgo.toISOString().split("T")[0];
-          endDate = today.toISOString().split("T")[0];
+          // FIXED: Use "since Sunday" to match backend, but cap at start of current month
+          // This ensures weekly stats are always <= monthly stats (logical consistency)
+          const startOfWeek = new Date(today);
+          startOfWeek.setDate(today.getDate() - today.getDay()); // Go back to Sunday
+          startOfWeek.setHours(0, 0, 0, 0);
+
+          // If Sunday is in previous month, use start of current month instead
+          const currentMonthStart = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            1
+          );
+          const weekStart =
+            startOfWeek < currentMonthStart ? currentMonthStart : startOfWeek;
+
+          startDate = formatDateStr(weekStart);
+          endDate = formatDateStr(today);
           break;
         case 2: // Month
-          const monthAgo = new Date(today);
-          monthAgo.setDate(monthAgo.getDate() - 30);
-          startDate = monthAgo.toISOString().split("T")[0];
-          endDate = today.toISOString().split("T")[0];
+          // FIXED: Use start of current month instead of "30 days ago"
+          const startOfMonth = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            1
+          );
+          startDate = formatDateStr(startOfMonth);
+          endDate = formatDateStr(today);
           break;
         default:
-          startDate = today.toISOString().split("T")[0];
+          startDate = formatDateStr(today);
           endDate = startDate;
       }
 
@@ -712,19 +747,35 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
     }
 
     setIsLoading(true);
+
+    // FIXED: Add timeout to stop loading indicator if connection takes too long
+    const loadingTimeout = setTimeout(() => {
+      console.warn("Dashboard loading timeout - stopping loading indicator");
+      setIsLoading(false);
+    }, 5000); // 5 second timeout
+
     try {
       // Subscribe to stats via centralized websocketService-backed service
       callMonitoringService.connect((newStats) => {
         setStats(newStats);
         setIsLoading(false);
+        clearTimeout(loadingTimeout);
       });
 
       // Also fetch agent performance data
       await fetchAgentPerformanceData();
+
+      // FIXED: Ensure loading stops even if websocket doesn't connect immediately
+      // If we got here without error, stop loading after a brief delay
+      setTimeout(() => {
+        setIsLoading(false);
+        clearTimeout(loadingTimeout);
+      }, 2000);
     } catch (error) {
       console.error("Error fetching initial stats:", error);
       setError("Failed to load dashboard data. Please try again.");
       setIsLoading(false);
+      clearTimeout(loadingTimeout);
     }
   }, [fetchAgentPerformanceData]);
 
@@ -734,6 +785,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       case 0: // Today
         return {
           totalCalls: stats.totalCalls || 0,
+          answeredCalls: stats.answeredCalls || 0,
           inboundCalls: stats.inboundCalls || 0,
           outboundCalls: stats.outboundCalls || 0,
           abandonedCalls: stats.abandonedCalls || 0,
@@ -749,6 +801,11 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       case 1: // Week
         return {
           totalCalls: stats.weeklyTotalCalls || 0,
+          // FIXED: Calculate answered calls as total - abandoned (backend doesn't provide this)
+          answeredCalls: Math.max(
+            (stats.weeklyTotalCalls || 0) - (stats.weeklyAbandonedCalls || 0),
+            0
+          ),
           abandonedCalls: stats.weeklyAbandonedCalls || 0,
           dateFormatted: stats.weekDateFormatted,
           subtitle: "This week",
@@ -764,6 +821,11 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       case 2: // Month
         return {
           totalCalls: stats.monthlyTotalCalls || 0,
+          // FIXED: Calculate answered calls as total - abandoned (backend doesn't provide this)
+          answeredCalls: Math.max(
+            (stats.monthlyTotalCalls || 0) - (stats.monthlyAbandonedCalls || 0),
+            0
+          ),
           abandonedCalls: stats.monthlyAbandonedCalls || 0,
           dateFormatted: stats.monthDateFormatted,
           subtitle: "This month",
@@ -779,6 +841,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       default:
         return {
           totalCalls: stats.totalCalls || 0,
+          answeredCalls: stats.answeredCalls || 0,
           inboundCalls: stats.inboundCalls || 0,
           outboundCalls: stats.outboundCalls || 0,
           abandonedCalls: stats.abandonedCalls || 0,
@@ -942,6 +1005,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       setPreviousStats({
         timestamp: Date.now(),
         totalCalls: getTimeRangeStats.totalCalls,
+        answeredCalls: getTimeRangeStats.answeredCalls,
         abandonedCalls: getTimeRangeStats.abandonedCalls,
         activeAgents: stats.activeAgents,
       });
@@ -953,6 +1017,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
         setPreviousStats({
           timestamp: Date.now(),
           totalCalls: getTimeRangeStats.totalCalls,
+          answeredCalls: getTimeRangeStats.answeredCalls,
           abandonedCalls: getTimeRangeStats.abandonedCalls,
           activeAgents: stats.activeAgents,
         });
@@ -963,7 +1028,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
   }, [open, stats, getTimeRangeStats, previousStats]);
 
   // Add refresh functionality
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     // GRACEFUL: Check if API calls are blocked during logout
     if (window.apiCallsBlocked) {
       console.log("🔒 Refresh gracefully skipped during logout");
@@ -979,7 +1044,26 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
     setError(null);
     await fetchInitialStats();
     await fetchAgentPerformanceData();
-  };
+  }, [fetchInitialStats, fetchAgentPerformanceData]);
+
+  // Listen for recovery completion to refresh dashboard data
+  useEffect(() => {
+    const handleRecoveryCompleted = () => {
+      console.log("✅ [Dashboard] Recovery completed - refreshing data");
+      // Wait a moment for services to stabilize, then refresh
+      setTimeout(() => {
+        handleRefresh();
+      }, 1000);
+    };
+
+    // Attach event listener
+    sessionRecoveryManager.on("recovery:completed", handleRecoveryCompleted);
+
+    return () => {
+      // Cleanup on unmount
+      sessionRecoveryManager.off("recovery:completed", handleRecoveryCompleted);
+    };
+  }, [handleRefresh]);
 
   // Fetch call counts for each agent
   useEffect(() => {
@@ -1023,10 +1107,13 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
 
           const callStatsMap = {};
 
-          // Get today's date at midnight for filtering
+          // Get today's date at midnight for filtering (UTC-aware)
+          // FIXED: Use proper date formatting to avoid timezone conversion issues
           const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const todayStr = today.toISOString().split("T")[0];
+          const year = today.getFullYear();
+          const month = String(today.getMonth() + 1).padStart(2, "0");
+          const day = String(today.getDate()).padStart(2, "0");
+          const todayStr = `${year}-${month}-${day}`;
 
           // Process each extension to get their call counts
           for (const [ext] of allAgents.entries()) {
@@ -1376,26 +1463,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
   // Ensure unique calls based on uniqueid
   const uniqueActiveCallsList = useMemo(() => {
     const uniqueCallsMap = new Map();
-    const now = Date.now();
-    const RINGING_STALE_MS = 2 * 60 * 1000; // Auto-remove ringing calls older than 2 minutes
-    const NEW_STALE_MS = 30 * 1000; // Safety for lingering 'new' state
-
-    (stats?.activeCallsList || []).forEach((call) => {
-      if (!call || !call.uniqueid) return;
-
-      // Guard against stale entries if hangup wasn't received
-      const startedAt = call.startTime
-        ? new Date(call.startTime).getTime()
-        : null;
-      const age = startedAt ? now - startedAt : 0;
-
-      if (
-        (call.status === "ringing" && startedAt && age > RINGING_STALE_MS) ||
-        (call.status === "new" && startedAt && age > NEW_STALE_MS)
-      ) {
-        return; // skip stale waiting entries
-      }
-
+    stats?.activeCallsList?.forEach((call) => {
       if (!uniqueCallsMap.has(call.uniqueid)) {
         uniqueCallsMap.set(call.uniqueid, call);
       }
@@ -1741,6 +1809,23 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
+                title="Answered Calls"
+                value={getTimeRangeStats.answeredCalls}
+                icon={<CallEnd sx={{ color: "#4caf50" }} />}
+                color="#4caf50"
+                subtitle={getTimeRangeStats.subtitle}
+                trend={
+                  previousStats
+                    ? calculateTrend(
+                        getTimeRangeStats.answeredCalls,
+                        previousStats.answeredCalls || 0
+                      )
+                    : null
+                }
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard
                 title="Abandoned Calls"
                 value={getTimeRangeStats.abandonedCalls}
                 icon={<CallMissed sx={{ color: "#f44336" }} />}
@@ -1760,8 +1845,8 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
               <StatCard
                 title="Total Calls"
                 value={getTimeRangeStats.totalCalls}
-                icon={<QueryStats sx={{ color: "#4caf50" }} />}
-                color="#4caf50"
+                icon={<QueryStats sx={{ color: "#9c27b0" }} />}
+                color="#9c27b0"
                 subtitle={`${getTimeRangeStats.subtitle} (In: ${
                   getTimeRangeStats.inboundCalls || 0
                 } • Out: ${getTimeRangeStats.outboundCalls || 0})`}
@@ -1905,6 +1990,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
                 <ActiveAgentsList
                   agents={sortedActiveAgentsList}
                   onCallAgent={handleCallAgent}
+                  timeRangeStats={getTimeRangeStats}
                 />
               </Paper>
             </Grid>
