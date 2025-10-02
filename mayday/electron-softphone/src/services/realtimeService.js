@@ -12,10 +12,16 @@ const getSocketUrl = () => {
   }
 
   // In production or Electron, use the production URL
-  return "https://cs.hugamara.com/mayday-api";
+  return "https://cs.hugamara.com";
 };
 
+// Determine Socket.IO path based on environment
+const socketPath = import.meta.env.PROD
+  ? "/mayday-api/socket.io/"
+  : "/socket.io/";
+
 const socket = io(getSocketUrl(), {
+  path: socketPath,
   auth: {
     token: storageService.getToken(),
   },

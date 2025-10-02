@@ -32,7 +32,9 @@ const preferredOrigin = resolvePreferredOrigin();
 
 const baseUrl = `${preferredOrigin}/api`;
 
-const wsBaseUrl = preferredOrigin.replace(/^http/, "ws");
+const wsBaseUrl = preferredOrigin
+  .replace(/^http/, "ws")
+  .replace("/mayday-api", "");
 
 let wsClient = null; // deprecated raw WS (kept for safety)
 let socket = null; // Socket.IO client
@@ -80,8 +82,13 @@ const connect = async () => {
         } catch (_) {}
       }
 
+      // Determine Socket.IO path based on environment
+      const socketPath = import.meta.env.PROD
+        ? "/mayday-api/socket.io/"
+        : "/socket.io/";
+
       socket = io(url, {
-        path: "/socket.io/",
+        path: socketPath,
         transports: ["websocket"],
         auth: { token },
         extraHeaders: { Authorization: `Bearer ${token}` },

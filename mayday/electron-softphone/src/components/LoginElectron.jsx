@@ -399,16 +399,16 @@ const LoginElectron = ({ onLoginSuccess }) => {
         // Use remote URL preference if set, otherwise default based on NODE_ENV
         const useRemote = localStorage.getItem("useRemoteUrl") === "true";
         const base = useRemote
-          ? "https://cs.hugamara.com"
+          ? "https://cs.hugamara.com/mayday-api"
           : process.env.NODE_ENV === "development"
           ? "http://localhost:8004"
-          : "https://cs.hugamara.com";
+          : "https://cs.hugamara.com/mayday-api";
 
         // In development, our backend runs without the /mayday-api prefix.
         const notifyUrl = `${base}${
           base.includes("localhost")
-            ? "/api/users/agent-online"
-            : "/mayday-api/api/users/agent-online"
+            ? "/api/users/agent-login"
+            : "/mayday-api/api/users/agent-login"
         }`;
 
         const response = await fetch(notifyUrl, {

@@ -158,8 +158,16 @@ const setupRealtimeUpdates = (callback) => {
     return null;
   }
 
-  const socket = io(API_URL, {
-    path: "/socket.io",
+  // Determine Socket.IO path based on environment
+  const socketPath = import.meta.env.PROD
+    ? "/mayday-api/socket.io/"
+    : "/socket.io/";
+
+  // Extract base URL without /mayday-api path for Socket.IO
+  const socketUrl = API_URL.replace("/mayday-api", "");
+
+  const socket = io(socketUrl, {
+    path: socketPath,
     transports: ["websocket"],
     auth: { token: getAuthToken() },
   });

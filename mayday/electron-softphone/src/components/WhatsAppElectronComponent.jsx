@@ -1629,7 +1629,14 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
     }
 
     const token = storageService.getAuthToken();
+
+    // Determine Socket.IO path based on environment
+    const socketPath = import.meta.env.PROD
+      ? "/mayday-api/socket.io/"
+      : "/socket.io/";
+
     const newSocket = io(socketUrl, {
+      path: socketPath,
       auth: {
         token: `Bearer ${token}`,
       },

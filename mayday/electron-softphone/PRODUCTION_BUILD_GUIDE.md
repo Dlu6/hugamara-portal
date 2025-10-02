@@ -193,8 +193,8 @@ npm run electron:build:win
 ```
 mayday/electron-softphone/release/
 ├── 4.0.1/                    # Version directory
-│   ├── Mayday Desktop AppBar Setup 4.0.1.exe  (Windows)
-│   ├── Mayday Desktop AppBar-4.0.1.dmg        (macOS)
+│   ├── Mayday Softphone 4.0.1.exe  (Windows)
+│   ├── Mayday Softphone-4.0.1.dmg        (macOS)
 │   └── ... (other build artifacts)
 ```
 

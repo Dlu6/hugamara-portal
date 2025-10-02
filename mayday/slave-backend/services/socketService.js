@@ -63,11 +63,15 @@ export const initialize = async (httpServer) => {
         );
         next();
       } catch (error) {
-        console.error(`❌ Socket authentication error:`, {
-          socketId: socket.id,
-          error: error.message,
-          errorType: error.name,
-        });
+        // Only log errors in debug mode to reduce console clutter
+        if (DEBUG_MODE) {
+          console.error(`❌ Socket authentication error:`, {
+            socketId: socket.id,
+            error: error.message,
+            errorType: error.name,
+            tokenPreview: token ? token.substring(0, 20) + "..." : "none",
+          });
+        }
 
         // Send detailed error for debugging
         const errorMessage =
