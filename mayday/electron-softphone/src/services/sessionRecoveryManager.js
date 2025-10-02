@@ -310,14 +310,20 @@ const createSessionRecoveryManager = () => {
       }
     }
 
-    // Check Call Monitoring
+    // Check Call Monitoring (OPTIONAL - not critical for session health)
     if (services.callMonitoringService) {
       const monitoringConnected = services.callMonitoringService.isConnected();
       health.services.monitoring = monitoringConnected;
 
+      // NOTE: callMonitoringService is not critical for session health
+      // It can reconnect independently and doesn't affect authentication or SIP
+      // Only log a warning if disconnected, don't mark system as unhealthy
       if (!monitoringConnected) {
-        health.isHealthy = false;
-        health.issues.push("monitoring_disconnected");
+        console.warn(
+          "⚠️ [SessionRecovery] Call monitoring disconnected (non-critical)"
+        );
+        health.issues.push("monitoring_disconnected (non-critical)");
+        // DO NOT set health.isHealthy = false for monitoring
       }
     }
 
