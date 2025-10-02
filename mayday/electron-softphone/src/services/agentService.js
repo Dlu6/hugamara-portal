@@ -7,7 +7,7 @@ import logoutManager from "./logoutManager";
 function resolvePreferredOrigin() {
   try {
     const useRemote = localStorage.getItem("useRemoteUrl") === "true";
-    if (useRemote) return "https://cs.hugamara.com";
+    if (useRemote) return "https://cs.hugamara.com/mayday-api";
   } catch (_) {}
 
   // In Electron, window.location.origin might be file://
@@ -18,13 +18,14 @@ function resolvePreferredOrigin() {
     !window.location.origin.startsWith("file://")
   ) {
     // In production builds this will be the served origin
-    if (process.env.NODE_ENV !== "development") return window.location.origin;
+    if (process.env.NODE_ENV !== "development")
+      return window.location.origin + "/mayday-api";
   }
 
   // Default per NODE_ENV when no preference stored
   return process.env.NODE_ENV === "development"
     ? "http://localhost:8004"
-    : "https://cs.hugamara.com";
+    : "https://cs.hugamara.com/mayday-api";
 }
 
 const preferredOrigin = resolvePreferredOrigin();

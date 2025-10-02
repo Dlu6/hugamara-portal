@@ -1,6 +1,6 @@
 {
   "name": "mayday-appbar",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "Softphone Appbar Client",
   "main": "electron/main.js",
   "engines": {
@@ -31,7 +31,7 @@
   },
   "author": {
     "name": "Mayday",
-    "email": "sales@mmict.info"
+    "email": "support@maydaycrm.com"
   },
   "repository": {
     "type": "git",
