@@ -200,8 +200,20 @@ class WebSocketService extends EventEmitter {
 
     // Connection error
     this.socket.on("connect_error", (error) => {
-      // connection error
-      this.handleConnectionFailure("WebSocket error");
+      console.error("🔌 WebSocket connection error:", error.message);
+      
+      // Check for authentication errors
+      if (error.message.includes("Invalid token") || 
+          error.message.includes("Token has expired") ||
+          error.message.includes("Authentication failed")) {
+        console.error("❌ Authentication failed - token may be invalid or expired");
+        this.emit("connection:auth_failed", { 
+          error: error.message,
+          requiresReLogin: true 
+        });
+      }
+      
+      this.handleConnectionFailure(error.message || "WebSocket error");
     });
 
     // Reconnect lifecycle
