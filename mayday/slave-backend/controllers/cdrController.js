@@ -110,7 +110,11 @@ export const formatCdrRecord = (record, extension) => {
 
   // Parse userfield for additional information (format: number|name|codec|transfer|hold|CALLED:called_number)
   const userfieldParts = record.userfield ? record.userfield.split("|") : [];
-  const callerNumber = userfieldParts[0] || null;
+  // Only use callerNumber if it's a valid phone number (at least 5 digits)
+  const callerNumber =
+    userfieldParts[0] && userfieldParts[0].match(/^\d{5,}$/)
+      ? userfieldParts[0]
+      : null;
   const callerName = userfieldParts[1] || null;
   const codec = userfieldParts[2] || null;
   const transferInfo =
@@ -129,10 +133,10 @@ export const formatCdrRecord = (record, extension) => {
       : null;
 
   // Determine call type and status - FIXED LOGIC
-  // An outbound call means the extension (1001) is the source
-  // An inbound call means the extension (1001) is the destination
-  const isOutbound = record.src === extension;
-  const isInbound = record.dst === extension;
+  // IMPORTANT: Use channel to determine actual extension, not src (which could be masked caller ID)
+  // An outbound call means the extension is in the channel
+  // An inbound call means the extension is the destination
+  const isOutbound = channelExtension === extension || record.src === extension;
   const type = isOutbound ? "outbound" : "inbound";
 
   let status = "completed";
@@ -340,16 +344,18 @@ export const getCallCountsByExtension = async (req, res) => {
       whereConditions.start = {};
 
       if (startDate) {
-        // Parse the date and set to midnight
-        const startDateTime = new Date(startDate);
-        startDateTime.setHours(0, 0, 0, 0);
+        // FIXED: Parse date components to avoid timezone conversion issues
+        // Create Date at midnight local time using date components
+        const [year, month, day] = startDate.split("-").map(Number);
+        const startDateTime = new Date(year, month - 1, day, 0, 0, 0, 0);
         whereConditions.start[Op.gte] = startDateTime;
       }
 
       if (endDate) {
-        // Parse the date and set to end of day
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
+        // FIXED: Parse date components to avoid timezone conversion issues
+        // Create Date at end of day local time using date components
+        const [year, month, day] = endDate.split("-").map(Number);
+        const endDateTime = new Date(year, month - 1, day, 23, 59, 59, 999);
         whereConditions.start[Op.lte] = endDateTime;
       }
     } else {
@@ -378,11 +384,10 @@ export const getCallCountsByExtension = async (req, res) => {
       where: whereConditions,
     });
 
-    // Get answered calls (with billsec > 0)
+    // Get answered calls (disposition ANSWERED regardless of billsec)
     const answeredCalls = await CDR.count({
       where: {
         ...whereConditions,
-        billsec: { [Op.gt]: 0 },
         disposition: "ANSWERED",
       },
     });
@@ -418,14 +423,18 @@ export const getCallCountsByExtension = async (req, res) => {
       },
     });
 
-    // Calculate average call duration for answered calls
+    // Calculate average call duration for answered calls (using ABS for negative values)
     const callDurationResult = await CDR.findOne({
       attributes: [
-        [sequelize.fn("AVG", sequelize.col("billsec")), "avgDuration"],
+        [
+          sequelize.fn("AVG", sequelize.fn("ABS", sequelize.col("billsec"))),
+          "avgDuration",
+        ],
       ],
       where: {
         ...whereConditions,
-        billsec: { [Op.gt]: 0 },
+        disposition: "ANSWERED",
+        billsec: { [Op.ne]: 0 },
       },
       raw: true,
     });

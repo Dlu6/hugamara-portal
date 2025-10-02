@@ -263,6 +263,7 @@ const InboundRouteEdit = () => {
           ).unwrap();
 
           if (applications && Array.isArray(applications)) {
+            // Normalize and sort by saved priority so UI reflects execution order
             const parsedApps = applications.map((app, index) => {
               // Extract interval data if available
               let intervalData = null;
@@ -309,7 +310,17 @@ const InboundRouteEdit = () => {
               };
             });
 
-            setConfiguredApps(parsedApps);
+            // Ensure stable ordering by priority (lowest number = highest priority)
+            const ordered = [...parsedApps].sort(
+              (a, b) => (a.priority ?? 0) - (b.priority ?? 0)
+            );
+            // Re-index priorities to be sequential (1..N)
+            const renumbered = ordered.map((a, i) => ({
+              ...a,
+              priority: i + 1,
+            }));
+
+            setConfiguredApps(renumbered);
 
             // Only update formData if phone_number is not already set
             setFormData((prev) => ({
@@ -954,10 +965,10 @@ const ActionTabContent = ({
     );
 
   const updatePriorities = (appsArray) => {
-    // Assuming priority starts at 10 for the first app in the drop zone
+    // Priority is strictly based on UI order: 1 (top) .. N (bottom)
     return appsArray.map((app, index) => ({
       ...app,
-      priority: (index + 1) * 10, // Maintains spacing between priorities
+      priority: index + 1,
     }));
   };
 
@@ -985,7 +996,7 @@ const ActionTabContent = ({
           enabled: true,
         },
         interval: null, // Initialize with no interval
-        priority: (configuredApps.length + 1) * 10,
+        priority: configuredApps.length + 1,
       };
 
       // Adding the new app instance to the configuredApps at the dropped position
@@ -1034,7 +1045,7 @@ const ActionTabContent = ({
 
   // Function to handle priority changes when reordering
   const handlePriorityUpdate = (newApps) => {
-    // First, ensure all apps have valid priorities
+    // First, ensure all apps have valid sequential priorities
     const appsWithPriorities = updatePriorities(newApps);
     setConfiguredApps(appsWithPriorities);
     return appsWithPriorities;

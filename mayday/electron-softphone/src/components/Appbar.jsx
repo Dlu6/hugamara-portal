@@ -98,6 +98,7 @@ import { useNotification } from "../contexts/NotificationContext";
 import { useAuthGuard } from "../hooks/useAuthGuard";
 import { callMonitoringService } from "../services/callMonitoringServiceElectron";
 import connectionManager from "../services/connectionManager";
+import websocketService from "../services/websocketService";
 import WhatsAppElectronComponent from "./WhatsAppElectronComponent";
 import transferHistoryService from "../services/transferHistoryService";
 import { agentService } from "../services/agentService";
@@ -105,6 +106,8 @@ import { useNavigate } from "react-router-dom";
 import CallPopup from "./CallPopup";
 import smsApi from "../services/smsService";
 import SmsView from "./SmsView";
+import sessionRecoveryManager from "../services/sessionRecoveryManager";
+import SessionRecoveryStatus from "./SessionRecoveryStatus";
 // Debug connection manager import - removed excessive logging
 
 const pulseAnimation = keyframes`
@@ -2558,7 +2561,8 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       if (
         s.includes("available") ||
         s.includes("ready") ||
-        s.includes("registered")
+        s.includes("registered") ||
+        s.includes("online")
       )
         return "Registered";
       if (s.includes("paused") || s.includes("break")) return "Paused";
@@ -2666,6 +2670,82 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       if (interval) clearInterval(interval);
     };
   }, [transferDialogOpen, isLoggingOut, canInitServices]);
+
+  // Single-source-of-truth for own presence: listen to agentService WS for my extension
+  useEffect(() => {
+    if (isLoggingOut || !canInitServices()) return;
+    const userData = storageService.getUserData();
+    const myExt = String(userData?.user?.extension || "");
+    if (!myExt) return;
+
+    const normalizeStatus = (raw) => {
+      const s = (raw || "").toString().toLowerCase();
+      if (s.includes("oncall") || s.includes("on_call") || s.includes("busy"))
+        return "On Call";
+      if (
+        s.includes("available") ||
+        s.includes("ready") ||
+        s.includes("registered") ||
+        s.includes("online")
+      )
+        return "Registered";
+      if (s.includes("paused") || s.includes("break")) return "Paused";
+      return "Offline";
+    };
+
+    // Seed from dashboard stats if available for instant paint
+    try {
+      const stats = callMonitoringService.getStats();
+      const mine = (stats?.activeAgentsList || []).find(
+        (a) => String(a.extension) === myExt
+      );
+      if (mine) {
+        const status = normalizeStatus(mine.status);
+        const isOnline = status === "Registered" || status === "On Call";
+        setRegisteredAgent((prev) => ({
+          ...(prev || {}),
+          extension: myExt,
+          status,
+          online: isOnline,
+          isRegistered: isOnline,
+          amiStatus: status,
+        }));
+      }
+    } catch (_) {}
+
+    const onSelf = (payload) => {
+      const ext = String(payload?.extension || "");
+      if (ext !== myExt) return;
+      const status = normalizeStatus(
+        payload?.status || payload?.deviceState || payload?.presence
+      );
+      const isOnline = status === "Registered" || status === "On Call";
+      setRegisteredAgent((prev) => ({
+        ...(prev || {}),
+        extension: myExt,
+        status,
+        online: isOnline,
+        isRegistered: isOnline,
+        amiStatus: payload?.status || status,
+      }));
+    };
+
+    try {
+      agentService.on("extension:status", onSelf);
+    } catch (_) {}
+    try {
+      agentService.on("statusChange", onSelf);
+    } catch (_) {}
+
+    return () => {
+      try {
+        agentService.off("extension:status", onSelf);
+      } catch (_) {}
+      try {
+        agentService.off("statusChange", onSelf);
+      } catch (_) {}
+    };
+  }, [isLoggingOut, canInitServices]);
 
   // Filter agents based on search and status
   const filteredAvailableAgents = useMemo(() => {
@@ -3426,6 +3506,76 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
 
     return () => clearInterval(healthUpdateInterval);
   }, []);
+
+  // Initialize Session Recovery Manager
+  useEffect(() => {
+    // CRITICAL: Prevent initialization during logout
+    if (window.isLoggingOut) {
+      console.log("🔐 Session Recovery: Skipping initialization during logout");
+      return;
+    }
+
+    // Only initialize if authenticated
+    if (!canInitServices() || !checkAuth("Session Recovery initialization")) {
+      return;
+    }
+
+    console.log("🔄 Initializing Session Recovery Manager");
+
+    // Initialize with all service references
+    sessionRecoveryManager.initialize({
+      sipService: sipService,
+      websocketService: websocketService, // Direct WebSocket service for event listening
+      agentService: agentService,
+      callMonitoringService: callMonitoringService,
+      connectionManager: connectionManager,
+    });
+
+    // Listen for recovery events to clear stale error messages
+    const handleRecoveryCompleted = () => {
+      console.log("✅ Recovery completed - clearing error feedback");
+      setCallFeedback(null); // Clear any stale error messages
+    };
+
+    const handleRecoveryStarted = (data) => {
+      console.log(`🔄 Recovery started: ${data.reason}`);
+      setCallFeedback("Restoring connections...");
+    };
+
+    const handleRecoveryFailed = () => {
+      console.error("❌ Recovery failed");
+      setCallFeedback("Recovery failed - please refresh the page");
+    };
+
+    // Attach event listeners
+    sessionRecoveryManager.on("recovery:completed", handleRecoveryCompleted);
+    sessionRecoveryManager.on("recovery:started", handleRecoveryStarted);
+    sessionRecoveryManager.on("recovery:failed", handleRecoveryFailed);
+
+    return () => {
+      // Cleanup on unmount
+      sessionRecoveryManager.stopHealthMonitoring();
+
+      // Remove event listeners
+      sessionRecoveryManager.off("recovery:completed", handleRecoveryCompleted);
+      sessionRecoveryManager.off("recovery:started", handleRecoveryStarted);
+      sessionRecoveryManager.off("recovery:failed", handleRecoveryFailed);
+    };
+  }, [canInitServices, checkAuth]);
+
+  // Handle force recovery
+  const handleForceRecovery = async () => {
+    try {
+      console.log("🔧 Force recovery requested by user");
+      await sessionRecoveryManager.forceRecovery();
+    } catch (error) {
+      console.error("❌ Force recovery failed:", error);
+      showNotification(
+        "Recovery failed. Please try refreshing the page.",
+        "error"
+      );
+    }
+  };
 
   // SMART SESSION HEALING: Attempt to recover stuck sessions without full logout
   const attemptSessionHealing = async () => {
@@ -5118,6 +5268,12 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
           )}
         </DialogActions>
       </Dialog>
+
+      {/* Session Recovery Status */}
+      <SessionRecoveryStatus
+        recoveryManager={sessionRecoveryManager}
+        onForceRecovery={handleForceRecovery}
+      />
     </>
   );
 };

@@ -61,6 +61,14 @@ export const initialize = async (httpServer) => {
         socket.emit("pong");
       });
 
+      // Handle client heartbeat (for connection health in desktop app)
+      socket.on("heartbeat", () => {
+        socket.emit("message", {
+          type: "heartbeat",
+          timestamp: new Date().toISOString(),
+        });
+      });
+
       // Handle license authentication for Chrome extension
       socket.on("license:authenticate", async (data) => {
         console.log(

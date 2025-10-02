@@ -153,14 +153,20 @@ const getWeeklyTotalCallsCount = async () => {
     startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
     startOfWeek.setHours(0, 0, 0, 0);
 
-    // log.info(`Getting weekly total calls since: ${startOfWeek.toISOString()}`);
+    // FIXED: If Sunday is in previous month, cap at start of current month
+    // This ensures weekly stats <= monthly stats (logical consistency)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const weekStart = startOfWeek < startOfMonth ? startOfMonth : startOfWeek;
+
+    // log.info(`Getting weekly total calls since: ${weekStart.toISOString()}`);
 
     const count = await CDR.count({
       distinct: true,
       col: "uniqueid",
       where: {
         start: {
-          [Op.gte]: startOfWeek,
+          [Op.gte]: weekStart,
         },
       },
     });
@@ -199,12 +205,62 @@ const getMonthlyTotalCallsCount = async () => {
   }
 };
 
+// Get inbound calls count (where call came from external source)
+const getInboundCallsCount = async (startDate) => {
+  try {
+    // Inbound calls are those coming from external contexts or external numbers
+    const count = await CDR.count({
+      distinct: true,
+      col: "uniqueid",
+      where: {
+        start: {
+          [Op.gte]: startDate,
+        },
+        [Op.or]: [
+          { dcontext: "from-voip-provider" },
+          { dcontext: "from-trunk" },
+          { dcontext: "from-sip" },
+        ],
+      },
+    });
+
+    return count;
+  } catch (error) {
+    log.error("Error getting inbound calls count:", error);
+    return 0;
+  }
+};
+
+// Get outbound calls count (where call originated from internal extension)
+const getOutboundCallsCount = async (startDate) => {
+  try {
+    // Outbound calls typically have internal context
+    const count = await CDR.count({
+      distinct: true,
+      col: "uniqueid",
+      where: {
+        start: {
+          [Op.gte]: startDate,
+        },
+        [Op.or]: [{ dcontext: "from-internal" }, { dcontext: "outbound" }],
+      },
+    });
+
+    return count;
+  } catch (error) {
+    log.error("Error getting outbound calls count:", error);
+    return 0;
+  }
+};
+
 // Get abandoned calls count from CDR table
 const getAbandonedCallsCount = async () => {
   try {
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0); // Just set to beginning of day, no timezone adjustment
 
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (ANSWERED/NORMAL with billsec=0)
     const abandonedCount = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -213,9 +269,6 @@ const getAbandonedCallsCount = async () => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-          },
         ],
         start: {
           [Op.gte]: todayMidnight,
@@ -239,6 +292,14 @@ const getWeeklyAbandonedCallsCount = async () => {
     startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
 
+    // FIXED: If Sunday is in previous month, cap at start of current month
+    // This ensures weekly stats <= monthly stats (logical consistency)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const weekStart = startOfWeek < startOfMonth ? startOfMonth : startOfWeek;
+
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (ANSWERED/NORMAL with billsec=0)
     const count = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -247,11 +308,8 @@ const getWeeklyAbandonedCallsCount = async () => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-          },
         ],
-        start: { [Op.gte]: startOfWeek },
+        start: { [Op.gte]: weekStart },
       },
     });
     return count;
@@ -268,6 +326,8 @@ const getMonthlyAbandonedCallsCount = async () => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
 
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (ANSWERED/NORMAL with billsec=0)
     const count = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -276,9 +336,6 @@ const getMonthlyAbandonedCallsCount = async () => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-          },
         ],
         start: { [Op.gte]: startOfMonth },
       },
@@ -347,31 +404,70 @@ const broadcastStats = async () => {
     // Get date ranges for weekly and monthly views
     const now = new Date();
 
-    // Weekly date range
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-
     // Monthly date range
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
+    // Weekly date range
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // FIXED: If Sunday is in previous month, cap at start of current month
+    // This ensures weekly stats <= monthly stats (logical consistency)
+    const weekStart = startOfWeek < startOfMonth ? startOfMonth : startOfWeek;
+    const endOfWeek = new Date(now); // End is today, not Sunday + 6 days
+
+    // Get today's midnight for inbound/outbound counts
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // PERFORMANCE: Parallelize all database queries for faster response
+    const [
+      totalCalls,
+      abandonedCalls,
+      inboundCalls,
+      outboundCalls,
+      weeklyInboundCalls,
+      weeklyOutboundCalls,
+      monthlyInboundCalls,
+      monthlyOutboundCalls,
+    ] = await Promise.all([
+      getTotalCallsCount(),
+      getAbandonedCallsCount(),
+      getInboundCallsCount(todayMidnight),
+      getOutboundCallsCount(todayMidnight),
+      getInboundCallsCount(weekStart),
+      getOutboundCallsCount(weekStart),
+      getInboundCallsCount(startOfMonth),
+      getOutboundCallsCount(startOfMonth),
+    ]);
+
+    // Calculate answered calls (total - abandoned)
+    const answeredCalls = Math.max(totalCalls - abandonedCalls, 0);
+
     const stats = {
       timestamp: now.toISOString(),
       todayDate: new Date().setHours(0, 0, 0, 0),
-      weekStartDate: startOfWeek.getTime(),
+      weekStartDate: weekStart.getTime(),
       weekEndDate: endOfWeek.getTime(),
       monthStartDate: startOfMonth.getTime(),
       monthEndDate: endOfMonth.getTime(),
       activeCalls: activeCallsMap.size,
       activeCallsList: activeCallsList,
-      totalCalls: await getTotalCallsCount(),
-      abandonedCalls: await getAbandonedCallsCount(),
+      totalCalls: totalCalls,
+      answeredCalls: answeredCalls,
+      abandonedCalls: abandonedCalls,
+      inboundCalls: inboundCalls,
+      outboundCalls: outboundCalls,
       weeklyTotalCalls: weeklyTotalCalls,
       weeklyAbandonedCalls: weeklyAbandonedCalls,
+      weeklyInboundCalls: weeklyInboundCalls,
+      weeklyOutboundCalls: weeklyOutboundCalls,
       monthlyTotalCalls: monthlyTotalCalls,
       monthlyAbandonedCalls: monthlyAbandonedCalls,
+      monthlyInboundCalls: monthlyInboundCalls,
+      monthlyOutboundCalls: monthlyOutboundCalls,
       queueStatus: queueStatusList,
       activeAgents: activeAgentsCount,
       activeAgentsList: allAgentsList,
@@ -594,12 +690,24 @@ const handleQueueCallerLeave = async (event) => {
 
   // Remove from queue calls map
   queueCallsMap.delete(uniqueid);
+  // Also try removing by linkedid in case the queue assigned a different channel id
+  const linkedid = event.linkedid || event.Linkedid;
+  if (linkedid) {
+    queueCallsMap.delete(linkedid);
+  }
 
   // Update queue stats
   if (queueName) {
     const queueStats = queueStatsMap.get(queueName) || { name: queueName };
     queueStats.waiting = Math.max(0, (queueStats.waiting || 0) - 1);
     queueStatsMap.set(queueName, queueStats);
+  }
+
+  // Ensure the waiting call is cleared from active calls
+  if (activeCallsMap.has(uniqueid)) {
+    activeCallsMap.delete(uniqueid);
+  } else if (linkedid && activeCallsMap.has(linkedid)) {
+    activeCallsMap.delete(linkedid);
   }
 
   // Broadcast updated stats immediately
@@ -625,11 +733,25 @@ const handleHangup = async (event) => {
     direction: "inbound",
   };
 
-  // Immediately remove from active calls map for UI consistency
-  const wasActive = activeCallsMap.has(uniqueid);
-  if (wasActive) {
+  // Immediately remove from active calls map for UI consistency.
+  // Also try linkedid in case the channel uniqueid changed during the call lifecycle.
+  let removedKey = null;
+  if (activeCallsMap.has(uniqueid)) {
     activeCallsMap.delete(uniqueid);
     queueCallsMap.delete(uniqueid);
+    removedKey = uniqueid;
+  } else {
+    const linkedid = event.linkedid || event.Linkedid;
+    if (linkedid && activeCallsMap.has(linkedid)) {
+      activeCallsMap.delete(linkedid);
+      queueCallsMap.delete(linkedid);
+      removedKey = linkedid;
+    }
+  }
+
+  // Push an immediate update so the UI clears stale waiting entries
+  if (removedKey) {
+    broadcastStats();
   }
 
   try {
@@ -666,12 +788,13 @@ const handleHangup = async (event) => {
     const cdrRecord = await CDR.findOne({ where: { uniqueid: uniqueid } });
 
     // Determine if this is a normal hangup (causes 16 and 19) vs abandoned call
+    // Use Asterisk's standard CDR disposition values
     const isNormal =
       event.Cause === "16" ||
       event.cause === "16" ||
       event.Cause === "19" ||
       event.cause === "19";
-    const disposition = isNormal ? "NORMAL" : "NO ANSWER";
+    const disposition = isNormal ? "ANSWERED" : "NO ANSWER";
 
     if (cdrRecord) {
       // Calculate duration based on start time
@@ -759,7 +882,7 @@ const handleHangup = async (event) => {
     ) {
       log.info("Broadcasting stats update for abandoned call");
       setTimeout(() => broadcastStats(), 500);
-    } else if (wasActive) {
+    } else if (removedKey) {
       // If the call was in the active map but not an abandoned call
       // still broadcast stats after a slight delay
       setTimeout(() => broadcastStats(), 100);

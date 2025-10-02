@@ -447,6 +447,10 @@ export const updatePJSIPConfig = async (trunkData) => {
     );
     existingConfig = existingConfig.replace(regexPattern, "");
 
+    const hostSanitized = (trunkData.host || "")
+      .replace(/^sip:/, "")
+      .replace(/:5060$/, "");
+
     let newConfig = `
 [${trunkData.name}]
 type=endpoint
@@ -462,13 +466,13 @@ direct_media=no
 rtp_symmetric=yes
 force_rport=yes
 rewrite_contact=yes
-identify_by=auth,username,ip
+identify_by=ip,username,auth_username
 
 [${trunkData.name}_identify]
 type=identify
 endpoint=${trunkData.name}
-match=${trunkData.host.replace("sip:", "").replace("siptrunk.", "")}
-match_header=To: .*<sip:.*@${trunkData.host}>.*
+match=${hostSanitized}
+match_header=To: .*<sip:.*@${hostSanitized}>.*
 `;
 
     if (!trunkData.isP2P) {
@@ -481,20 +485,18 @@ password=${trunkData.password}
 
 [${trunkData.name}_aor]
 type=aor
-contact=sip:${trunkData.host}:5060
+contact=sip:${hostSanitized}:5060
 qualify_frequency=60
 max_contacts=1
 remove_existing=yes
-
+`;
+      if (trunkData.useRegistration && trunkData.username && hostSanitized) {
+        newConfig += `
 [${trunkData.name}_reg]
 type=registration
 outbound_auth=${trunkData.name}_auth
-server_uri=${
-        trunkData.host.startsWith("sip:")
-          ? trunkData.host
-          : `sip:${trunkData.host}`
-      }
-client_uri=sip:${trunkData.username}@${trunkData.host}
+server_uri=sip:${hostSanitized}
+client_uri=sip:${trunkData.username}@${hostSanitized}
 contact_user=${trunkData.username}
 transport=${trunkData.transport}
 retry_interval=60
@@ -504,6 +506,7 @@ auth_rejection_permanent=no
 line=yes
 endpoint=${trunkData.name}
 `;
+      }
     }
 
     // Write to a temporary file first

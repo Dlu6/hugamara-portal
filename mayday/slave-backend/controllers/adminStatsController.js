@@ -23,15 +23,17 @@ export const getCallStats = async (req, res) => {
     todayStart.setHours(0, 0, 0, 0);
 
     // Get answered calls count
+    // Handle both "ANSWERED" (Asterisk standard) and "NORMAL" (legacy) for compatibility
     const answeredCalls = await CDR.count({
       where: {
         start: { [Op.gte]: todayStart },
-        disposition: "ANSWERED",
-        billsec: { [Op.gt]: 0 }, // Only count calls with a billable duration
+        disposition: { [Op.in]: ["ANSWERED", "NORMAL"] },
       },
     });
 
-    // Get abandoned calls count using the same logic as callMonitoringService
+    // Get abandoned calls count
+    // Only count true abandoned calls: NO ANSWER, BUSY, FAILED
+    // Exclude internal queue records (NORMAL/ANSWERED with billsec=0)
     const abandonedCalls = await CDR.count({
       distinct: true,
       col: "uniqueid",
@@ -40,9 +42,6 @@ export const getCallStats = async (req, res) => {
           { disposition: "NO ANSWER" },
           { disposition: "BUSY" },
           { disposition: "FAILED" },
-          {
-            [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-          },
         ],
         start: { [Op.gte]: todayStart },
       },
@@ -336,6 +335,10 @@ export const getAbandonRateStats = async (req, res) => {
         },
       });
 
+      // Only count true abandoned calls:
+      // - NO ANSWER, BUSY, FAILED dispositions
+      // - For Queue calls: only those with lastapp='Queue' and disposition='NO ANSWER'
+      // - Exclude internal queue records (NORMAL/ANSWERED with billsec=0 are often internal records)
       const abandonedCalls = await CDR.count({
         distinct: true,
         col: "uniqueid",
@@ -344,9 +347,6 @@ export const getAbandonRateStats = async (req, res) => {
             { disposition: "NO ANSWER" },
             { disposition: "BUSY" },
             { disposition: "FAILED" },
-            {
-              [Op.and]: [{ disposition: "ANSWERED" }, { billsec: 0 }],
-            },
           ],
           start: { [Op.gte]: startDate },
         },
@@ -380,7 +380,6 @@ export const getAbandonRateStats = async (req, res) => {
             "SUM",
             sequelize.literal(
               `CASE WHEN disposition IN ('NO ANSWER', 'BUSY', 'FAILED') 
-               OR (disposition = 'ANSWERED' AND billsec = 0) 
                THEN 1 ELSE 0 END`
             )
           ),
@@ -434,10 +433,11 @@ async function getPreviousHourStats(previousHourStart, todayStart) {
     const previousTalking = 0;
 
     // Get answered calls from previous hour
+    // Handle both "ANSWERED" (Asterisk standard) and "NORMAL" (legacy) for compatibility
     const previousAnswered = await CDR.count({
       where: {
         start: { [Op.between]: [previousHourStart, todayStart] },
-        disposition: "ANSWERED",
+        disposition: { [Op.in]: ["ANSWERED", "NORMAL"] },
       },
     });
 

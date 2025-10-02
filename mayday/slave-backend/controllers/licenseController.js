@@ -711,60 +711,7 @@ export const cleanupUserSessions = async (req, res) => {
           `✅ [cleanupUserSessions] Successfully cleaned up session ${sessionCheck.sessionId} for user ${userId}`
         );
 
-        // Notify master server about session termination
-        try {
-          console.log(
-            "📡 [cleanupUserSessions] Notifying master server about session termination..."
-          );
-          const license = await licenseService.getCurrentLicense();
-          if (license) {
-            const masterServerUrl =
-              process.env.LICENSE_MGMT_API_URL || "http://localhost:8001/api";
-
-            console.log(
-              "🌐 [cleanupUserSessions] Master server URL:",
-              masterServerUrl
-            );
-
-            const notificationPayload = {
-              action: "session_ended",
-              licenseId: license.master_license_id || license.id,
-              userId: userId,
-              username: "manual_cleanup",
-              feature: feature,
-              sessionId: sessionCheck.sessionId,
-              timestamp: new Date().toISOString(),
-            };
-
-            console.log(
-              "📤 [cleanupUserSessions] Sending notification payload:",
-              notificationPayload
-            );
-
-            await fetch(`${masterServerUrl}/licenses/session-activity`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-Internal-API-Key": process.env.SECRET_INTERNAL_API_KEY,
-              },
-              body: JSON.stringify(notificationPayload),
-            });
-
-            console.log(
-              "✅ [cleanupUserSessions] Master server notification sent successfully"
-            );
-          } else {
-            console.log(
-              "⚠️ [cleanupUserSessions] No license found, skipping master server notification"
-            );
-          }
-        } catch (masterError) {
-          console.warn(
-            "⚠️ [cleanupUserSessions] Failed to notify master server of manual cleanup:",
-            masterError
-          );
-        }
-
+        // Respond immediately to improve perceived latency
         const responseData = {
           success: true,
           message: `Session cleanup completed for user ${userId}`,
@@ -781,6 +728,64 @@ export const cleanupUserSessions = async (req, res) => {
           responseData
         );
         res.status(200).json(responseData);
+
+        // Notify master server in the background with a short timeout
+        setImmediate(async () => {
+          try {
+            console.log(
+              "📡 [cleanupUserSessions] Notifying master server about session termination (async)..."
+            );
+            const license = await licenseService.getCurrentLicense();
+            if (!license) {
+              console.log(
+                "⚠️ [cleanupUserSessions] No license found, skipping master server notification"
+              );
+              return;
+            }
+
+            const masterServerUrl =
+              process.env.LICENSE_MGMT_API_URL || "http://localhost:8001/api";
+
+            const payload = {
+              action: "session_ended",
+              licenseId: license.master_license_id || license.id,
+              userId,
+              username: "manual_cleanup",
+              feature,
+              sessionId: sessionCheck.sessionId,
+              timestamp: new Date().toISOString(),
+            };
+
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2000);
+            try {
+              await fetch(`${masterServerUrl}/licenses/session-activity`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-Internal-API-Key": process.env.SECRET_INTERNAL_API_KEY,
+                },
+                body: JSON.stringify(payload),
+                signal: controller.signal,
+              });
+              console.log(
+                "✅ [cleanupUserSessions] Master server notification sent (async)"
+              );
+            } catch (notifyErr) {
+              console.warn(
+                "⚠️ [cleanupUserSessions] Background master server notification failed:",
+                notifyErr?.name === "AbortError" ? "timeout" : notifyErr
+              );
+            } finally {
+              clearTimeout(timeout);
+            }
+          } catch (masterError) {
+            console.warn(
+              "⚠️ [cleanupUserSessions] Unexpected error in background notification:",
+              masterError
+            );
+          }
+        });
       } else {
         console.error(
           `❌ [cleanupUserSessions] Failed to clean up session:`,

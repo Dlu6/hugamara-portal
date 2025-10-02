@@ -53,6 +53,9 @@ const defaultStats = {
   activeCalls: 0,
   abandonedCalls: 0,
   totalCalls: 0,
+  answeredCalls: 0,
+  inboundCalls: 0,
+  outboundCalls: 0,
   avgCallDuration: "0:00",
   activeAgents: 0,
   queuedCalls: 0,
@@ -75,8 +78,12 @@ const defaultStats = {
   // Weekly and monthly stats
   weeklyTotalCalls: 0,
   weeklyAbandonedCalls: 0,
+  weeklyInboundCalls: 0,
+  weeklyOutboundCalls: 0,
   monthlyTotalCalls: 0,
   monthlyAbandonedCalls: 0,
+  monthlyInboundCalls: 0,
+  monthlyOutboundCalls: 0,
 };
 
 // Format date helper functions
@@ -138,7 +145,10 @@ const handleAmiEvent = (event) => {
 
 // Enhanced connection management with progressive timeout handling
 const connect = async (callback) => {
-  statsUpdateCallback = callback;
+  // Only update callback if a new one is provided (preserve existing during recovery)
+  if (callback !== undefined) {
+    statsUpdateCallback = callback;
+  }
 
   // Initialize currentStats with default stats if not already set
   if (!currentStats) {
@@ -1081,9 +1091,11 @@ const getStats = () => {
   return currentStats;
 };
 
-// Enhanced isConnected method
+// Enhanced isConnected method - Check the single source of truth
 const isConnected = () => {
-  return socket && socket.connected;
+  // CRITICAL: Always check websocketService as the single source of truth
+  // This prevents stale socket references after WebSocket reconnects
+  return websocketService.isConnected;
 };
 
 // Check if service is ready to connect (has authentication)
@@ -1095,63 +1107,33 @@ const isReadyToConnect = () => {
 
 // Enhanced heartbeat with connection health monitoring
 const sendHeartbeat = () => {
-  // CRITICAL: Check authentication before sending heartbeat
-  const token =
-    localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-  if (!token) {
-    console.warn("🔐 sendHeartbeat: No auth token, skipping heartbeat");
+  // DEPRECATED: Heartbeat now handled by centralized websocketService
+  // This function is kept for backward compatibility but delegates to websocketService
+
+  // Check if websocketService is available and connected
+  if (websocketService && websocketService.isConnected) {
+    // Heartbeat is automatically handled by websocketService
     return;
   }
 
-  if (socket && socket.connected) {
-    try {
-      socket.emit("heartbeat");
-
-      // Update connection quality based on successful heartbeat
-      if (connectionState.lastSuccess) {
-        const timeSinceLastSuccess =
-          Date.now() - connectionState.lastSuccess.getTime();
-        if (timeSinceLastSuccess < 60000) {
-          connectionState.connectionQuality = "excellent";
-        } else if (timeSinceLastSuccess < 300000) {
-          connectionState.connectionQuality = "good";
-        }
-      }
-
-      console.log(
-        "💓 Heartbeat sent (quality: " + connectionState.connectionQuality + ")"
-      );
-    } catch (error) {
-      console.error("❌ Failed to send heartbeat:", error);
-
-      // Update connection quality on heartbeat failure
-      connectionState.connectionQuality = "poor";
-
-      // Emit heartbeat failure event
-      window.dispatchEvent(
-        new CustomEvent("websocket:heartbeat_failed", {
-          detail: {
-            error: error.message,
-            quality: connectionState.connectionQuality,
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-    }
-  } else {
-    console.warn(
-      "🔐 sendHeartbeat: Socket not connected, cannot send heartbeat"
-    );
-
-    // Update connection quality
-    connectionState.connectionQuality = "failed";
-  }
+  // If for some reason we still have a direct socket reference, don't send heartbeat
+  // as it should be managed by websocketService
+  return;
 };
 
 // Enhanced connection health monitoring with automatic recovery
+// DEPRECATED: Health monitoring now handled by centralized websocketService
 const startHealthMonitoring = () => {
-  console.log("🏥 Starting connection health monitoring...");
+  console.log(
+    "🏥 Call Monitoring Service: Health monitoring delegated to websocketService"
+  );
 
+  // Health monitoring is now handled by the centralized websocketService
+  // Disabling local health checks to prevent duplicate heartbeats and monitoring
+  return () => {}; // Return empty cleanup function
+
+  // Original health monitoring code (now disabled):
+  /*
   const healthCheckInterval = setInterval(() => {
     try {
       // CRITICAL: Check if we should be monitoring
@@ -1248,6 +1230,7 @@ const startHealthMonitoring = () => {
     console.log("🏥 Stopping connection health monitoring");
     clearInterval(healthCheckInterval);
   };
+  */
 };
 
 // Assess connection health

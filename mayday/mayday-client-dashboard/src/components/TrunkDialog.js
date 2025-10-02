@@ -23,6 +23,7 @@ import { useDispatch } from "react-redux";
 import {
   createTrunk,
   updateTrunkDetailsAsync,
+  fetchTrunkById,
 } from "../features/trunks/trunkSlice.js";
 
 const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
@@ -47,6 +48,7 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
     active: 1,
     fromUser: "",
     fromDomain: "",
+    providerIPs: "",
   });
 
   const { enqueueSnackbar } = useSnackbar();
@@ -54,6 +56,16 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
 
   useEffect(() => {
     if (mode === "edit" && trunkData) {
+      // Debug: inspect provider IPs structure from backend
+      console.log(
+        "[TrunkDialog] trunkData:",
+        {
+          name: trunkData?.name,
+          identifyMatches: trunkData?.identifyMatches,
+          identify: trunkData?.identify,
+        },
+        trunkData
+      );
       const enhancedTrunkData = {
         name: trunkData.name || "",
         host: trunkData.host || trunkData.endpoint?.from_domain || "",
@@ -75,10 +87,40 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
         fromUser: trunkData.fromUser || trunkData.endpoint?.from_user || "",
         fromDomain:
           trunkData.fromDomain || trunkData.endpoint?.from_domain || "",
+        providerIPs:
+          (Array.isArray(trunkData.identifyMatches)
+            ? trunkData.identifyMatches.join(",")
+            : trunkData.identify?.match) ||
+          trunkData.providerIPs ||
+          "",
       };
       setFormData(enhancedTrunkData);
       setEnabled(enhancedTrunkData.active);
       setIsP2P(enhancedTrunkData.isP2P || true);
+
+      // Fallback: if providerIPs not available on list row, fetch detail
+      if (
+        !enhancedTrunkData.providerIPs &&
+        (trunkData.name || trunkData.endpoint?.id)
+      ) {
+        const id = trunkData.name || trunkData.endpoint?.id;
+        (async () => {
+          try {
+            const res = await dispatch(fetchTrunkById(id)).unwrap();
+            const t = res.trunk || res;
+            const matches = Array.isArray(t.identifyMatches)
+              ? t.identifyMatches.join(",")
+              : t.identify?.match || "";
+            setFormData((prev) => ({ ...prev, providerIPs: matches }));
+            // console.log("[TrunkDialog] detail identify:", {
+            //   identifyMatches: t.identifyMatches,
+            //   identify: t.identify,
+            // });
+          } catch (e) {
+            console.warn("Failed to load trunk identify details:", e);
+          }
+        })();
+      }
     }
   }, [trunkData, mode]);
 
@@ -275,6 +317,18 @@ const TrunkDialog = ({ open, handleClose, trunkData, mode }) => {
             value={formData.host || ""}
             onChange={handleInputChange}
             disabled={isSubmitting}
+          />
+          <TextField
+            margin="dense"
+            label="Provider IPs (comma-separated)"
+            type="text"
+            fullWidth
+            name="providerIPs"
+            variant="standard"
+            value={formData.providerIPs || ""}
+            onChange={handleInputChange}
+            disabled={isSubmitting}
+            helperText="Optional: e.g. 41.77.10.100/32 or 41.77.10.10,41.77.10.11"
           />
           {/* From User */}
           <TextField

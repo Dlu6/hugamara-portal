@@ -117,6 +117,7 @@ function createLoginWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       webSecurity: false,
+      autoplayPolicy: "no-user-gesture-required",
     },
   });
 
@@ -156,6 +157,7 @@ function createAppbarWindow() {
       webSecurity: false,
       webSocketProtocols: ["sip", "wss", "ws"],
       allowRunningInsecureContent: true,
+      autoplayPolicy: "no-user-gesture-required",
     },
   });
 

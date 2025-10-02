@@ -77,13 +77,13 @@ async function connect(config) {
     throw new Error("WebSocket servers configuration is missing");
   }
 
-  console.log("✅ Configuration validation passed:", {
-    server,
-    extension,
-    hasPassword: !!password,
-    wsUrl,
-    configKeys: Object.keys(config.pjsip || {}),
-  });
+  // console.log("✅ Configuration validation passed:", {
+  //   server,
+  //   extension,
+  //   hasPassword: !!password,
+  //   wsUrl,
+  //   configKeys: Object.keys(config.pjsip || {}),
+  // });
 
   try {
     // Resolve registration expiration strictly from top-level config.registerExpires (Phonebar setting)
@@ -322,10 +322,11 @@ async function disconnect() {
       state.userAgent = null;
     }
 
-    // Step 4: Clear state
+    // Step 4: Clear state (preserve lastConfig for reconnection)
     state.isConnected = false;
     state.isInitializing = false;
-    state.lastConfig = null;
+    // Note: NOT clearing state.lastConfig here to allow reconnection
+    // state.lastConfig will be cleared only on explicit logout
 
     // Step 5: Emit disconnect event
     state.eventEmitter.emit("disconnected");
@@ -2424,44 +2425,11 @@ export const sipCallService = {
   },
 
   // Register call with AMI for monitoring and management
-  registerCallWithAMI: async (callData) => {
-    try {
-      const apiHost =
-        process.env.NODE_ENV === "development"
-          ? "localhost:8004"
-          : "mhuhelpline.com";
-      const apiProtocol =
-        process.env.NODE_ENV === "development" ? "http" : "https";
-
-      const response = await fetch(
-        `${apiProtocol}://${apiHost}/api/ami/call-events`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${storageService.getAuthToken() || ""}`,
-          },
-          body: JSON.stringify({
-            callId: callData.callId,
-            extension: callData.extension,
-            remoteNumber: callData.remoteNumber,
-            direction: callData.direction,
-            timestamp: new Date().toISOString(),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        console.warn("Failed to register call with AMI:", response.statusText);
-        return false;
-      }
-
-      console.log("Call registered with AMI for monitoring");
-      return true;
-    } catch (error) {
-      console.warn("Error registering call with AMI:", error.message);
-      return false;
-    }
+  // Note: The backend no longer exposes /api/ami/call-events. This is now a no-op
+  // to avoid 404 errors during calls. Call monitoring is handled via WebSocket/AMI
+  // services server-side.
+  registerCallWithAMI: async (_callData) => {
+    return true;
   },
 
   // Get available agents for transfer
@@ -2565,6 +2533,7 @@ function createUserAgentDelegate() {
 
       state.eventEmitter.emit("call:incoming", {
         remoteIdentity: invitation.remoteIdentity?.uri?.user,
+        session: invitation,
       });
     },
   };

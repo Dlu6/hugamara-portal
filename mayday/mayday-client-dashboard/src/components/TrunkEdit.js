@@ -83,6 +83,7 @@ const TrunkEdit = () => {
     enabled: false,
     account_number: "",
     phone_number: "",
+    providerIPs: "",
     ...(location.state && {
       ...location.state,
       enabled: Boolean(location.state.enabled || location.state.active === 1),
@@ -102,6 +103,7 @@ const TrunkEdit = () => {
         : location.state.insecure?.split(",").filter(Boolean) || [],
       account_number: location.state.account_number || "",
       phone_number: location.state.phone_number || "",
+      providerIPs: location.state.providerIPs || "",
     }),
   });
 
@@ -126,6 +128,13 @@ const TrunkEdit = () => {
           const trunkData = result.trunk || result;
           const endpointData = trunkData.endpoint || {};
 
+          // Debug: inspect provider IPs structure from backend
+          console.log("[TrunkEdit] trunkData:", {
+            name: trunkData?.name,
+            identifyMatches: trunkData?.identifyMatches,
+            identify: trunkData?.identify,
+          });
+
           setFormData((prev) => ({
             ...prev,
             ...endpointData,
@@ -146,6 +155,12 @@ const TrunkEdit = () => {
               : endpointData.insecure?.split(",").filter(Boolean) || [],
             account_number: endpointData.account_number || "",
             phone_number: endpointData.phone_number || "",
+            providerIPs:
+              (Array.isArray(trunkData.identifyMatches)
+                ? trunkData.identifyMatches.join(",")
+                : trunkData.identify?.match) ||
+              prev.providerIPs ||
+              "",
           }));
         } catch (error) {
           console.error("Error fetching trunk data:", error);
@@ -241,6 +256,7 @@ const TrunkEdit = () => {
         active: formData.enabled ? 1 : 0,
         account_number: formData.account_number,
         phone_number: formData.phone_number,
+        providerIPs: formData.providerIPs,
       };
 
       await dispatch(updateTrunkDetailsAsync(dataToSend)).unwrap();

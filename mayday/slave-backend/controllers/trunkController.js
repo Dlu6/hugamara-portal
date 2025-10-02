@@ -1,4 +1,6 @@
 import sequelize, { Op } from "../config/sequelize.js";
+import dns from "dns";
+import { promisify } from "util";
 import {
   PJSIPEndpoint,
   PJSIPAuth,
@@ -26,6 +28,7 @@ export const createTrunk = async (req, res) => {
       endpoint_type = "trunk",
       isP2P = false,
       fromUser,
+      providerIPs, // optional CSV from UI for identify match
     } = req.body;
 
     // Validate required fields
@@ -71,12 +74,37 @@ export const createTrunk = async (req, res) => {
     const baseId = name;
     const cleanHost = host.replace(/^sip:/, "").replace(/:\d+$/, "");
 
+    // Resolve provider IPs for identify mapping (prefer explicit input)
+    const lookup = promisify(dns.lookup);
+    let ipList = [];
+    try {
+      if (typeof providerIPs === "string" && providerIPs.trim() !== "") {
+        ipList = providerIPs
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      } else {
+        const results = await lookup(cleanHost, { all: true, family: 4 });
+        ipList = Array.from(new Set(results.map((r) => r.address)));
+      }
+    } catch (e) {
+      // Fallback: leave empty, but continue; match_header will still help
+      ipList = [];
+    }
+    // Sanitize any CIDR suffixes in input and build proper /32 CIDRs
+    const sanitizedIps = ipList.map((ip) => ip.replace(/\/.+$/, ""));
+    const matchValue =
+      sanitizedIps.length > 0
+        ? sanitizedIps.map((ip) => `${ip}/32`).join(",")
+        : cleanHost;
+
     // 1. Create Endpoint
     await PJSIPEndpoint.create(
       {
         id: baseId,
         transport,
         context,
+        identify_by: "ip,username,auth_username",
         disallow: "all",
         allow: codecs,
         auth: isP2P ? null : `${baseId}_auth`,
@@ -113,11 +141,12 @@ export const createTrunk = async (req, res) => {
       );
     }
 
-    // 3. Create AOR
+    // 3. Create AOR (prefer IP contact if available to avoid DNS issues)
+    const contactHost = sanitizedIps.length > 0 ? sanitizedIps[0] : cleanHost;
     await PJSIPAor.create(
       {
         id: `${baseId}_aor`,
-        contact: `sip:${cleanHost}:5060`,
+        contact: `sip:${contactHost}:5060`,
         qualify_frequency: 60,
         max_contacts: 1,
         remove_existing: "yes",
@@ -131,25 +160,29 @@ export const createTrunk = async (req, res) => {
       {
         id: `${baseId}_identify`,
         endpoint: baseId,
-        match: cleanHost,
+        match: matchValue,
         srv_lookups: "no",
         match_header: `P-Asserted-Identity: <sip:.*@${cleanHost}>`,
-        match_request_uri: "yes",
+        match_request_uri: "no",
       },
       { transaction }
     );
 
-    // Update the PJSIP configuration file
-    await updatePJSIPConfig({
-      name: baseId,
-      username: defaultUser,
-      password,
-      host: cleanHost,
-      transport,
-      context,
-      codecs,
-      isP2P,
-    });
+    // Best-effort PJSIP conf update (do not fail transaction if remote-managed)
+    try {
+      await updatePJSIPConfig({
+        name: baseId,
+        username: defaultUser,
+        password,
+        host: cleanHost,
+        transport,
+        context,
+        codecs,
+        isP2P,
+      });
+    } catch (confErr) {
+      console.warn("PJSIP conf update skipped:", confErr?.message || confErr);
+    }
 
     await transaction.commit();
 
@@ -171,11 +204,11 @@ export const createTrunk = async (req, res) => {
         auth: isP2P ? null : { id: `${baseId}_auth`, username: defaultUser },
         aor: {
           id: `${baseId}_aor`,
-          contact: `sip:${cleanHost}:5060`,
+          contact: `sip:${contactHost}:5060`,
         },
         identify: {
           endpoint: baseId,
-          match: cleanHost,
+          match: matchValue,
           srv_lookups: "no",
         },
       },
@@ -224,6 +257,7 @@ export const updateTrunk = async (req, res) => {
         active: updates.enabled ? 1 : 0,
         transport: updates.transport || "transport-udp",
         context: updates.context || "from-voip-provider",
+        identify_by: "ip,username,auth_username",
         allow: updates.codecs || "ulaw,alaw",
         from_user: updates.fromUser || updates.defaultUser,
         from_domain: updates.fromDomain || updates.host,
@@ -261,9 +295,23 @@ export const updateTrunk = async (req, res) => {
     // Update the PJSIP AOR
     await PJSIPAor.update(
       {
-        contact: updates.host.startsWith("sip:")
-          ? updates.host
-          : `sip:${updates.host}:5060`,
+        // If providerIPs provided, prefer first IP for contact; strip CIDR if present
+        contact: (() => {
+          if (
+            updates.providerIPs &&
+            typeof updates.providerIPs === "string" &&
+            updates.providerIPs.split(",").filter(Boolean).length > 0
+          ) {
+            const first = updates.providerIPs
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)[0];
+            const ip = first.replace(/\/.+$/, "");
+            return `sip:${ip}:5060`;
+          }
+          const host = (updates.host || "").replace(/^sip:/, "");
+          return host ? `sip:${host}:5060` : null;
+        })(),
         qualify_frequency: updates.qualifyFrequency || 60,
         max_contacts: updates.maxContacts || 1,
         remove_existing: updates.removeExisting || "yes",
@@ -274,13 +322,32 @@ export const updateTrunk = async (req, res) => {
       }
     );
 
-    // Update the Endpoint Identifier
-    await PJSIPEndpointIdentifier.update(
-      {
-        match: updates.host,
-      },
-      { where: { endpoint: trunkId }, transaction }
-    );
+    // Update the Endpoint Identifier: prefer explicit providerIPs, else resolve host
+    if (updates.providerIPs || updates.host) {
+      let matchValue = updates.host || "";
+      try {
+        if (updates.providerIPs && typeof updates.providerIPs === "string") {
+          const ips = updates.providerIPs
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((ip) => ip.replace(/\/.+$/, "")) // strip any existing CIDR
+            .map((ip) => `${ip}/32`);
+          if (ips.length > 0) matchValue = ips.join(",");
+        } else if (matchValue) {
+          matchValue = matchValue.replace(/^sip:/, "");
+        }
+      } catch (_) {}
+
+      await PJSIPEndpointIdentifier.update(
+        {
+          match: matchValue,
+          match_request_uri: "no",
+          srv_lookups: "no",
+        },
+        { where: { endpoint: trunkId }, transaction }
+      );
+    }
     // Reload PJSIP configurations via AMI
     await amiService.executeAction({
       Action: "Command",
@@ -289,16 +356,20 @@ export const updateTrunk = async (req, res) => {
 
     await transaction.commit();
 
-    // Update the PJSIP configuration File in the server
-    await updatePJSIPConfig({
-      name: trunkId,
-      username: updates.defaultUser,
-      password: updates.password,
-      host: updates.host,
-      context: updates.context,
-      codecs: updates.codecs,
-      transport: updates.transport,
-    });
+    // Best-effort PJSIP conf update post-commit
+    try {
+      await updatePJSIPConfig({
+        name: trunkId,
+        username: updates.defaultUser,
+        password: updates.password,
+        host: updates.host,
+        context: updates.context,
+        codecs: updates.codecs,
+        transport: updates.transport,
+      });
+    } catch (confErr) {
+      console.warn("PJSIP conf update skipped:", confErr?.message || confErr);
+    }
 
     // Fetch updated configurations
     const [updatedEndpoint, updatedAuth, updatedAor] = await Promise.all([
@@ -505,19 +576,36 @@ export const getTrunks = async (req, res) => {
           required: false,
           attributes: ["id", "auth_type", "password", "username"],
         },
+        {
+          model: PJSIPEndpointIdentifier,
+          as: "identifies",
+          required: false,
+          attributes: ["id", "match", "match_request_uri", "srv_lookups"],
+        },
       ],
     });
 
-    const formattedTrunks = trunks.map((trunk) => ({
-      trunkId: trunk.trunk_id,
-      name: trunk.id,
-      endpoint: {
-        ...trunk.get(),
-        registration: trunk.registration ? trunk.registration.get() : null,
-      },
-      aor: trunk.aorConfig || null,
-      auth: trunk.authConfig || null,
-    }));
+    const formattedTrunks = trunks.map((trunk) => {
+      const identifyMatches = Array.isArray(trunk.identifies)
+        ? trunk.identifies.map((i) => i.match).filter(Boolean)
+        : [];
+      const identify = Array.isArray(trunk.identifies)
+        ? trunk.identifies[0] || null
+        : null;
+
+      return {
+        trunkId: trunk.trunk_id,
+        name: trunk.id,
+        endpoint: {
+          ...trunk.get(),
+          registration: trunk.registration ? trunk.registration.get() : null,
+        },
+        aor: trunk.aorConfig || null,
+        auth: trunk.authConfig || null,
+        identifyMatches,
+        identify,
+      };
+    });
 
     res.json({
       success: true,
@@ -564,6 +652,20 @@ export const getTrunkById = async (req, res) => {
       });
     }
 
+    // Fetch identify mappings (provider IPs / header rules)
+    const identifies = await PJSIPEndpointIdentifier.findAll({
+      where: { endpoint: endpoint.id },
+      attributes: [
+        "id",
+        "endpoint",
+        "match",
+        "match_header",
+        "match_request_uri",
+      ],
+    });
+
+    const identifyMatches = identifies.map((i) => i.match).filter(Boolean);
+
     res.json({
       success: true,
       trunk: {
@@ -571,6 +673,8 @@ export const getTrunkById = async (req, res) => {
         endpoint: endpoint.get(),
         auth: endpoint.authConfig,
         aor: endpoint.aorConfig,
+        identify: identifies?.[0] || null,
+        identifyMatches,
       },
     });
   } catch (error) {

@@ -2082,3 +2082,31 @@ ALTER TABLE ps_endpoint_id_ips ADD CONSTRAINT fk_endpoint_id FOREIGN KEY (endpoi
 ## License
 
 This project is proprietary software for Hugamara Hospitality Group.
+
+
+## Mayday Unified Outbound Dialplan (file-based)
+
+This repository includes a lean, file-based outbound helper and prefix routing that the provider requires (dynamic From via P-Preferred-Identity). The canonical config is stored here:
+
+- docs/asterisk/extensions_mayday_context.conf
+
+Key behavior:
+- 2-digit DID prefix (last two digits) selects Caller ID explicitly, then dials: `_4[3-9]X.` → `45 0700…` uses `0323300245`, etc.
+- No prefix: uses `DEFAULT_DID` if set, else falls back to `DEFAULT_DID_FALLBACK=0323300243`.
+- The outbound helper `outbound-dial` normalizes destination to national (07…), sets CLI, and adds P-Preferred-Identity to drive dynamic From.
+
+Recommended deployment on PBX:
+1. Copy the file to the server:
+   - `/etc/asterisk/extensions_mayday_context.conf`
+2. Ensure it is included from `extensions.conf` (or your existing include chain), e.g.:
+   - `#include extensions_mayday_context.conf`
+3. Reload dialplan:
+   - `sudo asterisk -rx "dialplan reload"`
+4. Verify:
+   - `sudo asterisk -rx "dialplan show outbound-dial"`
+   - `sudo asterisk -rx "dialplan show from-internal"`
+
+Provider alignment:
+- Uses `PJSIP_HEADER(add,P-Preferred-Identity)=<sip:${ARG2}@${TRUNK_DOMAIN}>` so the provider sees the DID as From identity even when the trunk has no `from_user` per DID.
+- Ensure the trunk endpoint (`Hugamara_Trunk`) permits identity headers and CLI presentation.
+

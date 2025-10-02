@@ -82,6 +82,7 @@ import { setupAssociations } from "./models/usersModel.js";
 import { setupIntegrationAssociations } from "./models/associations.js";
 import IntegrationModel from "./models/integrationModel.js";
 import IntegrationDataModel from "./models/integrationDataModel.js";
+import VoiceExtension from "./models/voiceExtensionModel.js";
 import {
   // LicenseType,
   // ServerLicense,
@@ -453,6 +454,8 @@ const initializeAsteriskServices = async () => {
   }
 };
 
+// No longer seeding outbound-dial; maintained in file-based dialplan
+
 // Server initialization with proper error handling
 const initializeApp = async () => {
   console.log(chalk.green("Initializing Asterisk services..."));
@@ -479,6 +482,8 @@ const initializeApp = async () => {
     await syncDatabase();
     // await CallRecords.sync();
     console.log(chalk.green("Database synchronized successfully"));
+
+    // Outbound helper is managed in file dialplan (extensions_mayday_context.conf)
 
     // Fix license schema before proceeding
     console.log(chalk.blue("Fixing license schema..."));

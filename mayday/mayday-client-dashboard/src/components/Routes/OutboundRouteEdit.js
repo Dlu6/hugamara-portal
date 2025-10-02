@@ -41,7 +41,7 @@ import {
   fetchOutboundRouteById,
 } from "../../features/outboundRoutes/outboundRouteSlice";
 import AppsIcon from "@mui/icons-material/Apps";
-import { contextsAPI } from "../../services/api";
+import { contextsAPI, didsAPI } from "../../services/api";
 
 const initialApps = [
   { id: 1, app: "outboundDial", name: "Outbound Dial", type: "OutboundDial" },
@@ -49,7 +49,7 @@ const initialApps = [
 ];
 
 // Application Edit Dialog Component
-const AppEditDialog = ({ open, onClose, app, onSave, trunks }) => {
+const AppEditDialog = ({ open, onClose, app, onSave, trunks, dids }) => {
   const [formData, setFormData] = useState({
     applicationName: "",
     arguments: "",
@@ -59,6 +59,7 @@ const AppEditDialog = ({ open, onClose, app, onSave, trunks }) => {
     timeout: "30",
     options: "",
     url: "",
+    callerId: "",
   });
 
   useEffect(() => {
@@ -116,6 +117,21 @@ const AppEditDialog = ({ open, onClose, app, onSave, trunks }) => {
                 {trunks.map((trunk) => (
                   <MenuItem key={trunk.id} value={trunk.id}>
                     {trunk.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Caller ID (DID)</InputLabel>
+              <Select
+                value={formData.callerId}
+                onChange={(e) =>
+                  setFormData({ ...formData, callerId: e.target.value })
+                }
+              >
+                {(dids || []).map((d) => (
+                  <MenuItem key={d.did} value={d.did}>
+                    {d.label}
                   </MenuItem>
                 ))}
               </Select>
@@ -205,6 +221,7 @@ const OutboundRouteEdit = () => {
     { value: "from-voip-provider", label: "From VoIP Provider" },
     { value: "from-voicemail", label: "From Voicemail" },
   ]);
+  const [availableDids, setAvailableDids] = useState([]);
 
   const currentRoute = useSelector((state) => state.outboundRoute.currentRoute);
   // const loading = useSelector((state) => state.outboundRoute.loading);
@@ -226,6 +243,10 @@ const OutboundRouteEdit = () => {
             .filter((c) => c?.name)
             .map((c) => ({ value: c.name, label: c.name }));
           if (items.length > 0) setAvailableContexts(items);
+        }
+        const didsResp = await didsAPI.list();
+        if (mounted && didsResp?.data?.success) {
+          setAvailableDids(didsResp.data.data || []);
         }
       } catch (e) {
         // silent fallback to defaults
@@ -404,10 +425,11 @@ const OutboundRouteEdit = () => {
     const handleDragEnd = (result) => {
       if (!result.destination) return;
 
-      if (
-        result.source.droppableId === "available-apps" &&
-        result.destination.droppableId === "configured-apps"
-      ) {
+      const src = result.source.droppableId;
+      const dst = result.destination.droppableId;
+
+      // Add from palette → configured list
+      if (src === "available-apps" && dst === "configured-apps") {
         const app = initialApps[result.source.index];
         const newApp = {
           ...app,
@@ -422,13 +444,28 @@ const OutboundRouteEdit = () => {
             url: "",
             applicationName: "",
             arguments: "",
+            callerId: "",
           },
         };
-        setConfiguredApps([...configuredApps, newApp]);
+        const next = [...configuredApps, newApp];
+        // Reindex priorities to be explicit
+        const reindexed = next.map((a, i) => ({ ...a, priority: i + 1 }));
+        setConfiguredApps(reindexed);
 
         // Open dialog for configuration
         setEditableApp(newApp);
         setOpenDialog(true);
+        return;
+      }
+
+      // Reorder within configured list
+      if (src === "configured-apps" && dst === "configured-apps") {
+        const items = Array.from(configuredApps);
+        const [moved] = items.splice(result.source.index, 1);
+        items.splice(result.destination.index, 0, moved);
+        // Normalize priorities so top row is highest priority (1)
+        const reindexed = items.map((a, i) => ({ ...a, priority: i + 1 }));
+        setConfiguredApps(reindexed);
       }
     };
 
@@ -444,9 +481,9 @@ const OutboundRouteEdit = () => {
     };
 
     const handleRemoveApp = () => {
-      const newConfiguredApps = configuredApps.filter(
-        (app) => app.uniqueId !== currentEditingAppId
-      );
+      const newConfiguredApps = configuredApps
+        .filter((app) => app.uniqueId !== currentEditingAppId)
+        .map((a, i) => ({ ...a, priority: i + 1 }));
       setConfiguredApps(newConfiguredApps);
       handleApplicationMenuClose();
     };
@@ -664,14 +701,53 @@ const OutboundRouteEdit = () => {
             }}
             app={editableApp}
             onSave={(updatedApp) => {
-              const newConfiguredApps = configuredApps.map((app) =>
+              let next = configuredApps.map((app) =>
                 app.uniqueId === updatedApp.uniqueId ? updatedApp : app
               );
-              setConfiguredApps(newConfiguredApps);
+
+              // Auto-insert Custom Set CALLERID(all) when OutboundDial has a callerId
+              if (
+                updatedApp?.type === "OutboundDial" &&
+                updatedApp?.settings?.callerId &&
+                String(updatedApp.settings.callerId).trim() !== ""
+              ) {
+                const idx = next.findIndex(
+                  (a) => a.uniqueId === updatedApp.uniqueId
+                );
+                const setId = `${updatedApp.uniqueId}-set`;
+                const alreadyHasSet = next.some((a) => a.uniqueId === setId);
+                const cid = updatedApp.settings.callerId;
+                const setApp = {
+                  id: undefined,
+                  dbRecord: false,
+                  uniqueId: setId,
+                  type: "Custom",
+                  app: "custom",
+                  name: "Custom",
+                  settings: {
+                    applicationName: "Set",
+                    arguments: `CALLERID(all)="${cid} <${cid}>"`,
+                  },
+                };
+                if (!alreadyHasSet && idx >= 0) {
+                  next = [...next.slice(0, idx), setApp, ...next.slice(idx)];
+                } else if (alreadyHasSet) {
+                  next = next.map((a) =>
+                    a.uniqueId === setId
+                      ? { ...a, settings: setApp.settings }
+                      : a
+                  );
+                }
+                // Reindex priorities after possible insert
+                next = next.map((a, i) => ({ ...a, priority: i + 1 }));
+              }
+
+              setConfiguredApps(next);
               setOpenDialog(false);
               setEditableApp(null);
             }}
             trunks={trunks}
+            dids={availableDids}
           />
         )}
       </>

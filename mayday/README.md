@@ -184,6 +184,31 @@ Main Hugamara System          Mayday Call Center
 - **Asterisk AMI Integration**: Full Asterisk Manager Interface connectivity
 - **WebSocket Real-time Updates**: Live status updates to dashboard
 
+### Recent Improvements (October 2025)
+
+#### Dashboard Analytics Fixes (Oct 1, 2025)
+
+- **✅ Weekly > Monthly Stats Bug (CRITICAL)**: Fixed illogical data where weekly stats (123 calls) exceeded monthly stats (8 calls) by capping week start at current month start when Sunday falls in previous month
+- **✅ Timezone Bug (UTC+3)**: Fixed agent call statistics showing wrong day's data from midnight-3AM due to UTC conversion issues
+- **✅ Monthly Range Fix**: Changed from "last 30 days" to actual current month (Oct 1 - today)
+- **✅ Loading Indicator Fix**: Added 5-second timeout to prevent infinite loading spinner
+- **✅ Answered Calls Calculation**: Fixed week/month answered calls calculation (total - abandoned)
+
+#### Session Recovery & Reliability
+
+- **Session Recovery System**: Automatic recovery of SIP, WebSocket, and dashboard connections after network issues or page refresh
+- **Connection Health Monitoring**: Real-time connection status indicators with automatic reconnection
+- **Grace Period Handling**: Prevents premature disconnections during authentication and logout flows
+
+#### Call Center Features
+
+- **CDR Standardization**: Fixed disposition values to align with Asterisk standard (`ANSWERED` instead of `NORMAL`)
+- **Accurate Metrics**: Fixed abandon rate calculation to exclude internal Asterisk queue records
+- **Chrome Extension**: Auto re-registration after page refresh for seamless user experience
+- **Timezone Consistency**: System-wide timezone configuration (Africa/Nairobi - UTC+3)
+
+📚 **[View CDR Fix Documentation](slave-backend/docs/CDR_AND_METRICS_FIX.md)**
+
 ### Integration Features
 
 - **Asterisk AMI**: Full Asterisk Manager Interface integration
@@ -195,6 +220,367 @@ Main Hugamara System          Mayday Call Center
 - **Development Mode**: Automatic fallback license creation for development
 - **Chrome Extension**: Multi-tenant softphone extension with dynamic configuration
 - **Trunk Provider Integration**: External API integration for call validation
+
+## 📊 Agent Availability & Status Logic
+
+### Overview
+
+The Mayday Call Center system determines agent availability through a **hybrid approach** combining multiple data sources with a priority-based system. This ensures accurate agent status even when individual data sources are unavailable or unreliable.
+
+### Data Sources & Priority System
+
+Agent online/offline status is determined using a **three-tier priority system**:
+
+#### Priority 1: Active Client Sessions (Most Reliable)
+
+**Source**: `client_session` database table  
+**Checked via**: `agentStatusService.getActiveSessions()`
+
+This is the **primary source of truth** for agent availability. When an agent logs into any client (Chrome Extension, Electron Softphone, WebRTC), an active session record is created with:
+
+- Session token and expiration
+- SIP username (extension)
+- Client fingerprint and IP address
+- User agent and feature (e.g., "chrome_softphone", "electron_softphone")
+- Last heartbeat timestamp
+
+**Why Priority 1**: Client sessions are application-managed and include heartbeat monitoring, making them the most reliable indicator that an agent is actively logged in and ready to receive calls.
+
+**Status Determination**:
+
+- If an active, non-expired session exists → Agent is `online`
+- Session typology (chrome_softphone, electron_softphone, webRTC) is detected from user agent
+- Session IP address and last heartbeat are used for connection tracking
+
+#### Priority 2: PJSIP Contact Registration
+
+**Source**: Multiple sources with fallback chain  
+**Checked via**:
+
+1. Database realtime table (`ps_contacts`) - if Asterisk realtime is enabled
+2. Per-endpoint AMI query (`pjsip show endpoint <ext>`)
+3. Bulk AMI query (`pjsip show contacts`)
+
+**Why Priority 2**: PJSIP contacts indicate active SIP registration. If no client session exists but the agent's SIP endpoint is registered, the agent is still considered online.
+
+**Status Determination**:
+
+- Contact status "Avail" or "Reachable" → Agent is `online`
+- Extracts IP address, port, and transport (UDP/TCP/WebSocket)
+- Provides RTT (Round Trip Time) for connection quality
+
+**Fallback Chain Logic**:
+
+```javascript
+// 1. Try database realtime contacts (fastest, most reliable if enabled)
+let contactsData = await getPJSIPContactsFromDB();
+
+// 2. If DB has no contacts, try precise per-endpoint AMI query
+if (Object.keys(contactsData).length === 0) {
+  contactsData = await getContactsByEndpoints();
+}
+
+// 3. Fallback to bulk AMI contacts
+if (Object.keys(contactsData).length === 0) {
+  contactsData = await getPJSIPContacts();
+}
+```
+
+#### Priority 3: PJSIP Endpoint Configuration
+
+**Source**: AMI command `pjsip show endpoints`  
+**Checked via**: `agentStatusService.getPJSIPEndpoints()`
+
+**Why Priority 3**: Endpoints that are configured in Asterisk but have no active contact or session are marked as `registered` rather than `online`. This indicates the agent is set up but not currently connected.
+
+**Status Determination**:
+
+- Endpoint exists in Asterisk configuration → Agent is `registered`
+- Provides Asterisk status text (e.g., "Not in use", "In use")
+
+### Queue-Specific Availability
+
+Separate from online/offline status, the system tracks **queue-specific availability** through AMI events:
+
+**Source**: AMI events (`QueueMemberStatus`, `QueueMemberPause`, `QueueMemberUnpause`)  
+**Tracked via**: Real-time event listeners in `agentStatusService`
+
+**Queue Status Codes** (from Asterisk device state):
+
+- `1` = **Available** (AST_DEVICE_NOT_INUSE) - Agent is free and can receive calls
+- `2` = **In Use** (AST_DEVICE_INUSE) - Agent is on a call
+- `3` = **Busy** (AST_DEVICE_BUSY) - Agent is busy (manual status or multiple calls)
+- `4` = **Invalid** (AST_DEVICE_INVALID) - Invalid device state
+- `5` = **Unavailable** (AST_DEVICE_UNAVAILABLE) - Agent is unavailable
+- `6` = **Ringing** (AST_DEVICE_RINGING) - Agent's phone is ringing
+- `7` = **On Hold** (AST_DEVICE_ONHOLD) - Agent has call on hold
+
+**Additional Queue Metrics**:
+
+- `paused`: Boolean indicating if agent is paused from receiving queue calls
+- `pauseReason`: Reason for pause (e.g., "Break", "Lunch", "Training")
+- `callsTaken`: Total calls taken by this queue member
+- `lastCall`: Timestamp of last call handled
+
+### Real-Time Updates
+
+The system provides real-time status updates through two mechanisms:
+
+#### 1. AMI Event Listeners (Immediate)
+
+Event-driven updates for instant status changes:
+
+```javascript
+// Contact status events (registration changes)
+amiClient.on("ContactStatus", updateFromContactEvent);
+amiClient.on("ContactStatusDetail", updateFromContactEvent);
+
+// Queue member events (availability changes)
+amiClient.on("QueueMemberStatus", handleQueueMemberStatus);
+amiClient.on("QueueMemberPause", handleQueueMemberPause);
+amiClient.on("QueueMemberUnpause", handleQueueMemberUnpause);
+```
+
+#### 2. Periodic Polling (Every 15 seconds)
+
+Fallback mechanism to catch missed events and ensure consistency:
+
+```javascript
+const pollFrequency = 15000; // 15 seconds
+```
+
+Polling aggregates all data sources and broadcasts updates via WebSocket to all connected dashboard clients.
+
+### Combined Status Example
+
+An agent's complete status includes data from all sources:
+
+```json
+{
+  "extension": "1005",
+  "username": "john.doe",
+  "fullName": "John Doe",
+  "status": "online", // Priority 1-3: Overall connectivity
+  "sessionActive": true, // Priority 1: Client session exists
+  "clientType": "electron_softphone", // From session
+  "ip": "102.214.151.191", // From session or contact
+  "port": 57467, // From contact
+  "transport": "websocket", // From contact
+  "lastSeen": "2025-10-01T10:30:45Z",
+  "queueStatus": "available", // From queue events
+  "paused": false, // From queue events
+  "pauseReason": null,
+  "callsTaken": 15, // From queue events
+  "queues": ["support", "sales"] // From queue events
+}
+```
+
+### Summary: Source of Truth
+
+| Status Type            | Source of Truth    | Fallback                        | Update Method                |
+| ---------------------- | ------------------ | ------------------------------- | ---------------------------- |
+| **Online/Offline**     | Client Session DB  | PJSIP Contact → Endpoint Config | Session heartbeats + Polling |
+| **Queue Availability** | AMI Queue Events   | Polling queue status            | Real-time AMI events         |
+| **Call State**         | AMI Channel Events | CDR records                     | Real-time AMI events         |
+| **Registration**       | PJSIP Contacts     | Endpoint configuration          | AMI events + Polling         |
+
+**Key Principle**: The system uses a **defense in depth** approach with multiple redundant data sources, ensuring agent status remains accurate even if individual components (database, AMI, sessions) experience issues.
+
+## 📞 Outbound Dialing: Default DID, DID Inventory, and Helper Context
+
+- Default DID per agent: Stored in `users.callerid` and editable in the dashboard (Agents → Voice → “Default DID (no‑prefix CLI)”). No‑prefix calls will use this DID unless an explicit route overrides it.
+- DID Inventory (DB): Table `did_inventory` contains your outlet DIDs and metadata (outlet name, allow_inbound/outbound, etc.). The dashboard uses it to populate DID dropdowns (endpoint: `/api/users/inbound_route/dids`).
+- File-based helper: Asterisk dialplan defines `outbound-dial` in your file include. It receives `${ARG1}` = destination, `${ARG2}` = DID and:
+  - Sets `CALLERID(num)` and `CALLERID(name)` from `${ARG2}`
+  - Dials `PJSIP/${ARG1}@Hugamara_Trunk`
+- Usage patterns:
+  - Prefix dialing (recommended for ad‑hoc DID choice): agents dial 2‑digit prefix (43–49) + number; the file dialplan forces the corresponding DID and jumps into `outbound-dial`.
+  - No‑prefix dialing (fixed/default): the helper uses the agent’s `DEFAULT_DID` (from endpoint) or a UI route can set a specific DID via a “Set CALLERID(all)=...” prior to the Dial.
+
+## 🧭 Contexts
+
+- Per‑agent context selection is no longer used in the UI. Agents are provisioned into standard contexts server‑side; the Agent Edit form does not expose context.
+- The file include `extensions_mayday_context.conf` is the single source of truth for outbound logic (prefixes and `outbound-dial`). The server does not auto‑generate this context to avoid conflicts.
+
+## 🖥️ Dashboard Workflows
+
+### Set Default DID per Agent
+
+1. Agents → select agent → Voice tab
+2. “Default DID (no‑prefix CLI)” → choose from dropdown (pulled from `did_inventory`)
+3. Save (writes `users.callerid`)
+
+### Configure a Fixed Outbound Route (optional)
+
+Use when you want a route that always presents one DID without agent prefixes.
+
+1. Voice → Outbound Routes → Edit (or Create)
+2. Actions tab → drag “Outbound Dial” into the flow
+3. In the dialog:
+   - Trunk: `Hugamara_Trunk`
+   - Caller ID (DID): select from dropdown (labels like `LaCueva (0323300245)`)
+   - Prefix: leave blank unless provider needs a prepend
+4. Save. The UI auto‑inserts a “Custom → Set CALLERID(all)="<DID> <DID>"” immediately above Dial, mirroring the helper’s behavior
+
+Notes:
+
+- You don’t need a UI Outbound Route for prefix use cases; the file dialplan already handles 43–49.
+- For per‑agent defaults (no prefix), setting `users.callerid` is enough; no UI route is required.
+
+## 🔌 API Endpoints (DID Dropdown)
+
+- List DIDs (inventory first, fallback to inbound routes):
+  - `GET /api/users/inbound_route/dids` → `[{ did: "0323300245", label: "LaCueva (0323300245)" }, ...]`
+
+## ✅ Verification
+
+On the PBX:
+
+- Reload dialplan after editing your file include:
+  - `asterisk -rx 'dialplan reload'`
+- Show helper context:
+  - `asterisk -rx 'dialplan show outbound-dial'`
+- Quick call test flow (agent 1009):
+  - No prefix: expect `Gosub(outbound-dial,s,1(0700...,<DEFAULT_DID>))`
+  - Prefix 45: expect `Gosub(outbound-dial,s,1(0700...,0323300245))`
+
+## 🧪 Troubleshooting Outbound Calls
+
+Symptoms: `Everyone is busy/congested` immediately after Dial.
+
+Checklist:
+
+1. Endpoint name matches dial string:
+   - Dial uses `PJSIP/${ARG1}@Hugamara_Trunk` → endpoint id must be `Hugamara_Trunk`.
+2. Registration/peer status:
+   - Registration: `asterisk -rx 'pjsip show registrations'` → Status: Registered
+   - Peer/IP: `pjsip show endpoint Hugamara_Trunk` → AOR Contacts > 0, `pjsip show identify` matches provider IP
+3. Number format:
+   - Some providers require E.164 (e.g., `256700…`). Add a Prefix in the Outbound Dial dialog to prepend country code
+4. See actual SIP error:
+   - `asterisk -rx 'pjsip set logger on'` → place call → check 403/404/480 codes from provider
+
+Provider requirements:
+
+- Ensure trunk has `send_pai=yes` and `send_rpid=yes` so the asserted CLI is honored.
+- Provider must allow the DID you present as CLI.
+
+## 🔊 Troubleshooting WebRTC Audio (Electron/Chrome Softphone)
+
+### Issue: No Ringback Tone on Outbound Calls
+
+**Symptoms:**
+
+- Outbound calls connect successfully
+- Call audio works once answered
+- **No ringback tone** (silence) while call is ringing
+- Asterisk RTP debug shows packets being sent to client
+- Browser/Electron logs show "Provider stream is SILENT"
+
+**Root Cause:**
+
+Asterisk was sending its **private IP address** (`172.31.x.x`) in ICE candidates instead of the **public IP**, preventing WebRTC clients from receiving RTP packets (early media/ringback) through NAT.
+
+**Solution: Configure RTP External Address**
+
+Edit `/etc/asterisk/rtp.conf` to include proper NAT traversal settings:
+
+```ini
+[general]
+rtpstart=10000
+rtpend=20000
+
+strictrtp=no
+dtmfmode=auto
+rtcpinterval=5000
+
+; ✅ CRITICAL: ICE Support and External Address Configuration
+icesupport=yes
+stunaddr=stun.l.google.com:19302
+externaddr=13.234.18.2           ; ← Your public IP
+directmedia=no
+bindaddr=0.0.0.0
+
+; ✅ CRITICAL: ICE Host Candidates
+ice_host_candidates=yes
+ice_nomination=aggressive
+
+; DTLS/SRTP Configuration
+dtlsenable=yes
+dtlsverify=no
+dtlssetup=actpass
+srtp_tag_32=yes
+dtlscertfile=/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem
+dtlsprivatekey=/etc/letsencrypt/live/cs.hugamara.com/privkey.pem
+```
+
+**Apply Changes:**
+
+```bash
+# Restart Asterisk to apply RTP configuration
+systemctl restart asterisk
+
+# Or reload RTP module (may not work for all settings)
+asterisk -rx "module reload res_rtp_asterisk"
+
+# Verify external address is set
+asterisk -rx "rtp show settings"
+```
+
+**Verify Fix:**
+
+1. **Make a test outbound call from Electron/Chrome softphone**
+2. **Check browser console for ICE logs:**
+
+   ```
+   [ICE] Connection State: checking
+   [ICE] Performing connectivity checks...
+   [ICE] Connection State: connected        ← Should show "connected"!
+   ✅ ICE connection established successfully!
+   [SIP] 🔊 Audio Level Check 1/6: avg=45.2, max=128  ← Audio data flowing!
+   ```
+
+3. **Enable RTP debug on Asterisk (optional):**
+   ```bash
+   asterisk -rvvv
+   rtp set debug on
+   # Make a call, you should see:
+   # Got RTP packet from 41.77.78.155:XXXXX
+   # Sent RTP packet to 102.214.151.191:XXXXX  ← Your client's public IP
+   rtp set debug off
+   ```
+
+**Why This Works:**
+
+- `externaddr`: Tells Asterisk to use public IP in SDP and ICE candidates
+- `ice_host_candidates=yes`: Enables ICE candidate gathering
+- `ice_nomination=aggressive`: Speeds up ICE connectivity checks
+- `stunaddr`: Allows clients to discover their public IP via STUN
+- Without these settings, Asterisk sends private IPs that clients cannot reach through NAT
+
+**Related Configuration:**
+
+Also ensure your `pjsip.conf` transport has correct NAT settings:
+
+```ini
+[transport-ws]
+type=transport
+protocol=ws
+bind=0.0.0.0:8088
+external_media_address=13.234.18.2
+external_signaling_address=13.234.18.2
+local_net=172.31.0.0/16           ; ← NOT 0.0.0.0/0 (see note below)
+
+[transport-wss]
+type=transport
+protocol=wss
+bind=0.0.0.0:8089
+external_media_address=13.234.18.2
+external_signaling_address=13.234.18.2
+local_net=172.31.0.0/16           ; ✅ CRITICAL: Define only your VPC as local
+```
+
+**⚠️ Important:** Setting `local_net=0.0.0.0/0` tells Asterisk ALL networks are "local", so it never uses external addresses. Change it to your actual private subnet (e.g., `172.31.0.0/16` for AWS VPC).
 
 ## 🛠️ Development
 

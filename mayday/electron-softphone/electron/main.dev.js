@@ -10,6 +10,7 @@ async function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
+      autoplayPolicy: "no-user-gesture-required",
     },
   });
 

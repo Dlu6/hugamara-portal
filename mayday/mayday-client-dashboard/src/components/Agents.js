@@ -20,6 +20,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import { useSnackbar } from "notistack";
+import { flushSync } from "react-dom";
 import {
   Dialog,
   DialogTitle,
@@ -271,7 +272,8 @@ const AgentsComponent = () => {
       }
     );
 
-    setEndingSessions(true);
+    // Force immediate paint so the button shows "Ending..." without waiting for async work
+    flushSync(() => setEndingSessions(true));
 
     try {
       console.log(
@@ -540,6 +542,14 @@ const AgentsComponent = () => {
                       color: "rgba(0, 0, 0, 0.54)",
                     }}
                   >
+                    Default DID
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      color: "rgba(0, 0, 0, 0.54)",
+                    }}
+                  >
                     Active Sessions
                   </TableCell>
                   <TableCell
@@ -578,6 +588,13 @@ const AgentsComponent = () => {
                       <TableCell>{agent.typology || "N/A"}</TableCell>
                       <TableCell>{agent.email}</TableCell>
                       <TableCell>{agent?.extension}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const v = agent?.callerid;
+                          if (!v || v === '"" <>' || v === '""<>') return "-";
+                          return v;
+                        })()}
+                      </TableCell>
                       <TableCell>{sessionCounts[agent.id] || 0}</TableCell>
                       <TableCell>{renderAgentMenu(agent)}</TableCell>
                     </TableRow>

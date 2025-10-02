@@ -341,15 +341,15 @@ const LoginElectron = ({ onLoginSuccess }) => {
         return `wss://cs.hugamara.com/ws`;
       })();
 
-      console.log("🤣🤣🤣🤣🤣🤣SIP config:", {
-        // user,
-        // extension: user.extension,
-        server: user.pjsip.server,
-        // password: user.pjsip.password,
-        ws_servers: user.pjsip.ws_servers,
-        ice_servers: user.pjsip.ice_servers,
-        // ws_servers: wsUrl,
-      });
+      // console.log("🤣🤣🤣🤣🤣🤣SIP config:", {
+      //   // user,
+      //   // extension: user.extension,
+      //   server: user.pjsip.server,
+      //   // password: user.pjsip.password,
+      //   ws_servers: user.pjsip.ws_servers,
+      //   ice_servers: user.pjsip.ice_servers,
+      //   // ws_servers: wsUrl,
+      // });
 
       // console.log("🔥🔥🔥🔥🔥🔥SIP Service config:", tokens);
       await sipService.initialize({
@@ -396,24 +396,32 @@ const LoginElectron = ({ onLoginSuccess }) => {
 
       // Notify backend that agent is online
       try {
-        const response = await fetch(
-          `${
-            process.env.NODE_ENV === "development"
-              ? "http://localhost:8004"
-              : "https://cs.hugamara.com"
-          }/mayday-api/api/users/agent-online`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${tokens.sip}`,
-            },
-            body: JSON.stringify({
-              extension: user.extension,
-              contactUri: `sip:${user.extension}@${user.pjsip.server}`,
-            }),
-          }
-        );
+        // Use remote URL preference if set, otherwise default based on NODE_ENV
+        const useRemote = localStorage.getItem("useRemoteUrl") === "true";
+        const base = useRemote
+          ? "https://cs.hugamara.com"
+          : process.env.NODE_ENV === "development"
+          ? "http://localhost:8004"
+          : "https://cs.hugamara.com";
+
+        // In development, our backend runs without the /mayday-api prefix.
+        const notifyUrl = `${base}${
+          base.includes("localhost")
+            ? "/api/users/agent-online"
+            : "/mayday-api/api/users/agent-online"
+        }`;
+
+        const response = await fetch(notifyUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${tokens.sip}`,
+          },
+          body: JSON.stringify({
+            extension: user.extension,
+            contactUri: `sip:${user.extension}@${user.pjsip.server}`,
+          }),
+        });
 
         if (!response.ok) {
           console.warn(

@@ -1,6 +1,6 @@
 {
   "name": "mayday-appbar",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Softphone Appbar Client",
   "main": "electron/main.js",
   "engines": {

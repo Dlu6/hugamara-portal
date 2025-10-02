@@ -41,7 +41,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { contextsAPI } from "../services/api";
+import { didsAPI } from "../services/api";
 import { useSnackbar } from "notistack";
 import {
   fetchAgentDetailsByExtension,
@@ -60,12 +60,10 @@ const AgentEdit = () => {
   const [currentTab, setCurrentTab] = useState("account");
 
   const [formAgentDetails, setFormAgentDetails] = useState({});
-  const [availableContexts, setAvailableContexts] = useState([
-    { value: "from-internal", label: "from-internal" },
-    { value: "from-sip", label: "from-sip" },
-    { value: "from-voicemail", label: "from-voicemail" },
-    { value: "from-voip-provider", label: "from-voip-provider" },
-  ]);
+  // Context selection is not user-editable anymore; keep fixed default server-side
+  // eslint-disable-next-line no-unused-vars
+  const [availableContexts, setAvailableContexts] = useState([]);
+  const [availableDids, setAvailableDids] = useState([]);
 
   // Password reset state
   const [passwordResetState, setPasswordResetState] = useState({
@@ -88,21 +86,16 @@ const AgentEdit = () => {
     }
   }, [dispatch, agentId]);
 
-  // Load contexts from API
+  // Fetch DID inventory for dropdown
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const { data } = await contextsAPI.list();
+        const { data } = await didsAPI.list();
         if (mounted && data?.success && Array.isArray(data.data)) {
-          const items = data.data
-            .filter((c) => c?.name)
-            .map((c) => ({ value: c.name, label: c.name }));
-          if (items.length > 0) setAvailableContexts(items);
+          setAvailableDids(data.data);
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (_) {}
     })();
     return () => {
       mounted = false;
@@ -125,6 +118,8 @@ const AgentEdit = () => {
 
       setFormAgentDetails({
         ...agentDetails,
+        // normalize caller ID from backend field name to UI
+        callerId: agentDetails.callerid || agentDetails.callerId || "",
         webrtc: agentDetails.ps_endpoint?.webrtc || agentDetails.webrtc,
         // Store transport as a single string, not an array
         transport: transport,
@@ -143,7 +138,7 @@ const AgentEdit = () => {
                 "vp9",
                 "g729",
               ],
-        context: agentDetails.context || "from-internal",
+        // context no longer editable per agent; backend uses default
         // WebRTC defaults
         typology: agentDetails.typology || "webRTC",
         ice_support: agentDetails.ice_support || "yes",
@@ -247,9 +242,11 @@ const AgentEdit = () => {
           typology: formAgentDetails.typology || "webRTC",
           phone: formAgentDetails.phone,
           mobile: formAgentDetails.mobile,
-          context: formAgentDetails.context || "from-internal",
+          // remove per-agent context
           recordingToUserExtension: formAgentDetails.recordingToUserExtension,
           wss_port: formAgentDetails.wss_port || 8089,
+          // Default DID used for no-prefix outbound CLI
+          callerid: formAgentDetails.callerId || undefined,
           // Runtime multi-tenant config surfaced to mobile login payload
           mobileApiBaseUrl: formAgentDetails.mobileApiBaseUrl || undefined,
           sipDomain: formAgentDetails.sipDomain || undefined,
@@ -272,8 +269,9 @@ const AgentEdit = () => {
             ? "yes"
             : "no",
 
-          // Transport configuration - critical fix
+          // Transport & context configuration - critical fix
           transport: formAgentDetails.transport || "transport-ws",
+          // context is not updated per-agent anymore
 
           // Other PJSIP fields
           nat: Array.isArray(formAgentDetails.nat)
@@ -548,6 +546,7 @@ const AgentEdit = () => {
               handleInputChange={handleInputChange}
               handleNatChange={handleNatChange}
               availableContexts={availableContexts}
+              availableDids={availableDids}
             />
           )}
           {currentTab === "otherChannels" && (
@@ -805,6 +804,7 @@ const VoiceTabContent = ({
   handleInputChange,
   handleNatChange,
   availableContexts,
+  availableDids = [],
 }) => {
   // Removed non-working public-config suggestion logic
   const transportOptions = [
@@ -1239,37 +1239,31 @@ const VoiceTabContent = ({
           Allowed Codecs in order of preference
         </FormHelperText>
       </FormControl>
-      {/* CallerId */}
-      <TextField
-        margin="dense"
-        label="Caller ID"
-        type="text"
-        fullWidth
-        name="callerId"
-        variant="standard"
-        value={formAgentDetails.callerId || ""}
-        onChange={handleInputChange}
-      />
-
-      {/* Context */}
+      {/* Default DID dropdown */}
       <FormControl fullWidth margin="dense" variant="standard">
-        <InputLabel htmlFor="context">Context</InputLabel>
-
+        <InputLabel htmlFor="defaultDid">
+          Default DID (no-prefix CLI)
+        </InputLabel>
         <Select
-          labelId="context-agent"
-          id="context-agent"
-          name="context"
-          label="Context"
-          value={formAgentDetails.context || ""}
+          labelId="defaultDid"
+          id="defaultDid"
+          name="callerId"
+          value={formAgentDetails.callerId || ""}
           onChange={handleInputChange}
         >
-          {availableContexts.map((c) => (
-            <MenuItem key={c.value} value={c.value}>
-              {c.label}
+          {availableDids.map((d) => (
+            <MenuItem key={d.did} value={d.did}>
+              {d.label}
             </MenuItem>
           ))}
         </Select>
+        <FormHelperText style={{ fontSize: "9px", fontStyle: "italic" }}>
+          Used when the agent dials a number without a prefix to set caller ID
+        </FormHelperText>
       </FormControl>
+
+      {/* Context */}
+      {/* Context selection removed */}
 
       {/* CallerGroup */}
       <div style={{ marginTop: "3px" }}>
