@@ -802,11 +802,13 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       case 1: // Week
         return {
           totalCalls: stats.weeklyTotalCalls || 0,
-          // FIXED: Calculate answered calls as total - abandoned (backend doesn't provide this)
+          // FIXED: Use backend-provided data
           answeredCalls: Math.max(
             (stats.weeklyTotalCalls || 0) - (stats.weeklyAbandonedCalls || 0),
             0
           ),
+          inboundCalls: stats.weeklyInboundCalls || 0,
+          outboundCalls: stats.weeklyOutboundCalls || 0,
           abandonedCalls: stats.weeklyAbandonedCalls || 0,
           dateFormatted: stats.weekDateFormatted,
           subtitle: "This week",
@@ -822,11 +824,13 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       case 2: // Month
         return {
           totalCalls: stats.monthlyTotalCalls || 0,
-          // FIXED: Calculate answered calls as total - abandoned (backend doesn't provide this)
+          // FIXED: Use backend-provided data
           answeredCalls: Math.max(
             (stats.monthlyTotalCalls || 0) - (stats.monthlyAbandonedCalls || 0),
             0
           ),
+          inboundCalls: stats.monthlyInboundCalls || 0,
+          outboundCalls: stats.monthlyOutboundCalls || 0,
           abandonedCalls: stats.monthlyAbandonedCalls || 0,
           dateFormatted: stats.monthDateFormatted,
           subtitle: "This month",
@@ -896,17 +900,12 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
     return () => {
       mounted = false;
 
-      // CRITICAL: Only disconnect if not during authentication/logout
-      if (shouldAllowDisconnection()) {
-        console.log(
-          "🔌 DashboardView unmounting - disconnecting call monitoring service"
-        );
-        callMonitoringService.disconnect();
-      } else {
-        console.log(
-          "🔐 DashboardView unmounting during authentication/logout - skipping disconnect"
-        );
-      }
+      // CRITICAL: Do NOT disconnect services on unmount
+      // The connection manager handles reconnection globally
+      // Disconnecting here causes SIP reconnection errors when switching tabs
+      console.log(
+        "🔌 DashboardView unmounting - keeping services connected (managed by connection manager)"
+      );
     };
   }, [fetchInitialStats]);
 
@@ -1343,17 +1342,12 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
 
     return () => {
       clearTimeout(timer);
-      if (socketInstance) {
-        // CRITICAL: Only disconnect if not during authentication/logout
-        if (shouldAllowDisconnection() && !window.apiCallsBlocked) {
-          console.log("🔌 DashboardView socket cleanup - disconnecting socket");
-          socketInstance.disconnect();
-        } else {
-          console.log(
-            "🔐 DashboardView socket cleanup during authentication/logout - skipping disconnect"
-          );
-        }
-      }
+      // CRITICAL: Do NOT disconnect sockets on unmount
+      // The connection manager handles all socket lifecycle globally
+      // Disconnecting here causes unnecessary reconnection attempts
+      console.log(
+        "🔌 DashboardView socket cleanup - keeping socket connected (managed globally)"
+      );
     };
   }, []);
 

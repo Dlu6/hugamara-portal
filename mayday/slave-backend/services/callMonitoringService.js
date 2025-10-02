@@ -205,6 +205,68 @@ const getMonthlyTotalCallsCount = async () => {
   }
 };
 
+// Get inbound calls count (where call came from external source)
+const getInboundCallsCount = async (startDate) => {
+  try {
+    // Inbound calls are those coming from external contexts or external numbers
+    const count = await CDR.count({
+      distinct: true,
+      col: "uniqueid",
+      where: {
+        start: {
+          [Op.gte]: startDate,
+        },
+        [Op.or]: [
+          { dcontext: "from-voip-provider" },
+          { dcontext: "from-trunk" },
+          { dcontext: "from-sip" },
+        ],
+      },
+    });
+
+    // DEBUG: Log inbound count
+    if (count === 0) {
+      log.debug(
+        `[DEBUG] Inbound query returned 0 calls for contexts: from-voip-provider, from-trunk, from-sip`
+      );
+    }
+
+    return count;
+  } catch (error) {
+    log.error("Error getting inbound calls count:", error);
+    return 0;
+  }
+};
+
+// Get outbound calls count (where call originated from internal extension)
+const getOutboundCallsCount = async (startDate) => {
+  try {
+    // Outbound calls typically have internal context
+    const count = await CDR.count({
+      distinct: true,
+      col: "uniqueid",
+      where: {
+        start: {
+          [Op.gte]: startDate,
+        },
+        [Op.or]: [{ dcontext: "from-internal" }, { dcontext: "outbound" }],
+      },
+    });
+
+    // DEBUG: Log outbound count
+    if (count === 0) {
+      log.debug(
+        `[DEBUG] Outbound query returned 0 calls for contexts: from-internal, outbound`
+      );
+    }
+
+    return count;
+  } catch (error) {
+    log.error("Error getting outbound calls count:", error);
+    return 0;
+  }
+};
+
 // Get abandoned calls count from CDR table
 const getAbandonedCallsCount = async () => {
   try {
@@ -370,6 +432,67 @@ const broadcastStats = async () => {
     const weekStart = startOfWeek < startOfMonth ? startOfMonth : startOfWeek;
     const endOfWeek = new Date(now); // End is today, not Sunday + 6 days
 
+    // Get today's midnight for inbound/outbound counts
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // PERFORMANCE: Parallelize all database queries for faster response
+    const [
+      totalCalls,
+      abandonedCalls,
+      inboundCalls,
+      outboundCalls,
+      weeklyInboundCalls,
+      weeklyOutboundCalls,
+      monthlyInboundCalls,
+      monthlyOutboundCalls,
+    ] = await Promise.all([
+      getTotalCallsCount(),
+      getAbandonedCallsCount(),
+      getInboundCallsCount(todayMidnight),
+      getOutboundCallsCount(todayMidnight),
+      getInboundCallsCount(weekStart),
+      getOutboundCallsCount(weekStart),
+      getInboundCallsCount(startOfMonth),
+      getOutboundCallsCount(startOfMonth),
+    ]);
+
+    // Calculate answered calls (total - abandoned)
+    const answeredCalls = Math.max(totalCalls - abandonedCalls, 0);
+
+    // DEBUG: Log inbound/outbound counts for troubleshooting
+    if (inboundCalls === 0 && outboundCalls === 0 && totalCalls > 0) {
+      log.warn(
+        `⚠️ [DEBUG] No inbound/outbound calls detected despite ${totalCalls} total calls. ` +
+          `This might indicate CDR context mismatch. Checking sample CDR records...`
+      );
+
+      // Sample a few CDR records to see what contexts are actually being used
+      try {
+        const sampleRecords = await CDR.findAll({
+          attributes: ["dcontext", "src", "dst"],
+          where: {
+            start: { [Op.gte]: todayMidnight },
+          },
+          limit: 5,
+          raw: true,
+        });
+
+        if (sampleRecords.length > 0) {
+          log.info(
+            "[DEBUG] Sample CDR contexts:",
+            sampleRecords.map((r) => ({
+              context: r.dcontext,
+              src: r.src,
+              dst: r.dst,
+            }))
+          );
+        }
+      } catch (err) {
+        log.error("[DEBUG] Error sampling CDR records:", err);
+      }
+    }
+
     const stats = {
       timestamp: now.toISOString(),
       todayDate: new Date().setHours(0, 0, 0, 0),
@@ -379,12 +502,19 @@ const broadcastStats = async () => {
       monthEndDate: endOfMonth.getTime(),
       activeCalls: activeCallsMap.size,
       activeCallsList: activeCallsList,
-      totalCalls: await getTotalCallsCount(),
-      abandonedCalls: await getAbandonedCallsCount(),
+      totalCalls: totalCalls,
+      answeredCalls: answeredCalls,
+      abandonedCalls: abandonedCalls,
+      inboundCalls: inboundCalls,
+      outboundCalls: outboundCalls,
       weeklyTotalCalls: weeklyTotalCalls,
       weeklyAbandonedCalls: weeklyAbandonedCalls,
+      weeklyInboundCalls: weeklyInboundCalls,
+      weeklyOutboundCalls: weeklyOutboundCalls,
       monthlyTotalCalls: monthlyTotalCalls,
       monthlyAbandonedCalls: monthlyAbandonedCalls,
+      monthlyInboundCalls: monthlyInboundCalls,
+      monthlyOutboundCalls: monthlyOutboundCalls,
       queueStatus: queueStatusList,
       activeAgents: activeAgentsCount,
       activeAgentsList: allAgentsList,

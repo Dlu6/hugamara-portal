@@ -465,6 +465,123 @@ Provider requirements:
 - Ensure trunk has `send_pai=yes` and `send_rpid=yes` so the asserted CLI is honored.
 - Provider must allow the DID you present as CLI.
 
+## 🔊 Troubleshooting WebRTC Audio (Electron/Chrome Softphone)
+
+### Issue: No Ringback Tone on Outbound Calls
+
+**Symptoms:**
+
+- Outbound calls connect successfully
+- Call audio works once answered
+- **No ringback tone** (silence) while call is ringing
+- Asterisk RTP debug shows packets being sent to client
+- Browser/Electron logs show "Provider stream is SILENT"
+
+**Root Cause:**
+
+Asterisk was sending its **private IP address** (`172.31.x.x`) in ICE candidates instead of the **public IP**, preventing WebRTC clients from receiving RTP packets (early media/ringback) through NAT.
+
+**Solution: Configure RTP External Address**
+
+Edit `/etc/asterisk/rtp.conf` to include proper NAT traversal settings:
+
+```ini
+[general]
+rtpstart=10000
+rtpend=20000
+
+strictrtp=no
+dtmfmode=auto
+rtcpinterval=5000
+
+; ✅ CRITICAL: ICE Support and External Address Configuration
+icesupport=yes
+stunaddr=stun.l.google.com:19302
+externaddr=13.234.18.2           ; ← Your public IP
+directmedia=no
+bindaddr=0.0.0.0
+
+; ✅ CRITICAL: ICE Host Candidates
+ice_host_candidates=yes
+ice_nomination=aggressive
+
+; DTLS/SRTP Configuration
+dtlsenable=yes
+dtlsverify=no
+dtlssetup=actpass
+srtp_tag_32=yes
+dtlscertfile=/etc/letsencrypt/live/cs.hugamara.com/fullchain.pem
+dtlsprivatekey=/etc/letsencrypt/live/cs.hugamara.com/privkey.pem
+```
+
+**Apply Changes:**
+
+```bash
+# Restart Asterisk to apply RTP configuration
+systemctl restart asterisk
+
+# Or reload RTP module (may not work for all settings)
+asterisk -rx "module reload res_rtp_asterisk"
+
+# Verify external address is set
+asterisk -rx "rtp show settings"
+```
+
+**Verify Fix:**
+
+1. **Make a test outbound call from Electron/Chrome softphone**
+2. **Check browser console for ICE logs:**
+
+   ```
+   [ICE] Connection State: checking
+   [ICE] Performing connectivity checks...
+   [ICE] Connection State: connected        ← Should show "connected"!
+   ✅ ICE connection established successfully!
+   [SIP] 🔊 Audio Level Check 1/6: avg=45.2, max=128  ← Audio data flowing!
+   ```
+
+3. **Enable RTP debug on Asterisk (optional):**
+   ```bash
+   asterisk -rvvv
+   rtp set debug on
+   # Make a call, you should see:
+   # Got RTP packet from 41.77.78.155:XXXXX
+   # Sent RTP packet to 102.214.151.191:XXXXX  ← Your client's public IP
+   rtp set debug off
+   ```
+
+**Why This Works:**
+
+- `externaddr`: Tells Asterisk to use public IP in SDP and ICE candidates
+- `ice_host_candidates=yes`: Enables ICE candidate gathering
+- `ice_nomination=aggressive`: Speeds up ICE connectivity checks
+- `stunaddr`: Allows clients to discover their public IP via STUN
+- Without these settings, Asterisk sends private IPs that clients cannot reach through NAT
+
+**Related Configuration:**
+
+Also ensure your `pjsip.conf` transport has correct NAT settings:
+
+```ini
+[transport-ws]
+type=transport
+protocol=ws
+bind=0.0.0.0:8088
+external_media_address=13.234.18.2
+external_signaling_address=13.234.18.2
+local_net=172.31.0.0/16           ; ← NOT 0.0.0.0/0 (see note below)
+
+[transport-wss]
+type=transport
+protocol=wss
+bind=0.0.0.0:8089
+external_media_address=13.234.18.2
+external_signaling_address=13.234.18.2
+local_net=172.31.0.0/16           ; ✅ CRITICAL: Define only your VPC as local
+```
+
+**⚠️ Important:** Setting `local_net=0.0.0.0/0` tells Asterisk ALL networks are "local", so it never uses external addresses. Change it to your actual private subnet (e.g., `172.31.0.0/16` for AWS VPC).
+
 ## 🛠️ Development
 
 ### Available Scripts

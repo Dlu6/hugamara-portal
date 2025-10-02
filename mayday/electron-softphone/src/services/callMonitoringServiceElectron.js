@@ -53,6 +53,9 @@ const defaultStats = {
   activeCalls: 0,
   abandonedCalls: 0,
   totalCalls: 0,
+  answeredCalls: 0,
+  inboundCalls: 0,
+  outboundCalls: 0,
   avgCallDuration: "0:00",
   activeAgents: 0,
   queuedCalls: 0,
@@ -75,8 +78,12 @@ const defaultStats = {
   // Weekly and monthly stats
   weeklyTotalCalls: 0,
   weeklyAbandonedCalls: 0,
+  weeklyInboundCalls: 0,
+  weeklyOutboundCalls: 0,
   monthlyTotalCalls: 0,
   monthlyAbandonedCalls: 0,
+  monthlyInboundCalls: 0,
+  monthlyOutboundCalls: 0,
 };
 
 // Format date helper functions
