@@ -1152,9 +1152,11 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
                 }
 
                 // Use the getCallCountsByExtension function to get comprehensive call stats
+                // Pass both startDate and endDate to get only today's calls
                 const response =
                   await callHistoryService.getCallCountsByExtension(
                     ext,
+                    todayStr,
                     todayStr
                   );
 

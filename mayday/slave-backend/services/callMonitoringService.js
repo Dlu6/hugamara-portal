@@ -224,13 +224,6 @@ const getInboundCallsCount = async (startDate) => {
       },
     });
 
-    // DEBUG: Log inbound count
-    if (count === 0) {
-      log.debug(
-        `[DEBUG] Inbound query returned 0 calls for contexts: from-voip-provider, from-trunk, from-sip`
-      );
-    }
-
     return count;
   } catch (error) {
     log.error("Error getting inbound calls count:", error);
@@ -252,13 +245,6 @@ const getOutboundCallsCount = async (startDate) => {
         [Op.or]: [{ dcontext: "from-internal" }, { dcontext: "outbound" }],
       },
     });
-
-    // DEBUG: Log outbound count
-    if (count === 0) {
-      log.debug(
-        `[DEBUG] Outbound query returned 0 calls for contexts: from-internal, outbound`
-      );
-    }
 
     return count;
   } catch (error) {
@@ -459,39 +445,6 @@ const broadcastStats = async () => {
 
     // Calculate answered calls (total - abandoned)
     const answeredCalls = Math.max(totalCalls - abandonedCalls, 0);
-
-    // DEBUG: Log inbound/outbound counts for troubleshooting
-    if (inboundCalls === 0 && outboundCalls === 0 && totalCalls > 0) {
-      log.warn(
-        `⚠️ [DEBUG] No inbound/outbound calls detected despite ${totalCalls} total calls. ` +
-          `This might indicate CDR context mismatch. Checking sample CDR records...`
-      );
-
-      // Sample a few CDR records to see what contexts are actually being used
-      try {
-        const sampleRecords = await CDR.findAll({
-          attributes: ["dcontext", "src", "dst"],
-          where: {
-            start: { [Op.gte]: todayMidnight },
-          },
-          limit: 5,
-          raw: true,
-        });
-
-        if (sampleRecords.length > 0) {
-          log.info(
-            "[DEBUG] Sample CDR contexts:",
-            sampleRecords.map((r) => ({
-              context: r.dcontext,
-              src: r.src,
-              dst: r.dst,
-            }))
-          );
-        }
-      } catch (err) {
-        log.error("[DEBUG] Error sampling CDR records:", err);
-      }
-    }
 
     const stats = {
       timestamp: now.toISOString(),
