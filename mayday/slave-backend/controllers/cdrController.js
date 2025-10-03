@@ -276,7 +276,19 @@ export const formatCdrRecord = (record, extension) => {
     type,
     status,
     duration: durationFormatted,
-    timestamp: record.start || record.calldate || new Date(),
+    timestamp: (() => {
+      const timestamp =
+        record.start || record.calldate || record.end || new Date();
+      // If it's a Date object from the database, it's already in EAT timezone
+      // We need to ensure it's treated as EAT when converting to ISO
+      if (timestamp instanceof Date) {
+        // Create a new date object and adjust for timezone
+        const eatOffset = 3 * 60; // EAT is UTC+3
+        const utcTime = timestamp.getTime() - eatOffset * 60 * 1000;
+        return new Date(utcTime).toISOString();
+      }
+      return new Date(timestamp).toISOString();
+    })(),
     // Additional fields for enhanced call history
     codec: codec,
     transferInfo: transferInfo,
@@ -612,7 +624,19 @@ export const getCallHistoryWithRealNumbers = async (req, res) => {
         name: null, // We don't have contact names in this system
         type: type,
         status: status,
-        timestamp: record.start,
+        timestamp: (() => {
+          const timestamp =
+            record.start || record.calldate || record.end || new Date();
+          // If it's a Date object from the database, it's already in EAT timezone
+          // We need to ensure it's treated as EAT when converting to ISO
+          if (timestamp instanceof Date) {
+            // Create a new date object and adjust for timezone
+            const eatOffset = 3 * 60; // EAT is UTC+3
+            const utcTime = timestamp.getTime() - eatOffset * 60 * 1000;
+            return new Date(utcTime).toISOString();
+          }
+          return new Date(timestamp).toISOString();
+        })(),
         duration: durationFormatted,
         billsec: record.billsec,
         extractedFrom: extractedFrom,

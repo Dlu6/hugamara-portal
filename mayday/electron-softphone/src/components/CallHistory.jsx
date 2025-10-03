@@ -296,14 +296,52 @@ const CallHistory = ({ open, onClose, onCallNumber }) => {
   };
 
   const formatTimestamp = (timestamp) => {
-    const callTime = moment(timestamp);
+    // Handle invalid or null timestamps
+    if (!timestamp || timestamp === "Invalid Date" || timestamp === "null") {
+      return "Unknown time";
+    }
 
-    return callTime.calendar(null, {
+    // Debug logging to understand what we're receiving
+    // console.log("Raw timestamp received:", timestamp, typeof timestamp);
+
+    // Parse the timestamp and ensure it's valid
+    let callTime = moment(timestamp);
+
+    // console.log(
+    //   "Moment parsed timestamp:",
+    //   callTime.format(),
+    //   "Valid:",
+    //   callTime.isValid()
+    // );
+
+    // If the timestamp is invalid, try to parse it as ISO string
+    if (!callTime.isValid()) {
+      callTime = moment(new Date(timestamp));
+      // console.log(
+      //   "Fallback moment timestamp:",
+      //   callTime.format(),
+      //   "Valid:",
+      //   callTime.isValid()
+      // );
+      if (!callTime.isValid()) {
+        return "Invalid time";
+      }
+    }
+
+    // Ensure we're working with a valid moment object
+    if (!callTime.isValid()) {
+      return "Invalid time";
+    }
+
+    const formatted = callTime.calendar(null, {
       sameDay: "[Today at] LT",
       lastDay: "[Yesterday at] LT",
       lastWeek: "dddd [at] LT",
       sameElse: "MM/DD/YYYY LT",
     });
+
+    // console.log("Final formatted timestamp:", formatted);
+    return formatted;
   };
 
   // Filter calls based on active tab and search query

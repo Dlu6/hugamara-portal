@@ -1779,6 +1779,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       }
       isCollapsed={isCollapsed}
       headerColor="#08403E"
+      hideCloseButton={true}
     >
       {/* Wrap the entire content in a scrollable container that prevents event propagation */}
       <Box
