@@ -301,20 +301,22 @@ const SessionRecoveryStatus = ({ recoveryManager, onForceRecovery }) => {
             </Typography>
 
             <List dense>
-              {Object.entries(status.healthStatus).map(([service, healthy]) => (
-                <ListItem key={service}>
-                  <ListItemIcon>{getServiceIcon(service)}</ListItemIcon>
-                  <ListItemText
-                    primary={getServiceLabel(service)}
-                    secondary={healthy ? "Connected" : "Disconnected"}
-                  />
-                  {healthy ? (
-                    <CheckIcon color="success" />
-                  ) : (
-                    <ErrorIcon color="error" />
-                  )}
-                </ListItem>
-              ))}
+              {Object.entries(status.healthStatus)
+                .filter(([service]) => service !== "agent")
+                .map(([service, healthy]) => (
+                  <ListItem key={service}>
+                    <ListItemIcon>{getServiceIcon(service)}</ListItemIcon>
+                    <ListItemText
+                      primary={getServiceLabel(service)}
+                      secondary={healthy ? "Connected" : "Disconnected"}
+                    />
+                    {healthy ? (
+                      <CheckIcon color="success" />
+                    ) : (
+                      <ErrorIcon color="error" />
+                    )}
+                  </ListItem>
+                ))}
             </List>
 
             {/* Force Recovery Button */}
