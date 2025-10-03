@@ -264,6 +264,8 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
   const [transferType, setTransferType] = useState("blind"); // blind, attended
   const [isAttendedTransfer, setIsAttendedTransfer] = useState(false);
   const [consultationCall, setConsultationCall] = useState(null);
+  // Keep last dialed number for UI during ringing after inputs are cleared
+  const [lastDialedNumber, setLastDialedNumber] = useState("");
 
   // Add refs for cleanup
   const transferTimeoutRef = useRef(null);
@@ -1511,6 +1513,9 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
         numberToCall
       );
 
+      // Store for display while ringing
+      setLastDialedNumber(numberToCall);
+
       await sipCallService.makeCall(numberToCall, {
         mediaConstraints: {
           audio: {
@@ -1540,6 +1545,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
   const handleEndCall = guardedAsync(async () => {
     try {
       await endCall();
+      setLastDialedNumber("");
     } catch (error) {
       setCallFeedback(`Failed to end call: ${error.message}`);
       setTimeout(() => setCallFeedback(null), 3000);
@@ -4314,13 +4320,31 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
                   px: 1,
                   mr: 2,
                   minHeight: "32px",
-                  maxWidth: "300px",
+                  // Allow more room while ringing to show destination details
+                  maxWidth: callState.state === "ringing" ? "520px" : "300px",
                 }}
               >
                 {callState.state !== "idle" ? (
                   <>
-                    <Typography variant="body2">
-                      {callState.remoteIdentity}
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "100%",
+                      }}
+                    >
+                      {/* Prefer explicit destination when ringing */}
+                      {callState.state === "ringing" &&
+                      callState.direction !== "inbound"
+                        ? `${
+                            lastDialedNumber ||
+                            dialerState.phoneNumber ||
+                            callState.remoteIdentity ||
+                            "Outgoing call"
+                          }`
+                        : callState.remoteIdentity}
                       {callState.state === "ringing" && (
                         <Typography
                           component="span"
@@ -4329,7 +4353,7 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
                         >
                           {callState.direction === "inbound"
                             ? "Incoming..."
-                            : "Ringing..."}
+                            : `Ringing...`}
                         </Typography>
                       )}
                     </Typography>

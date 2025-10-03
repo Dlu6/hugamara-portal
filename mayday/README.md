@@ -467,6 +467,248 @@ Provider requirements:
 
 ## 🔊 Troubleshooting WebRTC Audio (Electron/Chrome Softphone)
 
+### Issue: One-Way Audio in Electron Softphone
+
+**Symptoms:**
+
+- **Electron app**: You can hear the remote party, but they can't hear you
+- **Chrome extension**: Audio works perfectly both ways
+- Calls connect successfully but audio is unidirectional
+- Console shows track events but audio doesn't play
+
+**Root Cause:**
+
+The Electron app's `sipService.js` was missing critical audio handling mechanisms that the Chrome extension had. Key differences:
+
+1. **Track Event Handling**: Incomplete track event processing
+2. **MediaStream Creation**: Not creating streams from track events properly
+3. **Audio Element Management**: Missing proper audio element setup and configuration
+4. **ICE Connection Recovery**: No audio stream recovery when ICE connection completes
+5. **Autoplay Error Handling**: Missing user interaction fallback for autoplay restrictions
+
+**Solution: Enhanced Audio Handling in Electron App**
+
+The following fixes were implemented in `mayday/electron-softphone/src/services/sipService.js`:
+
+#### 1. Enhanced Track Event Handling
+
+```javascript
+// In setupCallSession(session) - existing sessionDescriptionHandler check
+pc.addEventListener("track", async (event) => {
+  console.log("🎵 Received track event (existing handler):", {
+    kind: event.track.kind,
+    id: event.track.id,
+    readyState: event.track.readyState,
+    enabled: event.track.enabled,
+    muted: event.track.muted,
+    streamCount: event.streams?.length || 0,
+  });
+
+  if (event.track.kind === "audio") {
+    state.eventEmitter.emit("track:added", event);
+    try {
+      console.log("🔊 Setting up incoming audio track (existing handler)");
+      await handleAudioTrack(event);
+    } catch (error) {
+      console.error("❌ Error handling audio track (existing handler):", error);
+    }
+  }
+});
+```
+
+#### 2. Improved MediaStream Creation
+
+```javascript
+async function handleAudioTrack(event) {
+  // Create stream from track event - similar to chrome extension
+  let stream;
+  if (event.streams && event.streams.length > 0) {
+    stream = event.streams[0];
+    console.log("🎵 Using stream from track event");
+  } else {
+    console.log("🎵 Creating new stream from track");
+    stream = new MediaStream([event.track]);
+  }
+
+  // Ensure audio element exists and is properly configured
+  if (!state.audioElement) {
+    state.audioElement = document.createElement("audio");
+    state.audioElement.id = "sipjs-remote-audio";
+    state.audioElement.autoplay = true;
+    state.audioElement.controls = false;
+    state.audioElement.style.display = "none";
+    state.audioElement.volume = 0.8; // Set reasonable volume like chrome extension
+    state.audioElement.preload = "auto";
+    document.body.appendChild(state.audioElement);
+  }
+
+  // Force proper audio settings
+  state.audioElement.muted = false;
+  state.audioElement.volume = 0.8;
+
+  // Set the stream
+  if (state.audioElement.srcObject !== stream) {
+    state.audioElement.srcObject = stream;
+  } else {
+    // Make sure all tracks are enabled
+    stream.getTracks().forEach((track) => {
+      track.enabled = true;
+    });
+  }
+
+  // Play with autoplay error handling
+  const playPromise = state.audioElement.play();
+  if (playPromise !== undefined) {
+    playPromise
+      .then(() => {
+        console.log("✅ Remote audio playback started successfully");
+        setupAudioMonitoring(stream);
+      })
+      .catch((error) => {
+        console.error("❌ Remote audio autoplay blocked:", error.message);
+
+        // Handle autoplay restrictions like chrome extension
+        if (error.name === "NotAllowedError") {
+          // Create visible notification for user to enable audio
+          const notification = document.createElement("div");
+          notification.id = "audio-enable-notification";
+          notification.innerHTML = `
+            <div style="
+              position: fixed; top: 50px; right: 20px;
+              background: #007bff; color: white; padding: 15px 20px;
+              border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+              z-index: 10000; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+              font-size: 14px; cursor: pointer; max-width: 300px;
+            ">
+              🔊 Click here to enable call audio
+              <div style="font-size: 11px; opacity: 0.9; margin-top: 5px;">
+                Browser blocked audio - click to activate
+              </div>
+            </div>
+          `;
+
+          const enableAudio = () => {
+            state.audioElement
+              .play()
+              .then(() => {
+                console.log("✅ Audio enabled after user interaction");
+                notification.remove();
+              })
+              .catch((err) => {
+                console.error("❌ Still failed to enable audio:", err);
+              });
+          };
+
+          notification.addEventListener("click", enableAudio);
+          document.body.appendChild(notification);
+
+          // Auto-remove notification after 10 seconds
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.remove();
+            }
+          }, 10000);
+        }
+      });
+  }
+}
+```
+
+#### 3. ICE Connection State Audio Recovery
+
+```javascript
+// In setupCallSession(session) - ICE connection state change handler
+pc.addEventListener("iceconnectionstatechange", () => {
+  console.log("🧊 ICE connection state changed:", pc.iceConnectionState);
+
+  if (
+    pc.iceConnectionState === "connected" ||
+    pc.iceConnectionState === "completed"
+  ) {
+    console.log("🧊 ICE connected - checking for audio streams");
+
+    // Check for remote streams
+    const remoteStreams = pc.getRemoteStreams();
+    console.log("🧊 Remote streams found:", remoteStreams.length);
+
+    if (remoteStreams.length > 0) {
+      const audioStream = remoteStreams.find(
+        (stream) => stream.getAudioTracks().length > 0
+      );
+
+      if (audioStream) {
+        console.log("🧊 Found audio stream, setting up playback");
+        playRemoteAudio(audioStream);
+      }
+    } else {
+      // Fallback: create stream from receivers
+      console.log("🧊 No remote streams, checking receivers");
+      const receivers = pc.getReceivers();
+      const audioReceivers = receivers.filter(
+        (r) =>
+          r.track && r.track.kind === "audio" && r.track.readyState === "live"
+      );
+
+      if (audioReceivers.length > 0) {
+        console.log("🧊 Found audio receivers, creating stream");
+        const stream = new MediaStream(audioReceivers.map((r) => r.track));
+        playRemoteAudio(stream);
+      }
+    }
+  }
+});
+```
+
+#### 4. Dedicated Audio Playback Function
+
+```javascript
+function playRemoteAudio(stream) {
+  console.log("🎵 Setting up remote audio playback");
+
+  try {
+    // Find or create audio element
+    let audioElement = document.getElementById("sipjs-remote-audio");
+
+    if (!audioElement) {
+      audioElement = document.createElement("audio");
+      audioElement.id = "sipjs-remote-audio";
+      audioElement.autoplay = true;
+      audioElement.controls = false;
+      audioElement.style.display = "none";
+      audioElement.volume = 0.8;
+      audioElement.preload = "auto";
+      document.body.appendChild(audioElement);
+    }
+
+    if (audioElement.srcObject !== stream) {
+      audioElement.srcObject = stream;
+
+      // Force audio element to load and play
+      const playPromise = audioElement.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log("✅ Remote audio playback started successfully");
+          })
+          .catch((error) => {
+            console.error("❌ Remote audio autoplay blocked:", error.message);
+          });
+      }
+    }
+
+    // Monitor audio tracks
+    const audioTracks = stream.getAudioTracks();
+    audioTracks.forEach((track, index) => {
+      track.onended = () => console.log(`🎵 Audio track ${index} ended`);
+      track.onmute = () => console.log(`🔇 Audio track ${index} muted`);
+      track.onunmute = () => console.log(`🔊 Audio track ${index} unmuted`);
+    });
+  } catch (error) {
+    console.error("❌ Error setting up remote audio:", error);
+  }
+}
+```
+
 ### Issue: No Ringback Tone on Outbound Calls
 
 **Symptoms:**
@@ -581,6 +823,33 @@ local_net=172.31.0.0/16           ; ✅ CRITICAL: Define only your VPC as local
 ```
 
 **⚠️ Important:** Setting `local_net=0.0.0.0/0` tells Asterisk ALL networks are "local", so it never uses external addresses. Change it to your actual private subnet (e.g., `172.31.0.0/16` for AWS VPC).
+
+### Audio Troubleshooting Checklist
+
+**For One-Way Audio Issues:**
+
+1. **Check Console Logs**: Look for `🎵`, `🔊`, `🧊` emoji logs in browser console
+2. **Verify Track Events**: Ensure `track` events are being received
+3. **Check Audio Element**: Verify `#sipjs-remote-audio` element exists and has `srcObject`
+4. **Test Autoplay**: Look for "NotAllowedError" and click the notification if it appears
+5. **ICE Connection**: Ensure ICE connection reaches "connected" state
+
+**For No Ringback Tone:**
+
+1. **Check Asterisk RTP Config**: Verify `externaddr` is set to public IP
+2. **Verify ICE Settings**: Ensure `ice_host_candidates=yes` and `ice_nomination=aggressive`
+3. **Check Transport Config**: Verify `external_media_address` in `pjsip.conf`
+4. **Test with RTP Debug**: Enable RTP debugging to see packet flow
+
+**Common Audio Issues & Solutions:**
+
+| Issue                | Symptoms                           | Solution                                            |
+| -------------------- | ---------------------------------- | --------------------------------------------------- |
+| **One-way audio**    | Can hear them, they can't hear you | Check track event handling and MediaStream creation |
+| **No ringback**      | Silence during call ringing        | Configure Asterisk `externaddr` and ICE settings    |
+| **Autoplay blocked** | Audio doesn't start automatically  | Click the notification or enable audio manually     |
+| **No audio at all**  | Complete silence                   | Check ICE connection state and audio element setup  |
+| **Audio cuts out**   | Audio starts then stops            | Check track state monitoring and error handling     |
 
 ## 🛠️ Development
 
