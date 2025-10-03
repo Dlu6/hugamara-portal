@@ -854,25 +854,77 @@ function setupCallSession(session) {
       if (sessionDescriptionHandler.peerConnection) {
         const pc = sessionDescriptionHandler.peerConnection;
 
-        // Set up track handling
+        // Set up track handling - CRITICAL for incoming audio
         pc.addEventListener("track", async (event) => {
+          console.log("🎵 Received track event:", {
+            kind: event.track.kind,
+            id: event.track.id,
+            readyState: event.track.readyState,
+            enabled: event.track.enabled,
+            muted: event.track.muted,
+            streamCount: event.streams?.length || 0,
+          });
+
           if (event.track.kind === "audio") {
             // Emit track added event
             state.eventEmitter.emit("track:added", event);
 
             try {
-              console.log("Audio track received, setting up audio stream");
+              console.log("🔊 Setting up incoming audio track");
               await handleAudioTrack(event);
             } catch (error) {
-              console.error("Error handling audio track:", error);
+              console.error("❌ Error handling audio track:", error);
             }
           }
         });
 
         // Monitor ICE connection state
         pc.addEventListener("iceconnectionstatechange", () => {
-          console.log("ICE Connection State:", pc.iceConnectionState);
-          console.log("ICE Gathering State:", pc.iceGatheringState);
+          console.log("🧊 ICE Connection State:", pc.iceConnectionState);
+          console.log("🧊 ICE Gathering State:", pc.iceGatheringState);
+
+          // When ICE is connected, check for streams again (like chrome extension)
+          if (
+            pc.iceConnectionState === "connected" ||
+            pc.iceConnectionState === "completed"
+          ) {
+            console.log("🧊 ICE connected - checking for audio streams");
+
+            // Check for remote streams
+            const remoteStreams = pc.getRemoteStreams
+              ? pc.getRemoteStreams()
+              : [];
+            if (remoteStreams.length > 0) {
+              console.log("🧊 Found remote streams after ICE connection");
+              remoteStreams.forEach((stream, index) => {
+                const audioTracks = stream.getAudioTracks();
+                if (audioTracks.length > 0) {
+                  console.log(`🧊 Playing audio from remote stream ${index}`);
+                  playRemoteAudio(stream);
+                }
+              });
+            }
+
+            // Also check receivers
+            const receivers = pc.getReceivers();
+            const audioReceivers = receivers.filter(
+              (r) =>
+                r.track &&
+                r.track.kind === "audio" &&
+                r.track.readyState === "live"
+            );
+
+            if (audioReceivers.length > 0 && remoteStreams.length === 0) {
+              console.log(
+                `🧊 Creating stream from ${audioReceivers.length} audio receivers`
+              );
+              const stream = new MediaStream();
+              audioReceivers.forEach((receiver) => {
+                stream.addTrack(receiver.track);
+              });
+              playRemoteAudio(stream);
+            }
+          }
 
           if (pc.iceConnectionState === "failed") {
             console.error(
@@ -1066,17 +1118,29 @@ function setupCallSession(session) {
   if (session.sessionDescriptionHandler?.peerConnection) {
     const pc = session.sessionDescriptionHandler.peerConnection;
 
-    // Set up track handling
+    // Set up track handling - CRITICAL for incoming audio
     pc.addEventListener("track", async (event) => {
+      console.log("🎵 Received track event (existing handler):", {
+        kind: event.track.kind,
+        id: event.track.id,
+        readyState: event.track.readyState,
+        enabled: event.track.enabled,
+        muted: event.track.muted,
+        streamCount: event.streams?.length || 0,
+      });
+
       if (event.track.kind === "audio") {
         // Emit track added event
         state.eventEmitter.emit("track:added", event);
 
         try {
-          console.log("Audio track received, setting up audio stream");
+          console.log("🔊 Setting up incoming audio track (existing handler)");
           await handleAudioTrack(event);
         } catch (error) {
-          console.error("Error handling audio track:", error);
+          console.error(
+            "❌ Error handling audio track (existing handler):",
+            error
+          );
         }
       }
     });
@@ -2614,71 +2678,211 @@ const emitCallEvent = (eventType, callData) => {
 };
 
 async function handleAudioTrack(event) {
-  console.log("Audio Element readiness:", {
-    muted: state.audioElement.muted,
-    volume: state.audioElement.volume,
-    hasStream: !!state.audioElement.srcObject,
-    streamTracks: state.audioElement.srcObject?.getTracks().length || 0,
-    autoplay: state.audioElement.autoplay,
-  });
+  // console.log("🎵 Audio Element readiness:", {
+  //   muted: state.audioElement.muted,
+  //   volume: state.audioElement.volume,
+  //   hasStream: !!state.audioElement.srcObject,
+  //   streamTracks: state.audioElement.srcObject?.getTracks().length || 0,
+  //   autoplay: state.audioElement.autoplay,
+  // });
 
-  if (!event.streams || event.streams.length === 0) {
-    console.warn("No streams available in track event, creating new stream");
-    const newStream = new MediaStream();
-    newStream.addTrack(event.track);
-    event.streams = [newStream];
+  // Create stream from track event - similar to chrome extension
+  let stream;
+  if (event.streams && event.streams.length > 0) {
+    stream = event.streams[0];
+    console.log("🎵 Using stream from track event");
+  } else {
+    console.log("🎵 Creating new stream from track");
+    stream = new MediaStream([event.track]);
   }
 
-  const stream = event.streams[0];
   console.log(
-    "Setting up audio with stream tracks:",
+    "🎵 Setting up audio with stream tracks:",
     stream.getTracks().length
   );
 
-  if (state.audioElement) {
-    // Force muted to false first
-    state.audioElement.muted = false;
-    state.audioElement.volume = 1.0; // Set volume to 100%
+  // Ensure audio element exists and is properly configured
+  if (!state.audioElement) {
+    // console.log("🎵 Creating new audio element");
+    state.audioElement = document.createElement("audio");
+    state.audioElement.id = "sipjs-remote-audio";
+    state.audioElement.autoplay = true;
+    state.audioElement.controls = false;
+    state.audioElement.style.display = "none";
+    state.audioElement.volume = 0.8; // Set reasonable volume like chrome extension
+    state.audioElement.preload = "auto";
+    document.body.appendChild(state.audioElement);
+  }
 
-    // Ensure we're using the correct stream with the audio track
-    if (state.audioElement.srcObject !== stream) {
-      console.log("Setting new stream to audio element");
-      state.audioElement.srcObject = stream;
-    } else {
-      console.log("Stream already set, ensuring tracks are enabled");
-      // Make sure all tracks are enabled
-      stream.getTracks().forEach((track) => {
-        track.enabled = true;
-      });
+  // Force proper audio settings
+  state.audioElement.muted = false;
+  state.audioElement.volume = 0.8;
+
+  // Set the stream
+  if (state.audioElement.srcObject !== stream) {
+    // console.log("🎵 Setting new stream to audio element");
+    state.audioElement.srcObject = stream;
+  } else {
+    console.log("🎵 Stream already set, ensuring tracks are enabled");
+    // Make sure all tracks are enabled
+    stream.getTracks().forEach((track) => {
+      track.enabled = true;
+    });
+  }
+
+  try {
+    const isEstablished =
+      state.currentSession?.state === SessionState.Established;
+    // console.log(
+    //   `🎵 Playing audio (${
+    //     isEstablished ? "established call" : "possibly early media"
+    //   })`
+    // );
+
+    // Play immediately
+    const playPromise = state.audioElement.play();
+
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log("✅ Remote audio playback started successfully");
+          console.log("🔊 Audio element state:", {
+            paused: state.audioElement.paused,
+            volume: state.audioElement.volume,
+            muted: state.audioElement.muted,
+            readyState: state.audioElement.readyState,
+            networkState: state.audioElement.networkState,
+          });
+          setupAudioMonitoring(stream);
+        })
+        .catch((error) => {
+          console.error("❌ Remote audio autoplay blocked:", error.message);
+
+          // Handle autoplay restrictions like chrome extension
+          if (error.name === "NotAllowedError") {
+            console.log("🔧 Setting up click handler for audio activation");
+
+            // Create visible notification for user to enable audio
+            const notification = document.createElement("div");
+            notification.id = "audio-enable-notification";
+            notification.innerHTML = `
+              <div style="
+                position: fixed; 
+                top: 50px; 
+                right: 20px; 
+                background: #007bff; 
+                color: white; 
+                padding: 15px 20px; 
+                border-radius: 8px; 
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 14px;
+                cursor: pointer;
+                max-width: 300px;
+              ">
+                🔊 Click here to enable call audio
+                <div style="font-size: 11px; opacity: 0.9; margin-top: 5px;">
+                  Browser blocked audio - click to activate
+                </div>
+              </div>
+            `;
+
+            const enableAudio = () => {
+              state.audioElement
+                .play()
+                .then(() => {
+                  console.log("✅ Audio enabled after user interaction");
+                  notification.remove();
+                })
+                .catch((err) => {
+                  console.error("❌ Still failed to enable audio:", err);
+                });
+            };
+
+            notification.addEventListener("click", enableAudio);
+            document.body.appendChild(notification);
+
+            // Auto-remove notification after 10 seconds
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.remove();
+              }
+            }, 10000);
+          }
+        });
+    }
+  } catch (error) {
+    console.error("❌ Error playing audio:", error);
+  }
+}
+
+function playRemoteAudio(stream) {
+  console.log("🎵 Setting up remote audio playback");
+
+  try {
+    // Find or create audio element
+    let audioElement = document.getElementById("sipjs-remote-audio");
+
+    if (!audioElement) {
+      audioElement = document.createElement("audio");
+      audioElement.id = "sipjs-remote-audio";
+      audioElement.autoplay = true;
+      audioElement.controls = false;
+      audioElement.style.display = "none";
+      // Important: Set volume to a reasonable level
+      audioElement.volume = 0.8;
+      // Ensure audio plays through default speakers
+      audioElement.preload = "auto";
+      document.body.appendChild(audioElement);
+      // console.log("🎵 Created audio element with volume:", audioElement.volume);
     }
 
-    try {
-      const isEstablished =
-        state.currentSession?.state === SessionState.Established;
-      console.log(
-        `Playing audio (${
-          isEstablished ? "established call" : "possibly early media"
-        })`
-      );
+    if (audioElement.srcObject !== stream) {
+      audioElement.srcObject = stream;
+      console.log("🎵 Set new stream as audio source");
 
-      // Play immediately
-      await state.audioElement.play();
-      console.log("Audio playing successfully");
-      setupAudioMonitoring(stream);
-    } catch (error) {
-      console.error("Initial play failed:", error);
+      // Force audio element to load and play
+      const playPromise = audioElement.play();
 
-      // More aggressive recovery for early media
-      setTimeout(async () => {
-        try {
-          state.audioElement.muted = false;
-          await state.audioElement.play();
-          console.log("Recovery play succeeded");
-        } catch (e) {
-          console.error("Recovery play failed:", e);
-        }
-      }, 200);
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log("✅ Remote audio playback started successfully");
+            console.log("🔊 Audio element state:", {
+              paused: audioElement.paused,
+              volume: audioElement.volume,
+              muted: audioElement.muted,
+              readyState: audioElement.readyState,
+              networkState: audioElement.networkState,
+            });
+          })
+          .catch((error) => {
+            console.error("❌ Remote audio autoplay blocked:", error.message);
+          });
+      }
     }
+
+    // Monitor audio tracks with minimal logging
+    const audioTracks = stream.getAudioTracks();
+    // console.log(`🎵 Stream has ${audioTracks.length} audio track(s)`);
+
+    audioTracks.forEach((track, index) => {
+      // Only log track state changes, not constant state
+      track.onended = () => {
+        console.log(`🎵 Audio track ${index} ended`);
+      };
+
+      track.onmute = () => {
+        console.log(`🔇 Audio track ${index} muted`);
+      };
+
+      track.onunmute = () => {
+        console.log(`🔊 Audio track ${index} unmuted`);
+      };
+    });
+  } catch (error) {
+    console.error("❌ Error setting up remote audio:", error);
   }
 }
 
