@@ -69,7 +69,7 @@ const getCallHistory = async (
     // Ensure extension is never undefined - use empty string as fallback
     params.extension = extension || "";
 
-    console.log("Using extension for call history:", params.extension);
+    // console.log("Using extension for call history:", params.extension);
 
     if (lastTimestamp) params.lastTimestamp = lastTimestamp;
 

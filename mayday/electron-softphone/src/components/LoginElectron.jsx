@@ -8,6 +8,7 @@ import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 import { useNotification } from "../contexts/NotificationContext";
+import packageJson from "../../package.json";
 import { storageService, clearLogoutFlag } from "../services/storageService";
 // import mhulogo from "../../src/assets/mhu_logo.jpg";
 import mhulogo from "../../src/assets/mayday-logo6.png";
@@ -892,7 +893,7 @@ const LoginElectron = ({ onLoginSuccess }) => {
 
         {state.error && <div className="error-message">{state.error}</div>}
 
-        <div className="version">MaydayBar v8.0.0</div>
+        <div className="version">MaydayBar V{packageJson.version}</div>
       </div>
     </div>
   );
