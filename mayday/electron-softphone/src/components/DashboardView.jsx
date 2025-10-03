@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import axios from "axios";
 import ContentFrame from "./ContentFrame";
 import {
@@ -1024,21 +1030,27 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
   }, [open, timeRange, fetchAgentPerformanceData]);
 
   // Update previous stats every 5 minutes for trend calculation
+  // CRITICAL: Only depends on 'open' to prevent loops
   useEffect(() => {
     if (!open || !canInitializeServices() || window.apiCallsBlocked) return;
 
-    // Set initial previous stats
-    if (!previousStats && stats) {
-      setPreviousStats({
-        timestamp: Date.now(),
-        totalCalls: getTimeRangeStats.totalCalls,
-        answeredCalls: getTimeRangeStats.answeredCalls,
-        abandonedCalls: getTimeRangeStats.abandonedCalls,
-        activeAgents: stats.activeAgents,
-      });
-    }
+    // Set initial previous stats (runs once when dashboard opens)
+    const checkAndSetInitial = () => {
+      if (!previousStats && stats) {
+        setPreviousStats({
+          timestamp: Date.now(),
+          totalCalls: getTimeRangeStats.totalCalls,
+          answeredCalls: getTimeRangeStats.answeredCalls,
+          abandonedCalls: getTimeRangeStats.abandonedCalls,
+          activeAgents: stats.activeAgents,
+        });
+      }
+    };
 
-    // Update previous stats every 5 minutes
+    // Initial check
+    checkAndSetInitial();
+
+    // Update previous stats every 5 minutes using latest values
     const interval = setInterval(() => {
       if (stats && getTimeRangeStats) {
         setPreviousStats({
@@ -1052,9 +1064,135 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
     }, 300000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [open, stats, getTimeRangeStats, previousStats]);
+    // CRITICAL: Only depend on 'open' to prevent recreation loops
+    // The function accesses stats and getTimeRangeStats from closure (always latest values)
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Add refresh functionality
+  // Extract fetchAgentCallCounts as a reusable function
+  // IMPORTANT: Use useRef to prevent recreating this function on every stats change
+  const fetchAgentCallCountsRef = useRef();
+
+  fetchAgentCallCountsRef.current = async () => {
+    // GRACEFUL: Check if API calls are blocked during logout
+    if (window.apiCallsBlocked) {
+      console.log(
+        "🔒 Agent call counts fetch gracefully skipped during logout"
+      );
+      return;
+    }
+
+    if (!canInitializeServices()) {
+      return;
+    }
+
+    try {
+      // Build a unique set of extensions: visible agents + all agents from backend
+      const allAgents = new Map();
+      (stats?.activeAgentsList || []).forEach((a) => {
+        if (a.extension)
+          allAgents.set(String(a.extension), {
+            name: a.name || `Agent ${a.extension}`,
+          });
+      });
+
+      try {
+        const backendAgents = await agentService.getAllAgents();
+        backendAgents.forEach((a) => {
+          if (a.extension)
+            allAgents.set(String(a.extension), {
+              name: a.name || `Agent ${a.extension}`,
+            });
+        });
+      } catch (_) {}
+
+      const callStatsMap = {};
+
+      // Get today's date at midnight for filtering (UTC-aware)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, "0");
+      const day = String(today.getDate()).padStart(2, "0");
+      const todayStr = `${year}-${month}-${day}`;
+
+      // Process each extension to get their call counts
+      for (const [ext] of allAgents.entries()) {
+        if (ext) {
+          try {
+            // Check if we should abort before making the call
+            if (window.apiCallsBlocked || !open) {
+              break;
+            }
+
+            // Use the getCallCountsByExtension function to get comprehensive call stats
+            const response = await callHistoryService.getCallCountsByExtension(
+              ext,
+              todayStr,
+              todayStr
+            );
+
+            if (response && response.success && response.data) {
+              callStatsMap[ext] = response.data;
+            } else {
+              callStatsMap[ext] = null;
+            }
+          } catch (err) {
+            // Check if this is a cancelled request
+            if (
+              (axios.isCancel && axios.isCancel(err)) ||
+              err.message?.includes("XMLHttpRequest") ||
+              err.message?.includes("apiCallsBlocked") ||
+              err.name === "CanceledError"
+            ) {
+              console.log(`Call stats fetch cancelled for ${ext}`);
+              break;
+            }
+
+            console.error(`Error fetching call stats for agent ${ext}:`, err);
+            callStatsMap[ext] = null;
+          }
+        }
+      }
+
+      // Update state with the call stats
+      if (!window.apiCallsBlocked) {
+        setAgentCallCounts((prevCounts) => {
+          const newCounts = {};
+
+          // Process all fetched data
+          Object.entries(callStatsMap).forEach(([ext, stats]) => {
+            if (stats !== null) {
+              newCounts[ext] = stats;
+            } else if (prevCounts[ext]) {
+              newCounts[ext] = prevCounts[ext];
+            } else {
+              newCounts[ext] = {
+                answeredCalls: 0,
+                missedCalls: 0,
+                outboundCalls: 0,
+                inboundCalls: 0,
+                totalCalls: 0,
+                avgCallDuration: 0,
+                extension: ext,
+              };
+            }
+          });
+
+          return newCounts;
+        });
+      }
+    } catch (error) {
+      if (!window.apiCallsBlocked) {
+        console.error("Error fetching agent call stats:", error);
+      }
+    }
+  };
+
+  // Stable function reference that won't cause re-renders
+  const fetchAgentCallCounts = useCallback(() => {
+    return fetchAgentCallCountsRef.current();
+  }, []);
+
+  // Add comprehensive refresh functionality
   const handleRefresh = useCallback(async () => {
     // GRACEFUL: Check if API calls are blocked during logout
     if (window.apiCallsBlocked) {
@@ -1067,19 +1205,61 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       return;
     }
 
+    console.log("🔄 Starting comprehensive dashboard refresh...");
     setIsLoading(true);
     setError(null);
-    await fetchInitialStats();
-    await fetchAgentPerformanceData();
-  }, [fetchInitialStats, fetchAgentPerformanceData]);
+
+    try {
+      // Step 1: Disconnect from WebSocket to force fresh connection
+      console.log("🔌 Disconnecting WebSocket for fresh data...");
+      callMonitoringService.disconnect();
+
+      // Step 2: Clear existing stats to show fresh data
+      setStats(callMonitoringService.getDefaultStats());
+
+      // Step 3: Wait a moment for cleanup
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Step 4: Reconnect and fetch initial stats
+      console.log("📊 Fetching fresh dashboard statistics...");
+      await fetchInitialStats();
+
+      // Step 5: Fetch agent performance data
+      console.log("👥 Fetching agent performance data...");
+      await fetchAgentPerformanceData();
+
+      // Step 6: Refresh agent call counts
+      console.log("📞 Refreshing agent call counts...");
+      await fetchAgentCallCounts();
+
+      console.log("✅ Dashboard refresh completed successfully");
+    } catch (error) {
+      console.error("❌ Error during dashboard refresh:", error);
+      setError("Failed to refresh dashboard data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchInitialStats, fetchAgentPerformanceData, fetchAgentCallCounts]);
 
   // Listen for recovery completion to refresh dashboard data
+  // NOTE: We don't call handleRefresh here because recovery already restores services
+  // Calling handleRefresh would disconnect/reconnect services unnecessarily
   useEffect(() => {
     const handleRecoveryCompleted = () => {
-      console.log("✅ [Dashboard] Recovery completed - refreshing data");
-      // Wait a moment for services to stabilize, then refresh
+      console.log("✅ [Dashboard] Recovery completed - services restored");
+      console.log(
+        "📊 [Dashboard] Stats will update automatically via WebSocket"
+      );
+
+      // Instead of full refresh, just fetch fresh call counts for agents
+      // This doesn't disconnect any services
       setTimeout(() => {
-        handleRefresh();
+        if (!window.apiCallsBlocked && canInitializeServices()) {
+          console.log(
+            "📞 [Dashboard] Refreshing agent call counts after recovery"
+          );
+          fetchAgentCallCounts();
+        }
       }, 1000);
     };
 
@@ -1090,184 +1270,33 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       // Cleanup on unmount
       sessionRecoveryManager.off("recovery:completed", handleRecoveryCompleted);
     };
-  }, [handleRefresh]);
+    // CRITICAL: Don't depend on handleRefresh - causes recreation loop
+    // fetchAgentCallCounts is stable (empty deps) so no loop
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch call counts for each agent
+  // Fetch call counts for each agent - simplified to use the extracted function
+  // IMPORTANT: Only runs when 'open' changes, not when stats change (prevents loops)
   useEffect(() => {
-    if (
-      open &&
-      stats?.activeAgentsList &&
-      stats.activeAgentsList.length > 0 &&
-      canInitializeServices() &&
-      !window.apiCallsBlocked
-    ) {
-      let isMounted = true; // Track if component is still mounted
-      let isInitialFetch = true; // Track if this is the first fetch
-
-      const fetchAgentCallCounts = async () => {
-        // GRACEFUL: Check if API calls are blocked during logout or component unmounted
-        if (window.apiCallsBlocked || !isMounted) {
-          console.log(
-            "🔒 Agent call counts fetch gracefully skipped during logout or unmount"
-          );
-          return;
-        }
-
-        try {
-          // Build a unique set of extensions: visible agents + all agents from backend
-          const allAgents = new Map();
-          (stats.activeAgentsList || []).forEach((a) => {
-            if (a.extension)
-              allAgents.set(String(a.extension), {
-                name: a.name || `Agent ${a.extension}`,
-              });
-          });
-          try {
-            const backendAgents = await agentService.getAllAgents();
-            backendAgents.forEach((a) => {
-              if (a.extension)
-                allAgents.set(String(a.extension), {
-                  name: a.name || `Agent ${a.extension}`,
-                });
-            });
-          } catch (_) {}
-
-          const callStatsMap = {};
-
-          // Get today's date at midnight for filtering (UTC-aware)
-          // FIXED: Use proper date formatting to avoid timezone conversion issues
-          const today = new Date();
-          const year = today.getFullYear();
-          const month = String(today.getMonth() + 1).padStart(2, "0");
-          const day = String(today.getDate()).padStart(2, "0");
-          const todayStr = `${year}-${month}-${day}`;
-
-          // Process each extension to get their call counts
-          for (const [ext] of allAgents.entries()) {
-            if (ext) {
-              try {
-                // Check if we should abort before making the call
-                if (window.apiCallsBlocked || !open || !isMounted) {
-                  break;
-                }
-
-                // Use the getCallCountsByExtension function to get comprehensive call stats
-                // Pass both startDate and endDate to get only today's calls
-                const response =
-                  await callHistoryService.getCallCountsByExtension(
-                    ext,
-                    todayStr,
-                    todayStr
-                  );
-
-                if (response && response.success && response.data) {
-                  // Store the full call stats data in our map
-                  callStatsMap[ext] = response.data;
-                } else {
-                  // Set empty data structure for this extension if no data received
-                  callStatsMap[ext] = null; // Mark as null to indicate no data
-                }
-              } catch (err) {
-                // Check if this is a cancelled request or XMLHttpRequest error
-                if (
-                  (axios.isCancel && axios.isCancel(err)) ||
-                  err.message?.includes("XMLHttpRequest") ||
-                  err.message?.includes("apiCallsBlocked") ||
-                  err.name === "CanceledError"
-                ) {
-                  console.log(`Call stats fetch cancelled for ${ext}`);
-                  break; // Stop processing remaining agents
-                }
-
-                console.error(
-                  `Error fetching call stats for agent ${ext}:`,
-                  err
-                );
-                // Mark as error to preserve existing data
-                callStatsMap[ext] = null;
-              }
-            }
-          }
-
-          // Update state with the call stats if still mounted
-          if (isMounted && !window.apiCallsBlocked) {
-            setAgentCallCounts((prevCounts) => {
-              // If initial fetch, start fresh but preserve any real-time updates
-              if (isInitialFetch) {
-                isInitialFetch = false;
-                const newCounts = {};
-
-                // Process all fetched data
-                Object.entries(callStatsMap).forEach(([ext, stats]) => {
-                  if (stats !== null) {
-                    // Use fetched data
-                    newCounts[ext] = stats;
-                  } else if (prevCounts[ext]) {
-                    // Preserve existing data if fetch failed
-                    newCounts[ext] = prevCounts[ext];
-                  } else {
-                    // Initialize with zeros if no existing data
-                    newCounts[ext] = {
-                      answeredCalls: 0,
-                      missedCalls: 0,
-                      outboundCalls: 0,
-                      inboundCalls: 0,
-                      totalCalls: 0,
-                      avgCallDuration: 0,
-                      extension: ext,
-                    };
-                  }
-                });
-
-                return newCounts;
-              }
-
-              // For subsequent fetches, carefully merge data
-              const mergedCounts = { ...prevCounts };
-
-              Object.entries(callStatsMap).forEach(([ext, stats]) => {
-                if (stats !== null) {
-                  // Only update if we got valid new data
-                  mergedCounts[ext] = stats;
-                }
-                // If stats is null (error or no data), preserve existing data
-              });
-
-              return mergedCounts;
-            });
-          }
-        } catch (error) {
-          if (!isMounted || window.apiCallsBlocked) {
-            console.log(
-              "Component unmounted or API calls blocked, skipping error handling"
-            );
-            return;
-          }
-          console.error("Error fetching agent call stats:", error);
-        }
-      };
-
-      // Call the function
-      fetchAgentCallCounts();
-
-      // Set up a polling interval to refresh call stats
-      const interval = setInterval(() => {
-        if (
-          open &&
-          canInitializeServices() &&
-          !window.apiCallsBlocked &&
-          isMounted
-        ) {
-          fetchAgentCallCounts();
-        }
-      }, 60000); // Update every minute
-
-      return () => {
-        isMounted = false; // Mark as unmounted
-        clearInterval(interval);
-      };
+    if (!open || !canInitializeServices() || window.apiCallsBlocked) {
+      return;
     }
-  }, [open]); // Only depend on 'open' to prevent unnecessary re-runs when agent list changes
+
+    // Initial fetch (the function itself checks if there are agents)
+    fetchAgentCallCounts();
+
+    // Set up a polling interval to refresh call stats every minute
+    const interval = setInterval(() => {
+      if (open && canInitializeServices() && !window.apiCallsBlocked) {
+        fetchAgentCallCounts();
+      }
+    }, 60000);
+
+    return () => {
+      clearInterval(interval);
+    };
+    // CRITICAL: Only depend on 'open', NOT on fetchAgentCallCounts or stats
+    // This prevents loops while the function always has access to latest stats via ref
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set up socket for real-time call count updates
   useEffect(() => {
@@ -1750,6 +1779,7 @@ const DashboardView = ({ open, onClose, title, isCollapsed }) => {
       }
       isCollapsed={isCollapsed}
       headerColor="#08403E"
+      hideCloseButton={true}
     >
       {/* Wrap the entire content in a scrollable container that prevents event propagation */}
       <Box

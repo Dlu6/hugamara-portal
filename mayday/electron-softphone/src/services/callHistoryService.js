@@ -10,7 +10,7 @@ import {
 const API_URL =
   process.env.NODE_ENV === "development"
     ? "http://localhost:8004"
-    : "https://cs.hugamara.com";
+    : "https://cs.hugamara.com/mayday-api";
 
 console.log("API_URL in callHistoryService.js>>>>>:", API_URL);
 
@@ -69,7 +69,7 @@ const getCallHistory = async (
     // Ensure extension is never undefined - use empty string as fallback
     params.extension = extension || "";
 
-    console.log("Using extension for call history:", params.extension);
+    // console.log("Using extension for call history:", params.extension);
 
     if (lastTimestamp) params.lastTimestamp = lastTimestamp;
 
@@ -158,8 +158,16 @@ const setupRealtimeUpdates = (callback) => {
     return null;
   }
 
-  const socket = io(API_URL, {
-    path: "/socket.io",
+  // Determine Socket.IO path based on environment
+  const socketPath = import.meta.env.PROD
+    ? "/mayday-api/socket.io/"
+    : "/socket.io/";
+
+  // Extract base URL without /mayday-api path for Socket.IO
+  const socketUrl = API_URL.replace("/mayday-api", "");
+
+  const socket = io(socketUrl, {
+    path: socketPath,
     transports: ["websocket"],
     auth: { token: getAuthToken() },
   });

@@ -6,9 +6,9 @@ const config = {
     sipWsUrl: "ws://13.234.18.2:8088/ws",
   },
   production: {
-    apiUrl: "https://cs.hugamara.com",
-    wsUrl: "ws://cs.hugamara.com",
-    baseUrl: "https://cs.hugamara.com",
+    apiUrl: "https://cs.hugamara.com/mayday-api",
+    wsUrl: "wss://cs.hugamara.com/ws",
+    baseUrl: "https://cs.hugamara.com/mayday-api",
     // sipWsUrl: "ws://13.234.18.2:8088/ws",
     sipWsUrl: "wss://cs.hugamara.com/ws",
   },

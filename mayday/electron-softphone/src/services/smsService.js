@@ -4,7 +4,7 @@ import { storageService } from "./storageService";
 function resolvePreferredOrigin() {
   try {
     const useRemote = localStorage.getItem("useRemoteUrl") === "true";
-    if (useRemote) return "https://cs.hugamara.com";
+    if (useRemote) return "https://cs.hugamara.com/mayday-api";
   } catch (_) {}
 
   if (
@@ -12,11 +12,12 @@ function resolvePreferredOrigin() {
     window.location?.origin &&
     !window.location.origin.startsWith("file://")
   ) {
-    if (process.env.NODE_ENV !== "development") return window.location.origin;
+    if (process.env.NODE_ENV !== "development")
+      return window.location.origin + "/mayday-api";
   }
   return process.env.NODE_ENV === "development"
     ? "http://localhost:8004"
-    : "https://cs.hugamara.com";
+    : "https://cs.hugamara.com/mayday-api";
 }
 
 const baseUrl = `${resolvePreferredOrigin()}/api/sms`;

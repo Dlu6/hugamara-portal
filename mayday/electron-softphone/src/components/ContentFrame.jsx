@@ -10,6 +10,7 @@ const ContentFrame = ({
   children,
   sectionId,
   isCollapsed,
+  hideCloseButton = false,
 }) => {
   if (!open || isCollapsed) {
     return null;
@@ -43,9 +44,11 @@ const ContentFrame = ({
         }}
       >
         <Typography variant="h6">{title}</Typography>
-        <IconButton onClick={onClose} sx={{ color: "white" }}>
-          <CloseIcon />
-        </IconButton>
+        {!hideCloseButton && (
+          <IconButton onClick={onClose} sx={{ color: "white" }}>
+            <CloseIcon />
+          </IconButton>
+        )}
       </Box>
       <Box
         sx={{

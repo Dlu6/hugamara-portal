@@ -3,7 +3,8 @@ import { Server } from "socket.io";
 import { io as Client } from "socket.io-client";
 import { generateFingerprint } from "../utils/serverFingerprinting.js";
 import createLicenseService from "./licenseService.js";
-import chalk from "chalk";
+import jwt from "jsonwebtoken";
+// import chalk from "chalk";
 
 // Debug mode - set to false to reduce console clutter
 const DEBUG_MODE = false;
@@ -29,6 +30,59 @@ export const initialize = async (httpServer) => {
       },
       path: "/socket.io/",
       transports: ["websocket", "polling"],
+    });
+
+    // Add Socket.IO authentication middleware
+    io.use((socket, next) => {
+      try {
+        // Get token from auth object or headers
+        const token =
+          socket.handshake.auth?.token ||
+          socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, "");
+
+        // Allow connections without token for license-based auth (Chrome extension)
+        if (!token) {
+          console.log(
+            `🔌 Socket ${socket.id}: No JWT token provided, allowing connection for license auth`
+          );
+          return next();
+        }
+
+        // Verify JWT token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // Attach user data to socket
+        socket.userId = decoded.id || decoded.userId;
+        socket.username = decoded.username;
+        socket.extension = decoded.extension;
+        socket.role = decoded.role;
+        socket.authenticated = true;
+
+        console.log(
+          `🔐 Socket ${socket.id}: JWT authenticated for user ${socket.username} (${socket.extension})`
+        );
+        next();
+      } catch (error) {
+        // Only log errors in debug mode to reduce console clutter
+        if (DEBUG_MODE) {
+          console.error(`❌ Socket authentication error:`, {
+            socketId: socket.id,
+            error: error.message,
+            errorType: error.name,
+            tokenPreview: token ? token.substring(0, 20) + "..." : "none",
+          });
+        }
+
+        // Send detailed error for debugging
+        const errorMessage =
+          error.name === "TokenExpiredError"
+            ? "Token has expired"
+            : error.name === "JsonWebTokenError"
+            ? "Invalid token"
+            : "Authentication failed";
+
+        next(new Error(errorMessage));
+      }
     });
 
     // Add connection event handlers for debugging

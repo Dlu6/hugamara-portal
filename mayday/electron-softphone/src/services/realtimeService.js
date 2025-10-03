@@ -15,7 +15,13 @@ const getSocketUrl = () => {
   return "https://cs.hugamara.com";
 };
 
+// Determine Socket.IO path based on environment
+const socketPath = import.meta.env.PROD
+  ? "/mayday-api/socket.io/"
+  : "/socket.io/";
+
 const socket = io(getSocketUrl(), {
+  path: socketPath,
   auth: {
     token: storageService.getToken(),
   },

@@ -50,11 +50,8 @@ export const useCallState = (sipService, sipCallService) => {
   const safePlayAudio = useCallback((audioSrc, volume = 0.5) => {
     // Prevent audio playback during logout
     if (isLoggingOut()) {
-      console.log("Ignoring audio playback during logout:", audioSrc);
       return;
     }
-
-    console.log(`Safe play audio requested: ${audioSrc}, volume: ${volume}`);
 
     if (!ringToneRef.current) {
       console.error("No audio element available");
@@ -65,7 +62,9 @@ export const useCallState = (sipService, sipCallService) => {
     playbackRef.current.desired = true;
 
     // Set the new properties (avoid unnecessary load to reduce races)
-    if (audio.src !== audioSrc) audio.src = audioSrc;
+    if (audio.src !== audioSrc) {
+      audio.src = audioSrc;
+    }
     audio.volume = volume;
     audio.loop = true;
 
@@ -89,7 +88,6 @@ export const useCallState = (sipService, sipCallService) => {
             playbackRef.current.playing = false;
           } else {
             playbackRef.current.playing = true;
-            console.log(`Successfully playing ${audioSrc}`);
           }
         })
         .catch((error) => {
@@ -102,7 +100,7 @@ export const useCallState = (sipService, sipCallService) => {
           ) {
             return;
           }
-          console.error(`Error playing audio: ${msg}`);
+          console.error("Error playing audio:", msg);
         });
     }
   }, []);
@@ -111,13 +109,12 @@ export const useCallState = (sipService, sipCallService) => {
   const safeStopAudio = useCallback(() => {
     // Prevent audio stop during logout to avoid unnecessary cleanup
     if (isLoggingOut()) {
-      console.log("Ignoring audio stop during logout");
       return;
     }
 
-    console.log("Safe stop audio requested");
     if (ringToneRef.current) {
       playbackRef.current.desired = false;
+
       if (!ringToneRef.current.paused) {
         ringToneRef.current.pause();
       }
@@ -367,26 +364,26 @@ export const useCallState = (sipService, sipCallService) => {
               ? "inbound"
               : "outbound");
 
-          // console.log(`Call establishing, direction: ${currentDirection}`);
-
           updateCallState({
             state: CALL_STATES.RINGING,
             isRinging: true,
             direction: currentDirection, // Ensure direction is set
           });
 
-          // For inbound calls, always use local ringtone
+          // For inbound calls, ringtone should already be playing from call:incoming event
+          // Only start it if it's not playing yet (safety check)
           if (currentDirection === "inbound") {
-            console.log("INBOUND CALL - Using ringtone");
-            safePlayAudio(ringtoneMp3, 0.8);
+            // Check if audio is already playing (desired state is true)
+            if (!playbackRef.current.desired || !playbackRef.current.playing) {
+              safePlayAudio(ringtoneMp3, 0.8);
+            }
           }
           // For outbound calls, we'll play ringback when we get 180/183 response
           // This is now handled in the progress event
           break;
 
         case SessionState.Established:
-          console.log("Call established, stopping all tones");
-          // Stop tones when call is established
+          // Stop tones when call is established (answered)
           if (!isLoggingOut()) {
             safeStopAudio();
           }
@@ -435,21 +432,10 @@ export const useCallState = (sipService, sipCallService) => {
     sipService.events.on("session:stateChange", handleSessionStateChange);
     return () => {
       sipService.events.off("session:stateChange", handleSessionStateChange);
-
-      // Only stop audio if not logging out to prevent unnecessary cleanup
-      if (!isLoggingOut()) {
-        console.log("Cleanup: Stopping audio");
-        safeStopAudio();
-      }
     };
-  }, [
-    sipService,
-    updateCallState,
-    callState.direction,
-    callState.session,
-    safePlayAudio,
-    safeStopAudio,
-  ]);
+    // CRITICAL: Removed callState.direction and callState.session from dependencies
+    // These changing should NOT cause the session state listener to be re-registered
+  }, [sipService, updateCallState, safePlayAudio, safeStopAudio]);
 
   // Handle call events
   useEffect(() => {
@@ -457,11 +443,8 @@ export const useCallState = (sipService, sipCallService) => {
       "call:incoming": (data) => {
         // Prevent call events during logout
         if (isLoggingOut()) {
-          console.log("Ignoring incoming call during logout:", data);
           return;
         }
-
-        console.log("Incoming call detected", data);
 
         // Set call state first
         updateCallState({
@@ -472,7 +455,7 @@ export const useCallState = (sipService, sipCallService) => {
           session: data.session,
         });
 
-        // Use safe audio play for inbound ringtone
+        // Play ringtone immediately for inbound calls
         safePlayAudio(ringtoneMp3, 0.8);
       },
       progress: (response) => {
@@ -613,7 +596,16 @@ export const useCallState = (sipService, sipCallService) => {
         sipService.events.off(event, handler);
       });
     };
-  }, [sipService, callState.direction, callState.state, safeStopAudio]);
+    // CRITICAL: Removed callState.direction and callState.state from dependencies
+    // Those values changing should NOT cause event listeners to be re-registered
+    // The handlers access these values from the event data or closures
+  }, [
+    sipService,
+    safePlayAudio,
+    safeStopAudio,
+    updateCallState,
+    callState.session,
+  ]);
 
   // Call control methods
   const makeCall = useCallback(

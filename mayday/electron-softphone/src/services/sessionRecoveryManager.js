@@ -93,6 +93,24 @@ const createSessionRecoveryManager = () => {
 
         // Create and store handler references
         eventHandlers.websocket.disconnected = () => {
+          // If websocket service is already in an intentional reconnect flow, do not trigger full session recovery
+          try {
+            const wsStatus =
+              typeof services.websocketService.getStatus === "function"
+                ? services.websocketService.getStatus()
+                : {};
+
+            if (wsStatus?.reconnecting === true) {
+              console.warn(
+                "⚠️ [SessionRecovery] WebSocket disconnected (reconnecting in progress) - skipping full recovery"
+              );
+              state.healthStatus.websocket = false;
+              return;
+            }
+          } catch (_) {
+            // fall through to recovery
+          }
+
           console.error("❌ [SessionRecovery] WebSocket disconnected");
           state.failedServices.add("websocket");
           state.healthStatus.websocket = false;
@@ -249,11 +267,26 @@ const createSessionRecoveryManager = () => {
 
     healthCheckInterval = setInterval(async () => {
       // Skip health check during logout or recovery
-      if (window.isLoggingOut || state.isRecovering) {
+      if (window.isLoggingOut) {
         return;
       }
 
       const health = await checkSystemHealth();
+
+      // If we're mid-recovery but everything is healthy, finalize quickly to clear UI state
+      if (state.isRecovering && health.isHealthy) {
+        try {
+          await completeRecovery();
+        } catch (_) {}
+        state.isRecovering = false;
+        state.recoveryAttempt = 0;
+        state.recoveryPhase = "complete";
+        state.failedServices.clear();
+        emitter.emit("recovery:completed", {
+          healthStatus: state.healthStatus,
+        });
+        return;
+      }
 
       if (!health.isHealthy && !state.isRecovering) {
         console.warn("⚠️ [SessionRecovery] Unhealthy system detected:", health);
@@ -287,13 +320,37 @@ const createSessionRecoveryManager = () => {
     // Check WebSocket
     if (services.websocketService) {
       // WebSocket service uses isConnected property
-      const wsConnected = services.websocketService.isConnected === true;
+      let wsConnected = services.websocketService.isConnected === true;
+
+      // If the websocket is in an active reconnect flow, avoid marking system unhealthy
+      try {
+        const wsStatus =
+          typeof services.websocketService.getStatus === "function"
+            ? services.websocketService.getStatus()
+            : {};
+        if (wsStatus?.reconnecting === true) {
+          wsConnected = false; // reflect UI as disconnected
+          // but do not fail overall health because recovery is already underway at transport layer
+        }
+      } catch (_) {}
 
       health.services.websocket = wsConnected;
 
       if (!wsConnected) {
-        health.isHealthy = false;
-        health.issues.push("websocket_disconnected");
+        // Only mark as unhealthy if not in reconnecting state
+        try {
+          const wsStatus =
+            typeof services.websocketService.getStatus === "function"
+              ? services.websocketService.getStatus()
+              : {};
+          if (wsStatus?.reconnecting !== true) {
+            health.isHealthy = false;
+            health.issues.push("websocket_disconnected");
+          }
+        } catch (_) {
+          health.isHealthy = false;
+          health.issues.push("websocket_disconnected");
+        }
       }
     }
 
@@ -310,15 +367,47 @@ const createSessionRecoveryManager = () => {
       }
     }
 
-    // Check Call Monitoring
+    // Align Agent status with SIP registration as single source of truth
+    // If SIP is registered, treat agent as connected/available
+    try {
+      if (services.sipService) {
+        const isSipRegistered =
+          services.sipService.isConnected === true &&
+          services.sipService.state?.registerer?.registered === true;
+        health.services.agent = isSipRegistered;
+      }
+    } catch (_) {
+      // keep previous value
+    }
+
+    // Check Call Monitoring (OPTIONAL - not critical for session health)
     if (services.callMonitoringService) {
       const monitoringConnected = services.callMonitoringService.isConnected();
       health.services.monitoring = monitoringConnected;
 
+      // NOTE: callMonitoringService is not critical for session health
+      // It can reconnect independently and doesn't affect authentication or SIP
+      // Only log a warning if disconnected, don't mark system as unhealthy
       if (!monitoringConnected) {
-        health.isHealthy = false;
-        health.issues.push("monitoring_disconnected");
+        console.warn(
+          "⚠️ [SessionRecovery] Call monitoring disconnected (non-critical)"
+        );
+        health.issues.push("monitoring_disconnected (non-critical)");
+        // DO NOT set health.isHealthy = false for monitoring
       }
+    }
+
+    // Align Agent status with SIP registration as single source of truth
+    // If SIP is registered, treat agent as connected/available
+    try {
+      if (services.sipService) {
+        const isSipRegistered =
+          services.sipService.isConnected === true &&
+          services.sipService.state?.registerer?.registered === true;
+        health.services.agent = isSipRegistered;
+      }
+    } catch (_) {
+      // keep previous value
     }
 
     state.healthStatus = health.services;
@@ -597,7 +686,7 @@ const createSessionRecoveryManager = () => {
                 apiUrl:
                   process.env.NODE_ENV === "development"
                     ? "http://localhost:8004"
-                    : "https://cs.hugamara.com",
+                    : "https://cs.hugamara.com/mayday-api",
                 token: token,
               });
 
@@ -615,6 +704,14 @@ const createSessionRecoveryManager = () => {
             }
             state.healthStatus.sip = true;
             state.failedServices.delete("sip");
+
+            // Keep agent status aligned with SIP registration as the source of truth
+            try {
+              const isSipRegistered =
+                service.isConnected === true &&
+                service.state?.registerer?.registered === true;
+              state.healthStatus.agent = isSipRegistered;
+            } catch (_) {}
             break;
 
           case "agent":
@@ -685,6 +782,16 @@ const createSessionRecoveryManager = () => {
         }
       }
     }
+
+    // Finalize agent health from SIP registration to ensure UI reflects correct status immediately
+    try {
+      if (services.sipService) {
+        const isSipRegistered =
+          services.sipService.isConnected === true &&
+          services.sipService.state?.registerer?.registered === true;
+        state.healthStatus.agent = isSipRegistered;
+      }
+    } catch (_) {}
 
     console.log("✅ [SessionRecovery] Recovery completion successful");
   };

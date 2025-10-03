@@ -78,7 +78,10 @@ class WebSocketService extends EventEmitter {
     }
 
     // Default to production URL for Electron or when window is not available
-    return import.meta.env?.VITE_API_URL || "https://cs.hugamara.com";
+    // Extract base URL without /mayday-api path for Socket.IO
+    const apiUrl =
+      import.meta.env?.VITE_API_URL || "https://cs.hugamara.com/mayday-api";
+    return apiUrl.replace("/mayday-api", "");
   }
 
   // Get authentication token
@@ -86,6 +89,29 @@ class WebSocketService extends EventEmitter {
     return (
       localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
     );
+  }
+
+  // Extract extension from JWT token
+  getExtensionFromToken(token) {
+    try {
+      if (!token) return null;
+
+      // Decode JWT payload (without verification for client-side extraction)
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      );
+
+      const payload = JSON.parse(jsonPayload);
+      return payload.extension || payload.username || null;
+    } catch (error) {
+      console.warn("⚠️ Failed to extract extension from token:", error.message);
+      return null;
+    }
   }
 
   // Connect to Socket.IO
@@ -110,13 +136,27 @@ class WebSocketService extends EventEmitter {
 
       const url = this.getSocketUrl();
       const bareToken = String(token).replace(/^Bearer\s+/i, "");
+
+      // Determine Socket.IO path based on environment
+      const socketPath = import.meta.env.PROD
+        ? "/mayday-api/socket.io/"
+        : "/socket.io/";
+
       const options = {
-        path: "/socket.io/",
+        path: socketPath,
         transports: ["websocket"],
         timeout: this.config.connectionTimeout,
         reconnection: true,
         auth: { token: bareToken },
-        extraHeaders: { Authorization: `Bearer ${bareToken}` },
+        extraHeaders: {
+          Authorization: `Bearer ${bareToken}`,
+          "Content-Type": "application/json",
+        },
+        // Add query parameters for additional auth info
+        query: {
+          token: bareToken,
+          extension: this.getExtensionFromToken(bareToken),
+        },
       };
 
       this.socket = io(url, options);
@@ -200,8 +240,24 @@ class WebSocketService extends EventEmitter {
 
     // Connection error
     this.socket.on("connect_error", (error) => {
-      // connection error
-      this.handleConnectionFailure("WebSocket error");
+      console.error("🔌 WebSocket connection error:", error.message);
+
+      // Check for authentication errors
+      if (
+        error.message.includes("Invalid token") ||
+        error.message.includes("Token has expired") ||
+        error.message.includes("Authentication failed")
+      ) {
+        console.error(
+          "❌ Authentication failed - token may be invalid or expired"
+        );
+        this.emit("connection:auth_failed", {
+          error: error.message,
+          requiresReLogin: true,
+        });
+      }
+
+      this.handleConnectionFailure(error.message || "WebSocket error");
     });
 
     // Reconnect lifecycle

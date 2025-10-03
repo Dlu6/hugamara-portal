@@ -7,7 +7,7 @@ import logoutManager from "./logoutManager";
 function resolvePreferredOrigin() {
   try {
     const useRemote = localStorage.getItem("useRemoteUrl") === "true";
-    if (useRemote) return "https://cs.hugamara.com";
+    if (useRemote) return "https://cs.hugamara.com/mayday-api";
   } catch (_) {}
 
   // In Electron, window.location.origin might be file://
@@ -18,20 +18,23 @@ function resolvePreferredOrigin() {
     !window.location.origin.startsWith("file://")
   ) {
     // In production builds this will be the served origin
-    if (process.env.NODE_ENV !== "development") return window.location.origin;
+    if (process.env.NODE_ENV !== "development")
+      return window.location.origin + "/mayday-api";
   }
 
   // Default per NODE_ENV when no preference stored
   return process.env.NODE_ENV === "development"
     ? "http://localhost:8004"
-    : "https://cs.hugamara.com";
+    : "https://cs.hugamara.com/mayday-api";
 }
 
 const preferredOrigin = resolvePreferredOrigin();
 
 const baseUrl = `${preferredOrigin}/api`;
 
-const wsBaseUrl = preferredOrigin.replace(/^http/, "ws");
+const wsBaseUrl = preferredOrigin
+  .replace(/^http/, "ws")
+  .replace("/mayday-api", "");
 
 let wsClient = null; // deprecated raw WS (kept for safety)
 let socket = null; // Socket.IO client
@@ -79,8 +82,13 @@ const connect = async () => {
         } catch (_) {}
       }
 
+      // Determine Socket.IO path based on environment
+      const socketPath = import.meta.env.PROD
+        ? "/mayday-api/socket.io/"
+        : "/socket.io/";
+
       socket = io(url, {
-        path: "/socket.io/",
+        path: socketPath,
         transports: ["websocket"],
         auth: { token },
         extraHeaders: { Authorization: `Bearer ${token}` },

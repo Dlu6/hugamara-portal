@@ -816,18 +816,25 @@ function initializeAudio() {
     };
 
     document.body.appendChild(state.audioElement);
+
+    // IMPORTANT: Set volume and unmute immediately
+    state.audioElement.volume = 1.0;
+    state.audioElement.muted = false;
   }
 
-  // Reset audio element state
-  state.audioElement.srcObject = null;
-  state.audioElement.load();
+  // DON'T reset srcObject or call load() here - it breaks early media
+  // Only reset if there's no active session
+  if (!state.currentSession) {
+    state.audioElement.srcObject = null;
+    state.audioElement.load();
+  }
 
   // Log audio element state
-  console.log("Audio element initialized >>>>🎈🎈🎈🎈🎈🎈🎈🎈", {
-    muted: state.audioElement.muted,
-    volume: state.audioElement.volume,
-    readyState: state.audioElement.readyState,
-  });
+  // console.log("Audio element initialized", {
+  //   muted: state.audioElement.muted,
+  //   volume: state.audioElement.volume,
+  //   readyState: state.audioElement.readyState,
+  // });
 }
 
 // Main function to handle call session setup and lifecycle
@@ -1317,54 +1324,56 @@ async function setupAudioStream(session) {
 // Attempt to play provider ringback/early media during provisional responses
 function tryPlayEarlyMediaFromPeerConnection(peerConnection) {
   try {
-    if (!peerConnection) return;
-
-    // Ensure audio element exists
-    initializeAudio();
-
-    // First, check existing remote streams if available
-    let remoteStreams = [];
-    if (typeof peerConnection.getRemoteStreams === "function") {
-      remoteStreams = peerConnection.getRemoteStreams() || [];
+    if (!peerConnection || state.earlyMediaSetup) return;
+    if (!peerConnection.remoteDescription) {
+      console.warn("No remote description for early media");
+      return;
     }
 
-    // If no remote streams, build one from receivers' tracks
-    if (!remoteStreams || remoteStreams.length === 0) {
-      const receivers = peerConnection.getReceivers
-        ? peerConnection.getReceivers()
-        : [];
-      const audioReceivers = receivers.filter(
-        (r) =>
-          r.track && r.track.kind === "audio" && r.track.readyState === "live"
-      );
+    state.earlyMediaSetup = true;
 
-      if (audioReceivers.length > 0) {
-        const earlyStream = new MediaStream();
-        audioReceivers.forEach((receiver) =>
-          earlyStream.addTrack(receiver.track)
-        );
-        remoteStreams = [earlyStream];
+    // Get the actual remote stream
+    const remoteStreams = peerConnection.getRemoteStreams
+      ? peerConnection.getRemoteStreams()
+      : [];
+
+    let stream = remoteStreams[0];
+
+    if (!stream) {
+      // Fallback: build from receivers
+      const receivers = peerConnection.getReceivers();
+      const audioTracks = receivers
+        .filter(
+          (r) => r.track?.kind === "audio" && r.track?.readyState === "live"
+        )
+        .map((r) => r.track);
+
+      if (audioTracks.length === 0) {
+        console.warn("No audio tracks for early media");
+        state.earlyMediaSetup = false;
+        return;
       }
+
+      stream = new MediaStream(audioTracks);
     }
 
-    if (remoteStreams && remoteStreams.length > 0) {
-      const stream = remoteStreams[0];
-      // Unmute and set source
-      state.audioElement.muted = false;
-      state.audioElement.volume = 1.0;
-      if (state.audioElement.srcObject !== stream) {
-        state.audioElement.srcObject = stream;
-      }
-      // Try play (handle autoplay restrictions gracefully)
-      const playPromise = state.audioElement.play();
-      if (playPromise && typeof playPromise.then === "function") {
-        playPromise.catch((err) => {
-          console.warn("Early media playback blocked:", err?.message || err);
-        });
-      }
+    if (!state.audioElement) {
+      state.audioElement = new Audio();
+      state.audioElement.autoplay = true;
+      state.audioElement.playsInline = true;
+      document.body.appendChild(state.audioElement);
     }
+
+    // CRITICAL: Set these BEFORE srcObject
+    state.audioElement.volume = 1.0;
+    state.audioElement.muted = false;
+    state.audioElement.srcObject = stream;
+
+    console.log("✅ Early media configured");
+    state.earlyMediaSetup = false;
   } catch (error) {
-    console.error("Error attempting early media playback:", error);
+    console.error("Early media error:", error);
+    state.earlyMediaSetup = false;
   }
 }
 
