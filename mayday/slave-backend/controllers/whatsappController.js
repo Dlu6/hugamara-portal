@@ -8,7 +8,8 @@ import {
 // import pkg from "twilio"; // Removed Twilio import
 import { socketService } from "../services/socketService.js";
 import axios from "axios"; // Added axios import
-import lipachat from "../services/lipachatService.js";
+import hospitalityTemplateService from "../services/hospitalityTemplateService.js";
+import lipachatService from "../services/lipachatService.js";
 // const { Twilio } = pkg; // Removed Twilio import
 
 // Get configuration from environment variables
@@ -32,7 +33,7 @@ if (!lipaChatApiKey || !lipaChatPhoneNumber) {
 
 export const handleWebhook = async (req, res) => {
   // Verify webhook signature if configured
-  if (!lipachat.verifyWebhookSignature(req)) {
+  if (!lipachatService.verifyWebhookSignature(req)) {
     return res.status(401).json({ success: false, error: "Invalid signature" });
   }
   console.log("--- LIPACHAT WEBHOOK RECEIVED ---");
@@ -1248,5 +1249,525 @@ export const markChatAsRead = async (req, res) => {
     res
       .status(500)
       .json({ success: false, error: "Failed to mark chat as read" });
+  }
+};
+
+// Agent Ownership and Disposition Management
+
+export const assignConversationToAgent = async (req, res) => {
+  try {
+    const { conversationId, agentId } = req.body;
+
+    if (!conversationId || !agentId) {
+      return res.status(400).json({
+        success: false,
+        error: "conversationId and agentId are required",
+      });
+    }
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        error: "Conversation not found",
+      });
+    }
+
+    // Update conversation with agent assignment
+    await conversation.update({
+      assignedAgentId: agentId,
+      status: "open",
+      lockOwnerId: agentId,
+      lockExpiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes lock
+    });
+
+    // Emit real-time update
+    socketService.emitWhatsAppMessage({
+      message: {
+        id: `assignment-${Date.now()}`,
+        timestamp: new Date(),
+        type: "assignment",
+      },
+      contact: {
+        conversationId: conversation.id,
+        assignedAgentId: agentId,
+        status: "assigned",
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        conversationId: conversation.id,
+        assignedAgentId: agentId,
+        status: conversation.status,
+      },
+    });
+  } catch (error) {
+    console.error("Error assigning conversation to agent:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to assign conversation to agent",
+    });
+  }
+};
+
+export const updateConversationDisposition = async (req, res) => {
+  try {
+    const {
+      conversationId,
+      disposition,
+      dispositionNotes,
+      customerSatisfaction,
+    } = req.body;
+    const agentId = req.user?.id;
+
+    if (!conversationId || !disposition) {
+      return res.status(400).json({
+        success: false,
+        error: "conversationId and disposition are required",
+      });
+    }
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        error: "Conversation not found",
+      });
+    }
+
+    // Check if agent has permission to update this conversation
+    if (conversation.assignedAgentId !== agentId) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't have permission to update this conversation",
+      });
+    }
+
+    // Calculate resolution time if conversation is being resolved
+    let resolutionTime = conversation.resolutionTime;
+    if (disposition === "resolved" && !conversation.resolutionTime) {
+      const startTime = conversation.createdAt;
+      const endTime = new Date();
+      resolutionTime = Math.floor((endTime - startTime) / 1000); // in seconds
+    }
+
+    // Update conversation with disposition
+    await conversation.update({
+      disposition,
+      dispositionNotes,
+      dispositionDate: new Date(),
+      customerSatisfaction,
+      resolutionTime,
+      status: disposition === "resolved" ? "resolved" : conversation.status,
+    });
+
+    // Emit real-time update
+    socketService.emitWhatsAppMessage({
+      message: {
+        id: `disposition-${Date.now()}`,
+        timestamp: new Date(),
+        type: "disposition_update",
+      },
+      contact: {
+        conversationId: conversation.id,
+        disposition,
+        status: conversation.status,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        conversationId: conversation.id,
+        disposition,
+        dispositionNotes,
+        customerSatisfaction,
+        resolutionTime,
+        status: conversation.status,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating conversation disposition:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update conversation disposition",
+    });
+  }
+};
+
+export const getAgentConversations = async (req, res) => {
+  try {
+    const agentId = req.user?.id;
+    const { status = "open", limit = 50, offset = 0 } = req.query;
+
+    const conversations = await Conversation.findAndCountAll({
+      where: {
+        assignedAgentId: agentId,
+        ...(status !== "all" && { status }),
+      },
+      include: [
+        {
+          model: Contact,
+          attributes: ["id", "phoneNumber", "name", "avatar", "isOnline"],
+        },
+        {
+          model: WhatsAppMessage,
+          as: "messageHistory",
+          limit: 1,
+          order: [["createdAt", "DESC"]],
+          attributes: ["id", "text", "timestamp", "sender", "type"],
+        },
+      ],
+      order: [["lastMessageAt", "DESC"]],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    res.json({
+      success: true,
+      data: {
+        conversations: conversations.rows,
+        total: conversations.count,
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching agent conversations:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch agent conversations",
+    });
+  }
+};
+
+export const getConversationDetails = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const agentId = req.user?.id;
+
+    const conversation = await Conversation.findByPk(conversationId, {
+      include: [
+        {
+          model: Contact,
+          attributes: [
+            "id",
+            "phoneNumber",
+            "name",
+            "avatar",
+            "isOnline",
+            "customerType",
+          ],
+        },
+        {
+          model: WhatsAppMessage,
+          as: "messageHistory",
+          order: [["createdAt", "ASC"]],
+          attributes: [
+            "id",
+            "messageId",
+            "text",
+            "timestamp",
+            "sender",
+            "type",
+            "status",
+            "mediaUrl",
+            "replyTo",
+          ],
+        },
+      ],
+    });
+
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        error: "Conversation not found",
+      });
+    }
+
+    // Check if agent has permission to view this conversation
+    if (conversation.assignedAgentId !== agentId) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't have permission to view this conversation",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: conversation,
+    });
+  } catch (error) {
+    console.error("Error fetching conversation details:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch conversation details",
+    });
+  }
+};
+
+export const transferConversation = async (req, res) => {
+  try {
+    const { conversationId, targetAgentId, transferReason } = req.body;
+    const fromAgentId = req.user?.id;
+
+    if (!conversationId || !targetAgentId) {
+      return res.status(400).json({
+        success: false,
+        error: "conversationId and targetAgentId are required",
+      });
+    }
+
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        error: "Conversation not found",
+      });
+    }
+
+    // Check if current agent has permission to transfer
+    if (conversation.assignedAgentId !== fromAgentId) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't have permission to transfer this conversation",
+      });
+    }
+
+    // Update conversation with new agent assignment
+    await conversation.update({
+      assignedAgentId: targetAgentId,
+      lockOwnerId: targetAgentId,
+      lockExpiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes lock
+      metadata: {
+        ...conversation.metadata,
+        transferHistory: [
+          ...(conversation.metadata?.transferHistory || []),
+          {
+            fromAgentId,
+            toAgentId: targetAgentId,
+            transferReason,
+            transferredAt: new Date(),
+          },
+        ],
+      },
+    });
+
+    // Emit real-time update
+    socketService.emitWhatsAppMessage({
+      message: {
+        id: `transfer-${Date.now()}`,
+        timestamp: new Date(),
+        type: "transfer",
+      },
+      contact: {
+        conversationId: conversation.id,
+        assignedAgentId: targetAgentId,
+        status: "transferred",
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        conversationId: conversation.id,
+        assignedAgentId: targetAgentId,
+        status: conversation.status,
+      },
+    });
+  } catch (error) {
+    console.error("Error transferring conversation:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to transfer conversation",
+    });
+  }
+};
+
+// Hospitality Template Management
+export const getHospitalityTemplates = async (req, res) => {
+  try {
+    const { category } = req.query;
+
+    let templates;
+    if (category) {
+      templates = hospitalityTemplateService.getTemplatesByCategory(category);
+    } else {
+      templates = hospitalityTemplateService.getAllTemplates();
+    }
+
+    res.json({
+      success: true,
+      data: templates,
+    });
+  } catch (error) {
+    console.error("Error fetching hospitality templates:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch templates",
+    });
+  }
+};
+
+export const getHospitalityTemplate = async (req, res) => {
+  try {
+    const { templateName } = req.params;
+
+    const template = hospitalityTemplateService.getTemplate(templateName);
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        error: "Template not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: template,
+    });
+  } catch (error) {
+    console.error("Error fetching template:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch template",
+    });
+  }
+};
+
+export const sendTemplateMessage = async (req, res) => {
+  try {
+    const { templateName, to, variables } = req.body;
+    const agentId = req.user?.id;
+
+    if (!templateName || !to) {
+      return res.status(400).json({
+        success: false,
+        error: "templateName and to are required",
+      });
+    }
+
+    // Get the template
+    const template = hospitalityTemplateService.getTemplate(templateName);
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        error: "Template not found",
+      });
+    }
+
+    // Validate template variables
+    const validation = hospitalityTemplateService.validateTemplateVariables(
+      template,
+      variables || {}
+    );
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required template variables",
+        missingVariables: validation.missingVariables,
+        requiredVariables: validation.requiredVariables,
+      });
+    }
+
+    // Replace variables in template
+    const processedTemplate = {
+      ...template,
+      components: template.components.map((component) => ({
+        ...component,
+        text: component.text
+          ? hospitalityTemplateService.replaceTemplateVariables(
+              component.text,
+              variables
+            )
+          : component.text,
+      })),
+    };
+
+    // Send template message via Lipachat
+    const response = await lipachat.sendTemplate({
+      to,
+      from: process.env.LIPACHAT_PHONE_NUMBER,
+      template: processedTemplate,
+    });
+
+    // Log the message
+    const message = await WhatsAppMessage.create({
+      messageId: `template-${Date.now()}`,
+      contactId: to,
+      text:
+        processedTemplate.components.find((c) => c.type === "BODY")?.text || "",
+      timestamp: new Date(),
+      sender: "agent",
+      type: "template",
+      status: "sent",
+      agentId,
+    });
+
+    // Emit real-time update
+    socketService.emitWhatsAppMessage({
+      message: {
+        id: message.id,
+        timestamp: message.timestamp,
+        type: "template",
+      },
+      contact: {
+        phoneNumber: to,
+        messageId: message.messageId,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        messageId: message.id,
+        templateName,
+        status: "sent",
+      },
+    });
+  } catch (error) {
+    console.error("Error sending template message:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to send template message",
+    });
+  }
+};
+
+export const validateTemplateVariables = async (req, res) => {
+  try {
+    const { templateName, variables } = req.body;
+
+    if (!templateName) {
+      return res.status(400).json({
+        success: false,
+        error: "templateName is required",
+      });
+    }
+
+    const template = hospitalityTemplateService.getTemplate(templateName);
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        error: "Template not found",
+      });
+    }
+
+    const validation = hospitalityTemplateService.validateTemplateVariables(
+      template,
+      variables || {}
+    );
+
+    res.json({
+      success: true,
+      data: validation,
+    });
+  } catch (error) {
+    console.error("Error validating template variables:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to validate template variables",
+    });
   }
 };

@@ -183,6 +183,16 @@ const WhatsAppMessage = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    conversationId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "whatsapp_conversations",
+        key: "id",
+      },
+      onDelete: "SET NULL",
+      onUpdate: "CASCADE",
+    },
   },
   {
     tableName: "whatsapp_messages",
@@ -312,6 +322,67 @@ const Conversation = sequelize.define(
     lockExpiresAt: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    // Disposition tracking for hospitality business
+    disposition: {
+      type: DataTypes.ENUM(
+        "resolved",
+        "escalated",
+        "follow_up_required",
+        "booking_confirmed",
+        "booking_cancelled",
+        "complaint_resolved",
+        "complaint_escalated",
+        "inquiry_answered",
+        "no_response",
+        "wrong_number",
+        "spam"
+      ),
+      allowNull: true,
+    },
+    dispositionNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    dispositionDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    // Hospitality specific fields
+    customerType: {
+      type: DataTypes.ENUM("guest", "prospect", "returning", "vip", "group"),
+      allowNull: true,
+    },
+    serviceType: {
+      type: DataTypes.ENUM(
+        "booking",
+        "complaint",
+        "inquiry",
+        "support",
+        "feedback"
+      ),
+      allowNull: true,
+    },
+    reservationId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    // Agent performance tracking
+    responseTime: {
+      type: DataTypes.INTEGER, // in seconds
+      allowNull: true,
+    },
+    resolutionTime: {
+      type: DataTypes.INTEGER, // in seconds
+      allowNull: true,
+    },
+    customerSatisfaction: {
+      type: DataTypes.INTEGER, // 1-5 rating
+      allowNull: true,
+      validate: {
+        min: 1,
+        max: 5,
+      },
     },
   },
   {

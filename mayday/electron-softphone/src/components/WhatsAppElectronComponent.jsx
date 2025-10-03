@@ -66,9 +66,23 @@ import {
   Refresh as RefreshIcon,
   Check,
   Schedule,
+  Person as PersonIcon,
+  Assignment as AssignmentIcon,
+  TransferWithinAStation as TransferIcon,
+  Flag as FlagIcon,
+  Star as StarIcon,
+  StarBorder as StarBorderIcon,
+  Notifications as NotificationsIcon,
+  NotificationsOff as NotificationsOffIcon,
+  Business as BusinessIcon,
+  Hotel as HotelIcon,
+  Restaurant as RestaurantIcon,
+  Support as SupportIcon,
+  Feedback as FeedbackIcon,
 } from "@mui/icons-material";
 import AddIcon from "@mui/icons-material/Add";
 import ContentFrame from "./ContentFrame";
+import ChatQueueManager from "./ChatQueueManager";
 import moment from "moment";
 import EmojiPicker from "emoji-picker-react";
 import ReactCrop, { centerCrop, makeAspectCrop } from "react-image-crop";
@@ -212,6 +226,25 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [viewMode, setViewMode] = useState("chats");
 
+  // Agent ownership and disposition tracking state
+  const [currentAgent, setCurrentAgent] = useState(null);
+  const [assignedConversations, setAssignedConversations] = useState([]);
+  const [dispositionDialogOpen, setDispositionDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [dispositionData, setDispositionData] = useState({
+    disposition: "",
+    dispositionNotes: "",
+    customerSatisfaction: null,
+  });
+  const [transferData, setTransferData] = useState({
+    targetAgentId: "",
+    transferReason: "",
+  });
+  const [availableAgents, setAvailableAgents] = useState([]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [newMessageSound, setNewMessageSound] = useState(null);
+
   const fetchChatMessages = async (phoneNumber) => {
     try {
       const response = await whatsAppService.getChatMessages(phoneNumber);
@@ -280,23 +313,125 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
     }
   };
 
-  const handleTransferConversation = async (conversationId) => {
-    const agentId = window.prompt("Enter target agent ID to transfer to:");
-    if (!agentId) return;
-    try {
-      await whatsAppService.transferConversation(conversationId, agentId);
-      await fetchConversations();
-    } catch (e) {
-      console.error("Transfer conversation failed:", e);
-    }
-  };
-
   const handleResolveConversation = async (conversationId) => {
     try {
       await whatsAppService.resolveConversation(conversationId);
       await fetchConversations();
     } catch (e) {
       console.error("Resolve conversation failed:", e);
+    }
+  };
+
+  // New agent ownership and disposition handlers
+  const handleAssignConversation = async (conversationId, agentId) => {
+    try {
+      const response = await whatsAppService.assignConversationToAgent(
+        conversationId,
+        agentId
+      );
+      if (response.success) {
+        await fetchAgentConversations();
+        setError(null);
+      } else {
+        setError(response.error || "Failed to assign conversation");
+      }
+    } catch (error) {
+      console.error("Error assigning conversation:", error);
+      setError("Failed to assign conversation to agent");
+    }
+  };
+
+  const handleUpdateDisposition = async () => {
+    if (!selectedConversation || !dispositionData.disposition) return;
+
+    try {
+      const response = await whatsAppService.updateConversationDisposition(
+        selectedConversation.id,
+        dispositionData
+      );
+      if (response.success) {
+        setDispositionDialogOpen(false);
+        setDispositionData({
+          disposition: "",
+          dispositionNotes: "",
+          customerSatisfaction: null,
+        });
+        await fetchAgentConversations();
+        setError(null);
+      } else {
+        setError(response.error || "Failed to update disposition");
+      }
+    } catch (error) {
+      console.error("Error updating disposition:", error);
+      setError("Failed to update conversation disposition");
+    }
+  };
+
+  const handleTransferConversation = async () => {
+    if (!selectedConversation || !transferData.targetAgentId) return;
+
+    try {
+      const response = await whatsAppService.transferConversation(
+        selectedConversation.id,
+        transferData.targetAgentId,
+        transferData.transferReason
+      );
+      if (response.success) {
+        setTransferDialogOpen(false);
+        setTransferData({ targetAgentId: "", transferReason: "" });
+        await fetchAgentConversations();
+        setError(null);
+      } else {
+        setError(response.error || "Failed to transfer conversation");
+      }
+    } catch (error) {
+      console.error("Error transferring conversation:", error);
+      setError("Failed to transfer conversation");
+    }
+  };
+
+  const fetchAgentConversations = async () => {
+    try {
+      const response = await whatsAppService.getAgentConversations();
+      if (response.success) {
+        setAssignedConversations(response.data.conversations || []);
+      }
+    } catch (error) {
+      console.error("Error fetching agent conversations:", error);
+    }
+  };
+
+  const fetchAvailableAgents = async () => {
+    try {
+      const response = await whatsAppService.getAvailableAgents();
+      if (response.success) {
+        setAvailableAgents(response.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching available agents:", error);
+    }
+  };
+
+  const openDispositionDialog = (conversation) => {
+    setSelectedConversation(conversation);
+    setDispositionData({
+      disposition: conversation.disposition || "",
+      dispositionNotes: conversation.dispositionNotes || "",
+      customerSatisfaction: conversation.customerSatisfaction || null,
+    });
+    setDispositionDialogOpen(true);
+  };
+
+  const openTransferDialog = (conversation) => {
+    setSelectedConversation(conversation);
+    setTransferData({ targetAgentId: "", transferReason: "" });
+    setTransferDialogOpen(true);
+    fetchAvailableAgents();
+  };
+
+  const playNotificationSound = () => {
+    if (notificationsEnabled && newMessageSound) {
+      newMessageSound.play().catch(console.error);
     }
   };
 
@@ -1293,6 +1428,259 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
     </Dialog>
   );
 
+  // Disposition Dialog
+  const renderDispositionDialog = () => (
+    <Dialog
+      open={dispositionDialogOpen}
+      onClose={() => setDispositionDialogOpen(false)}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+        },
+      }}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: "#128C7E",
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <FlagIcon />
+        Update Conversation Disposition
+      </DialogTitle>
+      <DialogContent sx={{ pt: 3 }}>
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <FormLabel>Disposition</FormLabel>
+          <RadioGroup
+            value={dispositionData.disposition}
+            onChange={(e) =>
+              setDispositionData((prev) => ({
+                ...prev,
+                disposition: e.target.value,
+              }))
+            }
+          >
+            <FormControlLabel
+              value="resolved"
+              control={<Radio />}
+              label="Resolved"
+            />
+            <FormControlLabel
+              value="escalated"
+              control={<Radio />}
+              label="Escalated"
+            />
+            <FormControlLabel
+              value="follow_up_required"
+              control={<Radio />}
+              label="Follow-up Required"
+            />
+            <FormControlLabel
+              value="booking_confirmed"
+              control={<Radio />}
+              label="Booking Confirmed"
+            />
+            <FormControlLabel
+              value="booking_cancelled"
+              control={<Radio />}
+              label="Booking Cancelled"
+            />
+            <FormControlLabel
+              value="complaint_resolved"
+              control={<Radio />}
+              label="Complaint Resolved"
+            />
+            <FormControlLabel
+              value="complaint_escalated"
+              control={<Radio />}
+              label="Complaint Escalated"
+            />
+            <FormControlLabel
+              value="inquiry_answered"
+              control={<Radio />}
+              label="Inquiry Answered"
+            />
+            <FormControlLabel
+              value="no_response"
+              control={<Radio />}
+              label="No Response"
+            />
+            <FormControlLabel
+              value="wrong_number"
+              control={<Radio />}
+              label="Wrong Number"
+            />
+            <FormControlLabel value="spam" control={<Radio />} label="Spam" />
+          </RadioGroup>
+        </FormControl>
+
+        <TextField
+          fullWidth
+          label="Disposition Notes"
+          multiline
+          rows={3}
+          value={dispositionData.dispositionNotes}
+          onChange={(e) =>
+            setDispositionData((prev) => ({
+              ...prev,
+              dispositionNotes: e.target.value,
+            }))
+          }
+          sx={{ mb: 3 }}
+        />
+
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <FormLabel>Customer Satisfaction (1-5)</FormLabel>
+          <RadioGroup
+            value={dispositionData.customerSatisfaction}
+            onChange={(e) =>
+              setDispositionData((prev) => ({
+                ...prev,
+                customerSatisfaction: parseInt(e.target.value),
+              }))
+            }
+            row
+          >
+            {[1, 2, 3, 4, 5].map((rating) => (
+              <FormControlLabel
+                key={rating}
+                value={rating}
+                control={<Radio />}
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    {[...Array(rating)].map((_, i) => (
+                      <StarIcon
+                        key={i}
+                        sx={{ color: "#ffc107", fontSize: 20 }}
+                      />
+                    ))}
+                    {[...Array(5 - rating)].map((_, i) => (
+                      <StarBorderIcon
+                        key={i}
+                        sx={{ color: "#ffc107", fontSize: 20 }}
+                      />
+                    ))}
+                  </Box>
+                }
+              />
+            ))}
+          </RadioGroup>
+        </FormControl>
+      </DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={() => setDispositionDialogOpen(false)}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleUpdateDisposition}
+          disabled={!dispositionData.disposition}
+          sx={{
+            bgcolor: "#128C7E",
+            "&:hover": { bgcolor: "#0f7a6b" },
+          }}
+        >
+          Update Disposition
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  // Transfer Dialog
+  const renderTransferDialog = () => (
+    <Dialog
+      open={transferDialogOpen}
+      onClose={() => setTransferDialogOpen(false)}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+        },
+      }}
+    >
+      <DialogTitle
+        sx={{
+          bgcolor: "#1976d2",
+          color: "white",
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <TransferIcon />
+        Transfer Conversation
+      </DialogTitle>
+      <DialogContent sx={{ pt: 3 }}>
+        <FormControl fullWidth sx={{ mb: 3 }}>
+          <FormLabel>Transfer to Agent</FormLabel>
+          <RadioGroup
+            value={transferData.targetAgentId}
+            onChange={(e) =>
+              setTransferData((prev) => ({
+                ...prev,
+                targetAgentId: e.target.value,
+              }))
+            }
+          >
+            {availableAgents.map((agent) => (
+              <FormControlLabel
+                key={agent.id}
+                value={agent.id}
+                control={<Radio />}
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <PersonIcon />
+                    <Typography>{agent.name || agent.email}</Typography>
+                    <Chip
+                      size="small"
+                      label={agent.status || "available"}
+                      color={
+                        agent.status === "available" ? "success" : "default"
+                      }
+                    />
+                  </Box>
+                }
+              />
+            ))}
+          </RadioGroup>
+        </FormControl>
+
+        <TextField
+          fullWidth
+          label="Transfer Reason"
+          multiline
+          rows={2}
+          value={transferData.transferReason}
+          onChange={(e) =>
+            setTransferData((prev) => ({
+              ...prev,
+              transferReason: e.target.value,
+            }))
+          }
+          placeholder="Reason for transferring this conversation..."
+        />
+      </DialogContent>
+      <DialogActions sx={{ p: 2, gap: 1 }}>
+        <Button onClick={() => setTransferDialogOpen(false)}>Cancel</Button>
+        <Button
+          variant="contained"
+          onClick={handleTransferConversation}
+          disabled={!transferData.targetAgentId}
+          sx={{
+            bgcolor: "#1976d2",
+            "&:hover": { bgcolor: "#1565c0" },
+          }}
+        >
+          Transfer Conversation
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
   const handleRefresh = async () => {
     setLoading(true);
     try {
@@ -1341,6 +1729,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
               label="Conversations"
               color={viewMode === "conversations" ? "success" : "default"}
               onClick={() => setViewMode("conversations")}
+              sx={{ color: "white" }}
+            />
+            <Chip
+              label="Queue"
+              color={viewMode === "queue" ? "success" : "default"}
+              onClick={() => setViewMode("queue")}
               sx={{ color: "white" }}
             />
             <Tooltip title="Refresh">
@@ -1795,11 +2189,136 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
     };
   }, [socket, selectedChat?.phoneNumber]);
 
+  // Initialize agent data and notifications
+  useEffect(() => {
+    if (!canInitializeServices()) return;
+
+    // Get current agent info
+    const agentInfo = storageService.getUserData();
+    if (agentInfo) {
+      setCurrentAgent(agentInfo);
+    }
+
+    // Load assigned conversations
+    fetchAgentConversations();
+
+    // Initialize notification sound
+    if (notificationsEnabled) {
+      const audio = new Audio("/notification.mp3"); // You can add a notification sound file
+      setNewMessageSound(audio);
+    }
+
+    return () => {
+      if (newMessageSound) {
+        newMessageSound.pause();
+        newMessageSound.currentTime = 0;
+      }
+    };
+  }, []);
+
+  // Real-time notifications for new messages
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (data) => {
+      console.log("New WhatsApp message notification:", data);
+
+      // Play notification sound
+      playNotificationSound();
+
+      // Show browser notification if permission granted
+      if (notificationsEnabled && Notification.permission === "granted") {
+        new Notification("New WhatsApp Message", {
+          body: `New message from ${
+            data.contact?.name || data.contact?.phoneNumber
+          }`,
+          icon: "/hugamara-logo.png",
+          tag: "whatsapp-message",
+        });
+      }
+
+      // Update assigned conversations
+      fetchAgentConversations();
+    };
+
+    socket.on("whatsapp:message", handleNewMessage);
+    socket.on("whatsapp:conversation_assigned", handleNewMessage);
+    socket.on("whatsapp:conversation_transferred", handleNewMessage);
+    socket.on("whatsapp:disposition_updated", handleNewMessage);
+
+    return () => {
+      socket.off("whatsapp:message", handleNewMessage);
+      socket.off("whatsapp:conversation_assigned", handleNewMessage);
+      socket.off("whatsapp:conversation_transferred", handleNewMessage);
+      socket.off("whatsapp:disposition_updated", handleNewMessage);
+    };
+  }, [socket, notificationsEnabled]);
+
+  // Request notification permission
+  useEffect(() => {
+    if (notificationsEnabled && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, [notificationsEnabled]);
+
   return (
     <ContentFrame
       open={open}
       onClose={onClose}
-      title={renderHeader()}
+      title={
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <MessageIcon sx={{ color: "white" }} />
+            <Typography variant="h6" sx={{ color: "white" }}>
+              WhatsApp Business
+            </Typography>
+            {currentAgent && (
+              <Chip
+                size="small"
+                label={`Agent: ${currentAgent.name || currentAgent.email}`}
+                sx={{ color: "white", bgcolor: "rgba(255,255,255,0.2)" }}
+              />
+            )}
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Tooltip
+              title={
+                notificationsEnabled
+                  ? "Disable Notifications"
+                  : "Enable Notifications"
+              }
+            >
+              <IconButton
+                size="small"
+                onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+                sx={{ color: "white" }}
+              >
+                {notificationsEnabled ? (
+                  <NotificationsIcon />
+                ) : (
+                  <NotificationsOffIcon />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Refresh">
+              <IconButton
+                onClick={handleRefresh}
+                disabled={loading}
+                sx={{ color: "white" }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      }
       headerColor="#128C7E"
     >
       {!selectedChat ? (
@@ -1997,20 +2516,30 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                     key={c.id}
                     sx={{ py: 1.5, px: 2 }}
                     secondaryAction={
-                      <Box sx={{ display: "flex", gap: 1 }}>
+                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                         <Button
                           size="small"
                           variant="outlined"
                           onClick={() => handleClaimConversation(c.id)}
+                          startIcon={<AssignmentIcon />}
                         >
                           Claim
                         </Button>
                         <Button
                           size="small"
                           variant="outlined"
-                          onClick={() => handleTransferConversation(c.id)}
+                          onClick={() => openTransferDialog(c)}
+                          startIcon={<TransferIcon />}
                         >
                           Transfer
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => openDispositionDialog(c)}
+                          startIcon={<FlagIcon />}
+                        >
+                          Disposition
                         </Button>
                         <Button
                           size="small"
@@ -2026,26 +2555,145 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                     <ListItemText
                       primary={
                         <Box
-                          sx={{ display: "flex", gap: 1, alignItems: "center" }}
+                          sx={{
+                            display: "flex",
+                            gap: 1,
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                          }}
                         >
                           <Chip size="small" label={`ID ${c.id}`} />
-                          <Chip size="small" label={c.status} color="default" />
-                          {typeof c.unreadCount === "number" && (
+                          <Chip
+                            size="small"
+                            label={c.status}
+                            color={
+                              c.status === "resolved"
+                                ? "success"
+                                : c.status === "open"
+                                ? "primary"
+                                : c.status === "pending"
+                                ? "warning"
+                                : "default"
+                            }
+                          />
+                          {c.disposition && (
                             <Chip
                               size="small"
-                              label={`Unread ${c.unreadCount}`}
+                              label={c.disposition.replace(/_/g, " ")}
+                              color={
+                                c.disposition.includes("resolved")
+                                  ? "success"
+                                  : c.disposition.includes("escalated")
+                                  ? "error"
+                                  : c.disposition.includes("booking")
+                                  ? "info"
+                                  : "default"
+                              }
+                              icon={<FlagIcon />}
                             />
+                          )}
+                          {c.customerType && (
+                            <Chip
+                              size="small"
+                              label={c.customerType}
+                              color={
+                                c.customerType === "vip"
+                                  ? "warning"
+                                  : c.customerType === "returning"
+                                  ? "success"
+                                  : "default"
+                              }
+                              icon={<PersonIcon />}
+                            />
+                          )}
+                          {c.serviceType && (
+                            <Chip
+                              size="small"
+                              label={c.serviceType}
+                              color="info"
+                              icon={
+                                c.serviceType === "booking" ? (
+                                  <HotelIcon />
+                                ) : c.serviceType === "complaint" ? (
+                                  <SupportIcon />
+                                ) : c.serviceType === "feedback" ? (
+                                  <FeedbackIcon />
+                                ) : (
+                                  <BusinessIcon />
+                                )
+                              }
+                            />
+                          )}
+                          {typeof c.unreadCount === "number" &&
+                            c.unreadCount > 0 && (
+                              <Chip
+                                size="small"
+                                label={`Unread ${c.unreadCount}`}
+                                color="error"
+                              />
+                            )}
+                          {c.customerSatisfaction && (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              {[...Array(c.customerSatisfaction)].map(
+                                (_, i) => (
+                                  <StarIcon
+                                    key={i}
+                                    sx={{ color: "#ffc107", fontSize: 16 }}
+                                  />
+                                )
+                              )}
+                              {[...Array(5 - c.customerSatisfaction)].map(
+                                (_, i) => (
+                                  <StarBorderIcon
+                                    key={i}
+                                    sx={{ color: "#ffc107", fontSize: 16 }}
+                                  />
+                                )
+                              )}
+                            </Box>
                           )}
                         </Box>
                       }
                       secondary={
-                        <Typography variant="caption" color="text.secondary">
-                          contactId: {c.contactId} • agent:{" "}
-                          {c.assignedAgentId || "unassigned"} • last:{" "}
-                          {c.lastMessageAt
-                            ? formatTimestamp(c.lastMessageAt)
-                            : "-"}
-                        </Typography>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Contact: {c.contactId} • Agent:{" "}
+                            {c.assignedAgentId || "unassigned"} • Last:{" "}
+                            {c.lastMessageAt
+                              ? formatTimestamp(c.lastMessageAt)
+                              : "-"}
+                          </Typography>
+                          {c.dispositionNotes && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              sx={{ mt: 0.5 }}
+                            >
+                              Notes:{" "}
+                              {c.dispositionNotes.length > 100
+                                ? `${c.dispositionNotes.substring(0, 100)}...`
+                                : c.dispositionNotes}
+                            </Typography>
+                          )}
+                          {c.resolutionTime && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                            >
+                              Resolution Time:{" "}
+                              {Math.floor(c.resolutionTime / 60)}m{" "}
+                              {c.resolutionTime % 60}s
+                            </Typography>
+                          )}
+                        </Box>
                       }
                     />
                   </ListItem>
@@ -2067,6 +2715,15 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
               </Box>
             )}
         </>
+      ) : viewMode === "queue" ? (
+        // Queue Management View
+        <ChatQueueManager
+          onConversationSelect={(conversation) => {
+            // Handle conversation selection - you can implement this based on your needs
+            console.log("Selected conversation:", conversation);
+          }}
+          currentAgent={currentAgent}
+        />
       ) : (
         // Chat Detail View
         <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -2278,6 +2935,8 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       )}
       {renderCropDialog()}
       {renderPollDialog()}
+      {renderDispositionDialog()}
+      {renderTransferDialog()}
     </ContentFrame>
   );
 };

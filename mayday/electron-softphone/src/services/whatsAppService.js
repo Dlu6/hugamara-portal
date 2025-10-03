@@ -137,6 +137,114 @@ const whatsAppService = {
     });
   },
 
+  // Agent ownership and disposition management
+  assignConversationToAgent: async (conversationId, agentId) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(
+        `${API_BASE_URL}/conversations/assign`,
+        {
+          conversationId,
+          agentId,
+        }
+      );
+      return response.data;
+    });
+  },
+
+  updateConversationDisposition: async (conversationId, dispositionData) => {
+    return safeApiCall(async () => {
+      const response = await axios.put(
+        `${API_BASE_URL}/conversations/${conversationId}/disposition`,
+        dispositionData
+      );
+      return response.data;
+    });
+  },
+
+  getAgentConversations: async (status = "open", limit = 50, offset = 0) => {
+    return safeApiCall(async () => {
+      const response = await axios.get(`${API_BASE_URL}/agent/conversations`, {
+        params: { status, limit, offset },
+      });
+      return response.data;
+    });
+  },
+
+  getConversationDetails: async (conversationId) => {
+    return safeApiCall(async () => {
+      const response = await axios.get(
+        `${API_BASE_URL}/conversations/${conversationId}`
+      );
+      return response.data;
+    });
+  },
+
+  transferConversation: async (
+    conversationId,
+    targetAgentId,
+    transferReason
+  ) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(
+        `${API_BASE_URL}/conversations/${conversationId}/transfer`,
+        {
+          targetAgentId,
+          transferReason,
+        }
+      );
+      return response.data;
+    });
+  },
+
+  getAvailableAgents: async () => {
+    return safeApiCall(async () => {
+      const response = await axios.get(`${API_BASE_URL}/agents/available`);
+      return response.data;
+    });
+  },
+
+  // Hospitality Template Management
+  getHospitalityTemplates: async (category = null) => {
+    return safeApiCall(async () => {
+      const params = category ? { category } : {};
+      const response = await axios.get(
+        `${API_BASE_URL}/templates/hospitality`,
+        { params }
+      );
+      return response.data;
+    });
+  },
+
+  getHospitalityTemplate: async (templateName) => {
+    return safeApiCall(async () => {
+      const response = await axios.get(
+        `${API_BASE_URL}/templates/hospitality/${templateName}`
+      );
+      return response.data;
+    });
+  },
+
+  sendTemplateMessage: async (templateName, to, variables) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(`${API_BASE_URL}/templates/send`, {
+        templateName,
+        to,
+        variables,
+      });
+      return response.data;
+    });
+  },
+
+  validateTemplateVariables: async (templateName, variables) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(`${API_BASE_URL}/templates/validate`, {
+        templateName,
+        variables,
+      });
+      return response.data;
+    });
+  },
+
   // Cancel all ongoing requests when logout starts
   cancelAllRequests: () => {
     if (window.axiosCancelTokenSource) {

@@ -20,6 +20,15 @@ import {
   createTemplate,
   deleteTemplate,
   markChatAsRead,
+  assignConversationToAgent,
+  updateConversationDisposition,
+  getAgentConversations,
+  getConversationDetails,
+  transferConversation,
+  getHospitalityTemplates,
+  getHospitalityTemplate,
+  sendTemplateMessage,
+  validateTemplateVariables,
 } from "../controllers/whatsappController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { Conversation } from "../models/WhatsAppModel.js";
@@ -62,15 +71,53 @@ router.post("/webhook", handleWebhook);
 // router.post("/status-callback", handleWebhook);
 router.post("/webhook/statusCallback", handleWebhook);
 
-// Simple conversation management routes (MVP)
-router.get("/conversations", async (req, res) => {
+// Health check endpoint
+router.get("/health", async (req, res) => {
   try {
+    // Test database connection
+    await Conversation.findOne();
+    res.json({
+      success: true,
+      message: "WhatsApp API is healthy",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Health check failed:", error);
+    res.status(500).json({
+      success: false,
+      error: "Database connection failed",
+      details: error.message,
+    });
+  }
+});
+
+// Simple conversation management routes (MVP)
+router.get("/conversations", authMiddleware, async (req, res) => {
+  try {
+    console.log("Fetching conversations for user:", req.user?.id);
+
+    // Check if Conversation model is available
+    if (!Conversation) {
+      console.error("Conversation model is not available");
+      return res.status(500).json({
+        success: false,
+        error: "Conversation model not available",
+      });
+    }
+
     const convs = await Conversation.findAll({
       order: [["updatedAt", "DESC"]],
     });
+
+    console.log(`Found ${convs.length} conversations`);
     res.json({ success: true, data: convs });
   } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
+    console.error("Error fetching conversations:", e);
+    res.status(500).json({
+      success: false,
+      error: e.message,
+      stack: e.stack,
+    });
   }
 });
 
@@ -119,5 +166,34 @@ router.post("/conversations/:id/resolve", authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, error: e.message });
   }
 });
+
+// Agent Ownership and Disposition Management Routes
+router.post("/conversations/assign", authMiddleware, assignConversationToAgent);
+router.put(
+  "/conversations/:conversationId/disposition",
+  authMiddleware,
+  updateConversationDisposition
+);
+router.get("/agent/conversations", authMiddleware, getAgentConversations);
+router.get(
+  "/conversations/:conversationId",
+  authMiddleware,
+  getConversationDetails
+);
+router.post(
+  "/conversations/:conversationId/transfer",
+  authMiddleware,
+  transferConversation
+);
+
+// Hospitality Template Routes
+router.get("/templates/hospitality", authMiddleware, getHospitalityTemplates);
+router.get(
+  "/templates/hospitality/:templateName",
+  authMiddleware,
+  getHospitalityTemplate
+);
+router.post("/templates/send", authMiddleware, sendTemplateMessage);
+router.post("/templates/validate", authMiddleware, validateTemplateVariables);
 
 export default router;

@@ -122,12 +122,64 @@ module.exports = {
         REDIS_SESSION_TTL: "1800000",
         REDIS_SESSION_CLEANUP_INTERVAL: "300000",
 
-        // External APIs
+        // ========== WHATSAPP PROVIDER CONFIGURATION ==========
+        // Choose your WhatsApp provider: "facebook" or "lipachat"
+        WHATSAPP_PROVIDER: "facebook",
+
+        // ========== FACEBOOK WHATSAPP BUSINESS API ==========
+        // Facebook WhatsApp Business API configuration (Recommended)
+        WHATSAPP_API_URL: "https://graph.facebook.com/v18.0",
+        WHATSAPP_ACCESS_TOKEN: "your_facebook_access_token",
+        WHATSAPP_PHONE_NUMBER_ID: "your_phone_number_id",
+        WHATSAPP_BUSINESS_ACCOUNT_ID: "your_business_account_id",
+        WHATSAPP_VERIFY_TOKEN: "your_verify_token",
+
+        // ========== LIPACHAT WHATSAPP CONFIGURATION ==========
+        // Lipachat API configuration for WhatsApp Business (Alternative)
         LIPACHAT_API_KEY:
           "55d6305cf8e27aee1783b9e4f8b6ba7c-2f57ab67-4353-46f1-85cf-88ec6c7f75d6",
         LIPACHAT_PHONE_NUMBER: "+15557612891",
         LIPACHAT_GATEWAY_URL: "https://gateway.lipachat.com/api/v1/whatsapp",
-        LIPACHAT_WEBHOOK_SECRET: "",
+        LIPACHAT_WEBHOOK_SECRET: "your_webhook_secret",
+
+        // ========== RATE LIMITING ==========
+        // Rate limiting configuration for WhatsApp API calls
+        RATE_LIMIT_WINDOW_MS: "900000",
+        RATE_LIMIT_MAX_REQUESTS: "100",
+
+        // ========== WHATSAPP WEBHOOK CONFIGURATION ==========
+        // Webhook endpoints for receiving WhatsApp messages
+        WHATSAPP_WEBHOOK_URL: "https://cs.hugamara.com/api/whatsapp/webhook",
+        WHATSAPP_WEBHOOK_VERIFY_TOKEN: "your_webhook_verify_token",
+
+        // ========== WHATSAPP MESSAGE CONFIGURATION ==========
+        // Message handling and template configuration
+        WHATSAPP_MESSAGE_TIMEOUT: "30000",
+        WHATSAPP_TEMPLATE_APPROVAL_REQUIRED: "true",
+        WHATSAPP_MEDIA_UPLOAD_TIMEOUT: "60000",
+        WHATSAPP_MAX_MESSAGE_LENGTH: "4096",
+        WHATSAPP_MAX_MEDIA_SIZE_MB: "16",
+
+        // ========== WHATSAPP CONVERSATION MANAGEMENT ==========
+        // Conversation and agent management settings
+        WHATSAPP_CONVERSATION_TIMEOUT: "1800000", // 30 minutes
+        WHATSAPP_AGENT_RESPONSE_TIMEOUT: "300000", // 5 minutes
+        WHATSAPP_AUTO_ASSIGN_ENABLED: "true",
+        WHATSAPP_QUEUE_MAX_SIZE: "100",
+        WHATSAPP_CONVERSATION_CLEANUP_INTERVAL: "3600000", // 1 hour
+
+        // ========== WHATSAPP NOTIFICATION CONFIGURATION ==========
+        // Real-time notification settings
+        WHATSAPP_NOTIFICATION_ENABLED: "true",
+        WHATSAPP_SOUND_NOTIFICATIONS: "true",
+        WHATSAPP_EMAIL_NOTIFICATIONS: "false",
+        WHATSAPP_SLACK_NOTIFICATIONS: "false",
+
+        // ========== WHATSAPP ANALYTICS ==========
+        // Analytics and reporting configuration
+        WHATSAPP_ANALYTICS_ENABLED: "true",
+        WHATSAPP_METRICS_RETENTION_DAYS: "90",
+        WHATSAPP_PERFORMANCE_TRACKING: "true",
 
         // Trunk Provider Configuration
         TRUNK_PROVIDER_AUTH_HEADER: "MDMyMDAwMDAwODoxMy4yMzQuMTguMg==",
