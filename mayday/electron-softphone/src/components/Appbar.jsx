@@ -84,7 +84,7 @@ import { useAuthState } from "../hooks/useAuthState";
 import moment from "moment/moment";
 import CallHistory from "./CallHistory";
 import Reports from "./ReportsElectron";
-// import Contacts from "./Contacts";
+import Contacts from "./Contacts";
 // import Campaigns from "./Campaigns";
 import AgentStatus from "./AgentStatus";
 import DashboardView from "./DashboardView";
@@ -1974,6 +1974,12 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
       id: "agentDirectory",
     },
     {
+      icon: <Person />,
+      text: "Contacts",
+      action: () => setActiveSection("contacts"),
+      id: "contacts",
+    },
+    {
       icon: <CallMerge />,
       text: "Transfer History",
       action: () => setActiveSection("transferHistory"),
@@ -2249,6 +2255,14 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
 
     setActiveSection("whatsapp");
     setWhatsAppInitialChat(contact);
+  };
+
+  const handleCallFromContact = (contact) => {
+    const phoneNumber = contact.whatsappNumber || contact.primaryPhone;
+    if (phoneNumber) {
+      handleSetDialNumber(phoneNumber);
+      setActiveSection(null); // Close contacts to show dial pad
+    }
   };
 
   // Add this effect to propagate the collapse state
@@ -5005,6 +5019,14 @@ const Appbar = ({ onLogout, onToggleCollapse, isCollapsed }) => {
         open={activeSection === "agentDirectory"}
         onClose={handleCloseAgentDirectory}
         onTransferCall={handleTransferFromDirectory}
+      />
+
+      {/* Contacts */}
+      <Contacts
+        open={activeSection === "contacts"}
+        onClose={handleCloseSection}
+        onWhatsAppChat={handleWhatsAppChat}
+        onCall={handleCallFromContact}
       />
 
       {/* Transfer History */}

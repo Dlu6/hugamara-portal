@@ -52,6 +52,7 @@ import OAuthCallback from "./components/OAuthCallback.jsx";
 import EmailManagement from "./components/EmailManagement.jsx";
 import Contexts from "./components/Contexts.jsx";
 import SmsConfig from "./components/SmsConfig.jsx";
+import ContactManager from "./components/ContactManager.js";
 
 const App = () => {
   useWebSocket();
@@ -144,6 +145,7 @@ const App = () => {
                 />
                 <Route path="profile" element={<Profile />} />
                 <Route path="emails" element={<EmailManagement />} />
+                <Route path="cm/*" element={<ContactManager />} />
                 <Route path="support/about" element={<About />} />
                 <Route path="ivr/projects" element={<IVRProjects />} />
                 <Route path="ivr/projects/:id" element={<IVRBuilder />} />
