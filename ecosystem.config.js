@@ -125,7 +125,7 @@ module.exports = {
         // External APIs
         LIPACHAT_API_KEY:
           "55d6305cf8e27aee1783b9e4f8b6ba7c-2f57ab67-4353-46f1-85cf-88ec6c7f75d6",
-        LIPACHAT_PHONE_NUMBER: "+15557612891",
+        LIPACHAT_PHONE_NUMBER: "+15558950564",
         LIPACHAT_GATEWAY_URL: "https://gateway.lipachat.com/api/v1/whatsapp",
         LIPACHAT_WEBHOOK_SECRET: "",
 

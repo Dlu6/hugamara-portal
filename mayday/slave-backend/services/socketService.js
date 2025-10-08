@@ -391,3 +391,31 @@ export const socketService = {
 
 export const emitLicenseUpdate = async () =>
   await emitLicenseUpdateToDashboards();
+
+// WhatsApp-specific socket methods
+export const emitWhatsAppMessage = (data) => {
+  if (io) {
+    io.emit("whatsapp:message", data);
+    if (DEBUG_MODE) {
+      console.log("📱 Emitted WhatsApp message:", data);
+    }
+  }
+};
+
+export const emitWhatsAppStatusUpdate = (data) => {
+  if (io) {
+    io.emit("whatsapp:status_update", data);
+    if (DEBUG_MODE) {
+      console.log("📱 Emitted WhatsApp status update:", data);
+    }
+  }
+};
+
+export const emitGenericNotification = (data) => {
+  if (io) {
+    io.emit("notification", data);
+    if (DEBUG_MODE) {
+      console.log("🔔 Emitted generic notification:", data);
+    }
+  }
+};

@@ -6,7 +6,12 @@ import {
   Conversation,
 } from "../models/WhatsAppModel.js";
 // import pkg from "twilio"; // Removed Twilio import
-import { socketService } from "../services/socketService.js";
+import {
+  socketService,
+  emitWhatsAppMessage,
+  emitWhatsAppStatusUpdate,
+  emitGenericNotification,
+} from "../services/socketService.js";
 import axios from "axios"; // Added axios import
 import lipachat from "../services/lipachatService.js";
 // const { Twilio } = pkg; // Removed Twilio import
@@ -59,7 +64,13 @@ export const handleWebhook = async (req, res) => {
 
         const existingMessage = await WhatsAppMessage.findOne({
           where: { messageId: messageId }, // Lipachat uses messageId for status updates
-          include: [{ model: Contact, attributes: ["phoneNumber", "id"] }],
+          include: [
+            {
+              model: Contact,
+              as: "whatsapp_contact",
+              attributes: ["phoneNumber", "id"],
+            },
+          ],
         });
 
         if (existingMessage && existingMessage.whatsapp_contact) {
@@ -75,7 +86,7 @@ export const handleWebhook = async (req, res) => {
             "status:",
             status
           );
-          socketService.emitWhatsAppStatusUpdate({
+          emitWhatsAppStatusUpdate({
             messageId: existingMessage.messageId,
             dbMessageId: existingMessage.id,
             status: existingMessage.status,
@@ -112,7 +123,7 @@ export const handleWebhook = async (req, res) => {
         // await YourTemplateModel.update({ status, statusDescription }, { where: { templateId } });
 
         // And potentially emit a socket event if your UI needs to react to template status changes
-        socketService.emitGenericNotification({
+        emitGenericNotification({
           type: "TEMPLATE_STATUS_UPDATE",
           data: {
             templateId,
@@ -124,10 +135,22 @@ export const handleWebhook = async (req, res) => {
       }
       // Existing logic for inbound messages
       else {
+        console.log(
+          "🔍 Processing event:",
+          event.event,
+          "with structure:",
+          Object.keys(event)
+        );
         let isMessageEvent = false;
         let messages = [];
 
-        if (event.messages && Array.isArray(event.messages)) {
+        // Handle Lipachat MESSAGE event structure
+        if (event.event === "MESSAGE" && event.message) {
+          console.log("✅ Detected Lipachat MESSAGE event");
+          messages = [event.message];
+          isMessageEvent = true;
+        } else if (event.messages && Array.isArray(event.messages)) {
+          console.log("✅ Detected messages array");
           messages = event.messages;
           isMessageEvent = true;
         } else if (
@@ -146,6 +169,7 @@ export const handleWebhook = async (req, res) => {
             "INTERACTIVE", // Added INTERACTIVE for buttons/lists
           ].includes(event.type.toUpperCase())
         ) {
+          console.log("✅ Detected direct message event");
           messages = [event];
           isMessageEvent = true;
         }
@@ -162,7 +186,15 @@ export const handleWebhook = async (req, res) => {
               toNumberRaw && !toNumberRaw.startsWith("+")
                 ? `+${toNumberRaw}`
                 : toNumberRaw;
-            const lipaMessageId = msg.messageId; // Lipachat specific 'messageId'
+            const lipaMessageId = msg.id || msg.messageId; // Lipachat uses 'id', fallback to 'messageId'
+            console.log(
+              "🔍 Processing message with ID:",
+              lipaMessageId,
+              "from:",
+              fromNumber,
+              "to:",
+              toNumber
+            );
             let textContent = msg.text; // For TEXT type
 
             // Handle interactive messages
@@ -310,7 +342,7 @@ export const handleWebhook = async (req, res) => {
               "Lipa Msg ID:",
               lipaMessageId
             );
-            socketService.emitWhatsAppMessage({
+            emitWhatsAppMessage({
               message: {
                 id: incomingMessage.id,
                 messageId: incomingMessage.messageId,
@@ -990,7 +1022,7 @@ export const sendChatMessage = async (req, res) => {
       lastMessageId: lipaMessageId,
     });
 
-    socketService.emitWhatsAppMessage({
+    emitWhatsAppMessage({
       message: {
         id: message.id,
         messageId: message.messageId,
@@ -1174,7 +1206,7 @@ export const handleMessageStatus = async (messageId, status) => {
 
       await message.update({ status: normalizedStatus });
 
-      socketService.emitWhatsAppStatusUpdate({
+      emitWhatsAppStatusUpdate({
         messageId: message.messageId,
         dbMessageId: message.id,
         status: normalizedStatus,
@@ -1216,7 +1248,7 @@ export const markChatAsRead = async (req, res) => {
       await conversation.update({ unreadCount: 0 });
 
       // Emit an update to inform clients
-      socketService.emitWhatsAppMessage({
+      emitWhatsAppMessage({
         // Re-using emitWhatsAppMessage structure for simplicity
         // It will trigger 'whatsapp:chat_update' on the frontend
         message: {

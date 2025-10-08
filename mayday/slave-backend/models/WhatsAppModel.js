@@ -183,6 +183,14 @@ const WhatsAppMessage = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    conversationId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "whatsapp_conversations",
+        key: "id",
+      },
+    },
   },
   {
     tableName: "whatsapp_messages",
