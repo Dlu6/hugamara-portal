@@ -66,6 +66,7 @@ import {
   Refresh as RefreshIcon,
   Check,
   Schedule,
+  Error,
 } from "@mui/icons-material";
 import AddIcon from "@mui/icons-material/Add";
 import ContentFrame from "./ContentFrame";
@@ -375,10 +376,16 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   const getMessageStatus = (status) => {
     const commonStyle = { fontSize: 16, ml: 0.5 };
 
+    // Debug logging
+    console.log("getMessageStatus called with status:", status);
+
     switch (status) {
       case "sent":
+      case "queued":
+      case "sending":
         return <Check sx={{ ...commonStyle, color: "grey.500" }} />;
       case "delivered":
+      case "delivered_to_device":
         return (
           <Box sx={{ display: "flex" }}>
             <Check sx={{ ...commonStyle, color: "grey.500", mr: -0.5 }} />
@@ -386,13 +393,18 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
           </Box>
         );
       case "read":
+      case "read_by_recipient":
         return (
           <Box sx={{ display: "flex" }}>
             <Check sx={{ ...commonStyle, color: "#34B7F1", mr: -0.5 }} />
             <Check sx={{ ...commonStyle, color: "#34B7F1" }} />
           </Box>
         );
+      case "failed":
+      case "undelivered":
+        return <Error sx={{ ...commonStyle, color: "red.500" }} />;
       default:
+        console.log("Unknown status, using default:", status);
         return <Schedule sx={{ ...commonStyle, color: "grey.500" }} />;
     }
   };
@@ -831,59 +843,69 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   };
 
   // Update renderMessage to better handle image display
-  const renderMessage = (message) => (
-    <Box
-      key={message.id}
-      sx={{
-        display: "flex",
-        justifyContent:
-          message.sender === "contact" ? "flex-start" : "flex-end",
-        mb: 1,
-      }}
-    >
-      <Paper
+  const renderMessage = (message) => {
+    // Debug logging for message status
+    console.log("Rendering message:", {
+      id: message.id,
+      sender: message.sender,
+      status: message.status,
+      text: message.text?.substring(0, 20) + "...",
+    });
+
+    return (
+      <Box
+        key={message.id}
         sx={{
-          maxWidth: "70%",
-          p: 1.5,
-          bgcolor: message.sender === "contact" ? "#fff" : "#dcf8c6",
-          borderRadius: 2,
-          position: "relative",
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            top: 0,
-            [message.sender === "contact" ? "left" : "right"]: -10,
-            borderStyle: "solid",
-            borderWidth: "10px 10px 0 0",
-            borderColor: `${
-              message.sender === "contact" ? "#fff" : "#dcf8c6"
-            } transparent transparent transparent`,
-            transform: message.sender === "contact" ? "none" : "scaleX(-1)",
-          },
+          display: "flex",
+          justifyContent:
+            message.sender === "contact" ? "flex-start" : "flex-end",
+          mb: 1,
         }}
       >
-        <Typography variant="body1">{message.text}</Typography>
-        <Box
+        <Paper
           sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
+            maxWidth: "70%",
+            p: 1.5,
+            bgcolor: message.sender === "contact" ? "#fff" : "#dcf8c6",
+            borderRadius: 2,
+            position: "relative",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              [message.sender === "contact" ? "left" : "right"]: -10,
+              borderStyle: "solid",
+              borderWidth: "10px 10px 0 0",
+              borderColor: `${
+                message.sender === "contact" ? "#fff" : "#dcf8c6"
+              } transparent transparent transparent`,
+              transform: message.sender === "contact" ? "none" : "scaleX(-1)",
+            },
           }}
         >
-          <Typography
-            variant="caption"
+          <Typography variant="body1">{message.text}</Typography>
+          <Box
             sx={{
-              color: "text.secondary",
-              mr: 0.5,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
             }}
           >
-            {formatTimestamp(message.timestamp)}
-          </Typography>
-          {message.sender !== "contact" && getMessageStatus(message.status)}
-        </Box>
-      </Paper>
-    </Box>
-  );
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                mr: 0.5,
+              }}
+            >
+              {formatTimestamp(message.timestamp)}
+            </Typography>
+            {message.sender !== "contact" && getMessageStatus(message.status)}
+          </Box>
+        </Paper>
+      </Box>
+    );
+  };
 
   // Enhanced centerAspectCrop function
   function centerAspectCrop(mediaWidth, mediaHeight, aspect) {

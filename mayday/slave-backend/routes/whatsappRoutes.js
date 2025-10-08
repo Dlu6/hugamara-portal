@@ -6,6 +6,7 @@ import {
   getMessages,
   getMessageStatus,
   handleWebhook,
+  testWebhook,
   // sendMessage,
   updateContact,
   uploadMedia,
@@ -59,6 +60,7 @@ router.delete("/templates/:templateId", deleteTemplate);
 
 // Webhook routes
 router.post("/webhook", handleWebhook);
+router.get("/webhook/test", testWebhook); // Test endpoint
 // router.post("/status-callback", handleWebhook);
 router.post("/webhook/statusCallback", handleWebhook);
 

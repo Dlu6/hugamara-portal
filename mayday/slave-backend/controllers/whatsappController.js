@@ -5,19 +5,30 @@ import {
   WhatsAppConfig,
   Conversation,
 } from "../models/WhatsAppModel.js";
-// import pkg from "twilio"; // Removed Twilio import
 import {
   socketService,
   emitWhatsAppMessage,
   emitWhatsAppStatusUpdate,
   emitGenericNotification,
 } from "../services/socketService.js";
-import axios from "axios"; // Added axios import
-import lipachat from "../services/lipachatService.js";
-// const { Twilio } = pkg; // Removed Twilio import
+import twilioService from "../services/twilioService.js";
+import pkg from "twilio";
+const { Twilio } = pkg;
 
 // Get configuration from environment variables
-// Removed Twilio config variables
+const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
+const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioWhatsAppNumber =
+  process.env.TWILIO_WHATSAPP_NUMBER || "+12566809340";
+
+console.log("Twilio Account SID:", twilioAccountSid ? "Set" : "Missing");
+console.log("Twilio Auth Token:", twilioAuthToken ? "Set" : "Missing");
+console.log("Twilio WhatsApp Number:", twilioWhatsAppNumber);
+console.log(
+  "DEBUG - twilioWhatsAppNumber value:",
+  JSON.stringify(twilioWhatsAppNumber)
+);
+console.log("DEBUG - twilioWhatsAppNumber type:", typeof twilioWhatsAppNumber);
 const lipaChatApiKey = process.env.LIPACHAT_API_KEY;
 console.log("lipaChatApiKey>>>>>", lipaChatApiKey);
 const lipaChatPhoneNumber = process.env.LIPACHAT_PHONE_NUMBER;
@@ -25,9 +36,9 @@ console.log(
   `CONTROLLER TOP LEVEL: lipaChatPhoneNumber from env is: ${lipaChatPhoneNumber}`
 );
 
-if (!lipaChatApiKey || !lipaChatPhoneNumber) {
+if (!twilioAccountSid || !twilioAuthToken || !twilioWhatsAppNumber) {
   console.error(
-    "Missing required Lipachat configuration in environment variables"
+    "Missing required Twilio configuration in environment variables"
   );
 }
 
@@ -35,353 +46,220 @@ if (!lipaChatApiKey || !lipaChatPhoneNumber) {
 
 // export const sendMessage = async (req, res) => { ... }; // Entire sendMessage function removed as it was Twilio specific
 
-export const handleWebhook = async (req, res) => {
-  // Verify webhook signature if configured
-  if (!lipachat.verifyWebhookSignature(req)) {
-    return res.status(401).json({ success: false, error: "Invalid signature" });
-  }
-  console.log("--- LIPACHAT WEBHOOK RECEIVED ---");
+// Test endpoint to verify webhook is accessible
+export const testWebhook = async (req, res) => {
+  console.log("--- WEBHOOK TEST ENDPOINT HIT ---");
   console.log("Headers:", JSON.stringify(req.headers, null, 2));
   console.log("Body:", JSON.stringify(req.body, null, 2));
+  console.log("Query:", JSON.stringify(req.query, null, 2));
+
+  res.json({
+    success: true,
+    message: "Webhook test endpoint is working",
+    timestamp: new Date().toISOString(),
+    receivedData: {
+      headers: req.headers,
+      body: req.body,
+      query: req.query,
+    },
+  });
+};
+
+export const handleWebhook = async (req, res) => {
+  // Temporarily disable webhook signature verification for testing
+  // if (!twilioService.verifyWebhookSignature(req)) {
+  //   return res.status(401).json({ success: false, error: "Invalid signature" });
+  // }
+  console.log("--- TWILIO WEBHOOK RECEIVED ---");
+  console.log("Headers:", JSON.stringify(req.headers, null, 2));
+  console.log("Body:", JSON.stringify(req.body, null, 2));
+  console.log("Webhook URL:", req.originalUrl);
+  console.log("Method:", req.method);
 
   const payload = req.body;
-  const eventsToProcess = Array.isArray(payload) ? payload : [payload];
 
   try {
-    for (const event of eventsToProcess) {
-      // Check if it's a Lipachat message status update
-      if (event.event === "MESSAGE_STATUS" && event.messageStatus) {
-        const { waId, messageId, conversationId, status, statusDesc } =
-          event.messageStatus;
+    // Handle Twilio message status updates
+    if (payload.MessageStatus) {
+      const { MessageSid, MessageStatus, To, From } = payload;
 
-        if (!messageId || !status) {
-          console.warn(
-            "Skipping Lipachat MESSAGE_STATUS update due to missing messageId or status:",
-            event.messageStatus
-          );
-          continue;
-        }
+      console.log("Twilio message status update:", {
+        MessageSid,
+        MessageStatus,
+        To,
+        From,
+      });
 
-        const existingMessage = await WhatsAppMessage.findOne({
-          where: { messageId: messageId }, // Lipachat uses messageId for status updates
-          include: [
-            {
-              model: Contact,
-              as: "whatsapp_contact",
-              attributes: ["phoneNumber", "id"],
-            },
-          ],
-        });
-
-        if (existingMessage && existingMessage.whatsapp_contact) {
-          await existingMessage.update({
-            status: status.toLowerCase(), // DELIVERED -> delivered
-            // timestamp: new Date(), // Lipachat status doesn't provide a timestamp for the status event itself
-            errorMessage: statusDesc || null, // Use statusDesc for potential error messages
-          });
-
-          console.log(
-            "Emitting whatsapp:status_update for Lipachat messageId:",
-            messageId,
-            "status:",
-            status
-          );
-          emitWhatsAppStatusUpdate({
-            messageId: existingMessage.messageId,
-            dbMessageId: existingMessage.id,
-            status: existingMessage.status,
-            timestamp: existingMessage.timestamp, // Keep original message timestamp or update if status provides one
-            contactPhoneNumber: existingMessage.whatsapp_contact.phoneNumber,
-            contactId: existingMessage.whatsapp_contact.id,
-            errorMessage: existingMessage.errorMessage,
-          });
-        } else {
-          console.warn(
-            `Received Lipachat MESSAGE_STATUS update for unknown messageId: ${messageId} or message has no associated contact.`
-          );
-          if (existingMessage) {
-            console.warn(
-              `Message was found for messageId ${messageId}, but contact was missing. Message details (contactId should be populated):`,
-              JSON.stringify(existingMessage.toJSON(), null, 2)
-            );
-          } else {
-            console.warn(
-              `Message was NOT found in the database for messageId: ${messageId}`
-            );
-          }
-        }
-      }
-      // Check if it's a Lipachat template status update
-      else if (event.event === "TEMPLATE_STATUS" && event.templateStatus) {
-        const { status, templateId, templateName, statusDescription } =
-          event.templateStatus;
-        console.log(
-          `Received Lipachat TEMPLATE_STATUS update: ID ${templateId}, Name: ${templateName}, Status: ${status}, Description: ${statusDescription}`
+      if (!MessageSid || !MessageStatus) {
+        console.warn(
+          "Skipping Twilio status update due to missing MessageSid or MessageStatus"
         );
-        // Here you would typically update your local database record of the template status
-        // For example:
-        // await YourTemplateModel.update({ status, statusDescription }, { where: { templateId } });
+        return res.status(200).json({ success: true });
+      }
 
-        // And potentially emit a socket event if your UI needs to react to template status changes
-        emitGenericNotification({
-          type: "TEMPLATE_STATUS_UPDATE",
-          data: {
-            templateId,
-            templateName,
-            status,
-            statusDescription,
+      const existingMessage = await WhatsAppMessage.findOne({
+        where: { messageId: MessageSid }, // Twilio uses MessageSid as messageId
+        include: [
+          {
+            model: Contact,
+            as: "whatsapp_contact",
+            attributes: ["phoneNumber", "id"],
           },
+        ],
+      });
+
+      if (existingMessage && existingMessage.whatsapp_contact) {
+        await existingMessage.update({
+          status: MessageStatus.toLowerCase(),
+          errorMessage:
+            MessageStatus === "failed" ? "Message delivery failed" : null,
+        });
+
+        console.log(
+          "Emitting whatsapp:status_update for Twilio messageId:",
+          MessageSid,
+          "status:",
+          MessageStatus
+        );
+        emitWhatsAppStatusUpdate({
+          messageId: existingMessage.messageId,
+          dbMessageId: existingMessage.id,
+          status: existingMessage.status,
+          timestamp: existingMessage.timestamp,
+          contactPhoneNumber: existingMessage.whatsapp_contact.phoneNumber,
+          contactId: existingMessage.whatsapp_contact.id,
+          errorMessage: existingMessage.errorMessage,
+        });
+      } else {
+        console.warn(
+          `Received Twilio status update for unknown messageId: ${MessageSid} or message has no associated contact.`
+        );
+      }
+    }
+    // Handle Twilio incoming messages
+    else if (payload.Body && payload.From && payload.To) {
+      const { Body, From, To, MessageSid, NumMedia, MediaUrl0 } = payload;
+
+      console.log("Twilio incoming message:", {
+        Body,
+        From,
+        To,
+        MessageSid,
+        NumMedia,
+      });
+
+      // Extract phone number from WhatsApp format (whatsapp:+1234567890)
+      const fromNumber = From.replace("whatsapp:", "");
+      const toNumber = To.replace("whatsapp:", "");
+
+      // Find or create contact
+      const [contact, created] = await Contact.findOrCreate({
+        where: { phoneNumber: fromNumber },
+        defaults: {
+          name: fromNumber,
+          lastInteraction: new Date(),
+          lastMessage: Body,
+          isOnline: true,
+          unreadCount: 1,
+        },
+      });
+
+      if (!created) {
+        await contact.increment("unreadCount");
+        await contact.update({
+          lastInteraction: new Date(),
+          lastMessage: Body,
+          lastMessageSender: "contact",
+          lastMessageId: MessageSid,
         });
       }
-      // Existing logic for inbound messages
-      else {
-        console.log(
-          "🔍 Processing event:",
-          event.event,
-          "with structure:",
-          Object.keys(event)
-        );
-        let isMessageEvent = false;
-        let messages = [];
 
-        // Handle Lipachat MESSAGE event structure
-        if (event.event === "MESSAGE" && event.message) {
-          console.log("✅ Detected Lipachat MESSAGE event");
-          messages = [event.message];
-          isMessageEvent = true;
-        } else if (event.messages && Array.isArray(event.messages)) {
-          console.log("✅ Detected messages array");
-          messages = event.messages;
-          isMessageEvent = true;
-        } else if (
-          event.messageId &&
-          event.from &&
-          event.to &&
-          event.type &&
-          [
-            "TEXT",
-            "IMAGE",
-            "VIDEO",
-            "AUDIO",
-            "DOCUMENT",
-            "STICKER",
-            "LOCATION",
-            "INTERACTIVE", // Added INTERACTIVE for buttons/lists
-          ].includes(event.type.toUpperCase())
-        ) {
-          console.log("✅ Detected direct message event");
-          messages = [event];
-          isMessageEvent = true;
-        }
+      // Find/create conversation
+      let conversation = await Conversation.findOne({
+        where: { contactId: contact.id, status: "open" },
+        order: [["updatedAt", "DESC"]],
+      });
 
-        if (isMessageEvent) {
-          for (const msg of messages) {
-            const fromNumberRaw = msg.from;
-            const toNumberRaw = msg.to;
-            const fromNumber =
-              fromNumberRaw && !fromNumberRaw.startsWith("+")
-                ? `+${fromNumberRaw}`
-                : fromNumberRaw;
-            const toNumber =
-              toNumberRaw && !toNumberRaw.startsWith("+")
-                ? `+${toNumberRaw}`
-                : toNumberRaw;
-            const lipaMessageId = msg.id || msg.messageId; // Lipachat uses 'id', fallback to 'messageId'
-            console.log(
-              "🔍 Processing message with ID:",
-              lipaMessageId,
-              "from:",
-              fromNumber,
-              "to:",
-              toNumber
-            );
-            let textContent = msg.text; // For TEXT type
-
-            // Handle interactive messages
-            if (msg.type?.toUpperCase() === "INTERACTIVE") {
-              if (msg.interactive?.type === "button_reply") {
-                textContent = `Button: ${msg.interactive.button_reply.title} (ID: ${msg.interactive.button_reply.id})`;
-              } else if (msg.interactive?.type === "list_reply") {
-                textContent = `List Reply: ${msg.interactive.list_reply.title} (ID: ${msg.interactive.list_reply.id})`;
-              }
-            }
-
-            let messageType = (msg.type || "text").toLowerCase();
-            let mediaUrl = null;
-            const profileName = msg.profileName;
-
-            let eventTimestamp = new Date();
-            if (msg.timestamp) {
-              const ts = parseInt(msg.timestamp);
-              if (!isNaN(ts)) {
-                eventTimestamp =
-                  ts > 9999999999 ? new Date(ts) : new Date(ts * 1000);
-              }
-            }
-
-            // Lipachat uses direct 'url' for media, not 'link' based on sample payload
-            if (
-              msg.type?.toUpperCase() === "IMAGE" &&
-              msg.image &&
-              msg.image.url
-            ) {
-              messageType = "image";
-              mediaUrl = msg.image.url;
-              if (msg.image.caption) textContent = msg.image.caption;
-            } else if (
-              msg.type?.toUpperCase() === "VIDEO" &&
-              msg.video &&
-              msg.video.url
-            ) {
-              messageType = "video";
-              mediaUrl = msg.video.url;
-              if (msg.video.caption) textContent = msg.video.caption;
-            } else if (
-              msg.type?.toUpperCase() === "AUDIO" &&
-              msg.audio &&
-              msg.audio.url
-            ) {
-              messageType = "audio";
-              mediaUrl = msg.audio.url;
-              if (msg.audio.caption) textContent = msg.audio.caption;
-            } else if (
-              msg.type?.toUpperCase() === "DOCUMENT" &&
-              msg.document &&
-              msg.document.url
-            ) {
-              messageType = "document";
-              mediaUrl = msg.document.url;
-              if (msg.document.caption) textContent = msg.document.caption;
-            } else if (
-              msg.type?.toUpperCase() === "STICKER" &&
-              msg.sticker &&
-              msg.sticker.url
-            ) {
-              messageType = "sticker";
-              mediaUrl = msg.sticker.url;
-              if (msg.sticker.caption) textContent = msg.sticker.caption;
-            }
-
-            if (!fromNumber || !toNumber || !lipaMessageId) {
-              console.warn(
-                "Skipping message due to missing critical info (from, to, or messageId):",
-                msg
-              );
-              continue;
-            }
-
-            let contact = null;
-            let unreadCountForEmit = 0;
-
-            const [foundContact, created] = await Contact.findOrCreate({
-              where: { phoneNumber: fromNumber },
-              defaults: {
-                name: profileName || fromNumber,
-                lastInteraction: eventTimestamp,
-                lastMessage: textContent || `Media (${messageType})`,
-                isOnline: true,
-                unreadCount: 1,
-              },
-            });
-            contact = foundContact;
-
-            if (!created) {
-              await contact.increment("unreadCount");
-              await contact.update({
-                name: profileName || contact.name,
-                lastInteraction: eventTimestamp,
-                lastMessage: textContent || `Media (${messageType})`,
-                lastMessageSender: "contact",
-                lastMessageId: lipaMessageId,
-              });
-              await contact.reload();
-              unreadCountForEmit = contact.unreadCount;
-            } else {
-              unreadCountForEmit = contact.unreadCount;
-            }
-
-            // Find/create conversation for this contact
-            let conversation = await Conversation.findOne({
-              where: { contactId: contact.id, status: "open" },
-              order: [["updatedAt", "DESC"]],
-            });
-            if (!conversation) {
-              conversation = await Conversation.create({
-                contactId: contact.id,
-                provider: "lipachat",
-                status: "open",
-                unreadCount: 1,
-                lastMessageAt: eventTimestamp,
-              });
-            } else {
-              await conversation.update({
-                unreadCount: conversation.unreadCount + 1,
-                lastMessageAt: eventTimestamp,
-              });
-            }
-
-            const incomingMessage = await WhatsAppMessage.create({
-              messageId: lipaMessageId,
-              from: fromNumber,
-              to: toNumber,
-              text: textContent,
-              mediaUrl: mediaUrl,
-              status: "received",
-              contactId: contact.id,
-              sender: fromNumber,
-              type: messageType,
-              timestamp: eventTimestamp,
-              conversationId: conversation.id,
-            });
-
-            console.log(
-              "Emitting whatsapp:message for contact:",
-              contact.phoneNumber,
-              "Our DB msg ID:",
-              incomingMessage.id,
-              "Lipa Msg ID:",
-              lipaMessageId
-            );
-            emitWhatsAppMessage({
-              message: {
-                id: incomingMessage.id,
-                messageId: incomingMessage.messageId,
-                text: incomingMessage.text,
-                mediaUrl: incomingMessage.mediaUrl,
-                timestamp: incomingMessage.timestamp,
-                sender: "contact",
-                status: incomingMessage.status,
-                type: incomingMessage.type,
-              },
-              contact: {
-                id: contact.id,
-                phoneNumber: contact.phoneNumber,
-                name: contact.name,
-                avatar:
-                  contact.avatar ||
-                  contact.name?.substring(0, 2).toUpperCase() ||
-                  fromNumber.substring(fromNumber.length - 2),
-                lastMessage: contact.lastMessage,
-                unreadCount: conversation.unreadCount,
-                isOnline: contact.isOnline,
-                lastMessageSender: contact.lastMessageSender,
-                lastMessageId: contact.lastMessageId,
-                conversationId: conversation.id,
-              },
-            });
-          }
-        } else {
-          console.log(
-            "Received unhandled Lipachat event structure or non-message/non-status event:",
-            event
-          );
-        }
+      if (!conversation) {
+        conversation = await Conversation.create({
+          contactId: contact.id,
+          provider: "twilio",
+          status: "open",
+          unreadCount: 1,
+          lastMessageAt: new Date(),
+        });
+      } else {
+        await conversation.update({
+          unreadCount: conversation.unreadCount + 1,
+          lastMessageAt: new Date(),
+        });
       }
+
+      // Create message record
+      let metadata = null;
+      if (NumMedia && parseInt(NumMedia) > 0) {
+        metadata = JSON.stringify({
+          mediaUrl: MediaUrl0,
+          numMedia: parseInt(NumMedia),
+        });
+      }
+
+      const incomingMessage = await WhatsAppMessage.create({
+        messageId: MessageSid,
+        from: fromNumber,
+        to: toNumber,
+        text: Body,
+        mediaUrl: MediaUrl0,
+        status: "received",
+        contactId: contact.id,
+        sender: fromNumber,
+        type: NumMedia && parseInt(NumMedia) > 0 ? "media" : "text",
+        timestamp: new Date(),
+        conversationId: conversation.id,
+        metadata: metadata,
+      });
+
+      console.log(
+        "Emitting whatsapp:message for contact:",
+        contact.phoneNumber,
+        "Our DB msg ID:",
+        incomingMessage.id,
+        "Twilio Msg ID:",
+        MessageSid
+      );
+
+      emitWhatsAppMessage({
+        message: {
+          id: incomingMessage.id,
+          messageId: incomingMessage.messageId,
+          text: incomingMessage.text,
+          mediaUrl: incomingMessage.mediaUrl,
+          timestamp: incomingMessage.timestamp,
+          sender: "contact",
+          status: incomingMessage.status,
+          type: incomingMessage.type,
+        },
+        contact: {
+          id: contact.id,
+          phoneNumber: contact.phoneNumber,
+          name: contact.name,
+          avatar:
+            contact.avatar ||
+            contact.name?.substring(0, 2).toUpperCase() ||
+            fromNumber.substring(fromNumber.length - 2),
+          lastMessage: contact.lastMessage,
+          unreadCount: conversation.unreadCount,
+          isOnline: contact.isOnline,
+          lastMessageSender: contact.lastMessageSender,
+          lastMessageId: contact.lastMessageId,
+          conversationId: conversation.id,
+        },
+      });
     }
 
     res.status(200).json({ success: true, message: "Webhook processed" });
   } catch (error) {
-    console.error("Error processing Lipachat webhook:", error);
+    console.error("Error processing Twilio webhook:", error);
     res
       .status(500)
       .json({ success: false, error: error.message, details: error.stack });
@@ -613,7 +491,7 @@ export const getWhatsAppConfig = async (req, res) => {
   try {
     // Prefer DB-configured values; fall back to env
     const cfg = await WhatsAppConfig.findOne();
-    const phone = cfg?.phoneNumber || lipaChatPhoneNumber || null;
+    const phone = cfg?.phoneNumber || twilioWhatsAppNumber || null;
     if (!phone) {
       return res.status(200).json({
         success: true,
@@ -621,7 +499,9 @@ export const getWhatsAppConfig = async (req, res) => {
           enabled: cfg?.enabled || false,
           phoneNumber: "",
           webhookUrl: cfg?.webhookUrl || "",
-          apiKeyProvided: Boolean(cfg?.lipaApiKey),
+          accountSid: cfg?.accountSid || "",
+          authToken: cfg?.authToken ? "***" : "",
+          credentialsProvided: Boolean(cfg?.accountSid && cfg?.authToken),
         },
         warning: "WhatsApp number not configured yet.",
       });
@@ -630,11 +510,18 @@ export const getWhatsAppConfig = async (req, res) => {
     res.json({
       success: true,
       data: {
-        enabled: cfg?.enabled ?? Boolean(process.env.LIPACHAT_API_KEY),
+        enabled: cfg?.enabled ?? Boolean(process.env.TWILIO_ACCOUNT_SID),
         phoneNumber: phone,
         webhookUrl: cfg?.webhookUrl || "",
-        apiKeyProvided: Boolean(
-          cfg?.lipaApiKey || process.env.LIPACHAT_API_KEY
+        accountSid: cfg?.accountSid || process.env.TWILIO_ACCOUNT_SID || "",
+        authToken: cfg?.authToken
+          ? "***"
+          : process.env.TWILIO_AUTH_TOKEN
+          ? "***"
+          : "",
+        credentialsProvided: Boolean(
+          (cfg?.accountSid && cfg?.authToken) ||
+            (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
         ),
       },
     });
@@ -649,36 +536,48 @@ export const getWhatsAppConfig = async (req, res) => {
 
 export const updateWhatsAppConfig = async (req, res) => {
   try {
-    const {
-      enabled,
-      // accountSid, // Removed Twilio
-      // authToken, // Removed Twilio
-      apiKey, // Added for Lipachat
-      phoneNumber,
-      webhookUrl, // This should be your app's incoming webhook URL
-      // contentSid, // Removed Twilio
-    } = req.body;
+    const { enabled, accountSid, authToken, phoneNumber, webhookUrl } =
+      req.body;
 
     let config = await WhatsAppConfig.findOne();
 
     if (!config) {
       config = await WhatsAppConfig.create({
         enabled,
-        lipaApiKey: apiKey || null,
+        accountSid: accountSid || null,
+        authToken: authToken || null,
         phoneNumber: phoneNumber || null,
         webhookUrl: webhookUrl || null,
       });
     } else {
       await config.update({
         enabled,
-        lipaApiKey: apiKey || config.lipaApiKey,
+        accountSid: accountSid || config.accountSid,
+        authToken: authToken || config.authToken,
         phoneNumber: phoneNumber || config.phoneNumber,
         webhookUrl: webhookUrl || config.webhookUrl,
       });
     }
 
-    // No Twilio client to test connection with.
-    // If Lipachat has a "verify credentials" API endpoint, you could call it here.
+    // Test Twilio connection if credentials are provided
+    if (accountSid && authToken) {
+      try {
+        const testClient = new Twilio(accountSid, authToken);
+        // Simple test to verify credentials
+        await testClient.api.accounts(accountSid).fetch();
+        console.log("✅ Twilio credentials verified successfully");
+      } catch (twilioError) {
+        console.warn(
+          "⚠️ Twilio credentials verification failed:",
+          twilioError.message
+        );
+        return res.status(400).json({
+          success: false,
+          error:
+            "Invalid Twilio credentials. Please check your Account SID and Auth Token.",
+        });
+      }
+    }
 
     res.json({
       success: true,
@@ -686,7 +585,9 @@ export const updateWhatsAppConfig = async (req, res) => {
         enabled: config.enabled,
         phoneNumber: config.phoneNumber || "",
         webhookUrl: config.webhookUrl || "",
-        apiKeyProvided: Boolean(config.lipaApiKey),
+        accountSid: config.accountSid || "",
+        authToken: config.authToken ? "***" : "",
+        credentialsProvided: Boolean(config.accountSid && config.authToken),
       },
     });
   } catch (error) {
@@ -805,25 +706,60 @@ export const getChatMessages = async (req, res) => {
       order: [["timestamp", "ASC"]],
     });
 
-    const formattedMessages = messages.map((message) => ({
-      id: message.id,
-      messageId: message.messageId, // Include original messageId
-      text: message.text,
-      mediaUrl: message.mediaUrl, // Include mediaUrl
-      timestamp: message.timestamp,
-      // Determine sender based on whether the message.from matches our Lipachat number
-      sender:
-        message.from ===
-        (lipaChatPhoneNumber.startsWith("+")
-          ? lipaChatPhoneNumber
-          : `+${lipaChatPhoneNumber}`)
+    // Ensure we have a valid Twilio number
+    const twilioNumber =
+      twilioWhatsAppNumber ||
+      process.env.TWILIO_WHATSAPP_NUMBER ||
+      "+12566809340";
+
+    // Debug logging
+    console.log("DEBUG getChatMessages:");
+    console.log("twilioWhatsAppNumber:", twilioWhatsAppNumber);
+    console.log("typeof twilioWhatsAppNumber:", typeof twilioWhatsAppNumber);
+    console.log("twilioNumber (fallback):", twilioNumber);
+    console.log("messages count:", messages.length);
+    if (messages.length > 0) {
+      console.log("first message.from:", messages[0].from);
+      console.log("first message.to:", messages[0].to);
+    }
+
+    const formattedMessages = messages.map((message) => {
+      // Use the twilioNumber we defined above
+      const normalizedTwilioNumber = twilioNumber.startsWith("+")
+        ? twilioNumber
+        : `+${twilioNumber}`;
+
+      const sender =
+        message.from === normalizedTwilioNumber
           ? "user" // Our application sent this message
-          : "contact", // The external contact sent this message
-      status: message.status,
-      type: message.type, // Include message type
-      errorCode: message.errorCode,
-      errorMessage: message.errorMessage,
-    }));
+          : "contact"; // The external contact sent this message
+
+      // Debug logging for each message
+      console.log("Processing message:", {
+        id: message.id,
+        from: message.from,
+        to: message.to,
+        sender: sender,
+        status: message.status,
+        text: message.text?.substring(0, 20) + "...",
+        normalizedTwilioNumber: normalizedTwilioNumber,
+        isFromTwilio: message.from === normalizedTwilioNumber,
+      });
+
+      return {
+        id: message.id,
+        messageId: message.messageId, // Include original messageId
+        text: message.text,
+        mediaUrl: message.mediaUrl, // Include mediaUrl
+        timestamp: message.timestamp,
+        // Determine sender based on whether the message.from matches our Twilio number
+        sender: sender,
+        status: message.status || "sent", // Default to "sent" if no status
+        type: message.type, // Include message type
+        errorCode: message.errorCode,
+        errorMessage: message.errorMessage,
+      };
+    });
 
     res.json({
       success: true,
@@ -843,12 +779,13 @@ export const sendChatMessage = async (req, res) => {
     const { contactId } = req.params;
     const { text, mediaUrl, template } = req.body;
 
-    console.log(
-      `SENDCHATMESSAGE: lipaChatPhoneNumber (module scope): ${lipaChatPhoneNumber}`
-    );
-    console.log(
-      `SENDCHATMESSAGE: lipaChatApiKey (module scope): ${lipaChatApiKey}`
-    );
+    console.log("SENDCHATMESSAGE: Twilio WhatsApp integration");
+    console.log("SENDCHATMESSAGE: Contact ID:", contactId);
+    console.log("SENDCHATMESSAGE: Message content:", {
+      text,
+      mediaUrl,
+      template,
+    });
 
     const contact = await Contact.findOne({
       where: { phoneNumber: contactId },
@@ -861,124 +798,75 @@ export const sendChatMessage = async (req, res) => {
       });
     }
 
-    if (!lipaChatApiKey || !lipaChatPhoneNumber) {
+    if (!twilioAccountSid || !twilioAuthToken) {
       console.error(
-        "SENDCHATMESSAGE ERROR: Lipachat API Key or Phone Number not configured properly at the top of the controller."
+        "SENDCHATMESSAGE ERROR: Twilio credentials not configured properly."
       );
       return res.status(400).json({
         success: false,
-        error: "Lipachat API Key or Phone Number not configured on the server.",
+        error: "Twilio credentials not configured on the server.",
       });
     }
-
-    // Try sending the fromNumber exactly as it is in the .env, as per the dashboard display
-    const fromNumberForApi = lipaChatPhoneNumber;
 
     // Ensure 'to' number is correctly formatted (E.164 with +)
     const toNumberForApi = contact.phoneNumber.startsWith("+")
       ? contact.phoneNumber
       : `+${contact.phoneNumber}`;
 
-    // Normalize the sender's number for consistent database storage (with +)
-    const normalizedFromNumberForDb = lipaChatPhoneNumber.startsWith("+")
-      ? lipaChatPhoneNumber
-      : `+${lipaChatPhoneNumber}`;
+    console.log(`SENDCHATMESSAGE: Using FROM number: ${twilioWhatsAppNumber}`);
+    console.log(`SENDCHATMESSAGE: Using TO number: ${toNumberForApi}`);
 
-    console.log(
-      `SENDCHATMESSAGE: Using FROM number for API: ${fromNumberForApi}`
-    );
-    console.log(`SENDCHATMESSAGE: Using TO number for API: ${toNumberForApi}`);
-
-    let lipaMessageId = null;
-    let lipaMessageStatus = "failed";
+    let twilioMessageId = null;
+    let twilioMessageStatus = "failed";
     let finalMessageType = "text";
 
-    // TODO: Determine the LIPACHAT_API_BASE_URL, e.g., from .env or hardcode if static
-    // Assuming it's "https://gateway.lipachat.com/api/v1/whatsapp" based on Postman
-    const LIPACHAT_API_BASE_URL = process.env.LIPACHAT_GATEWAY_URL;
-
-    if (template && template.name) {
-      finalMessageType = "template";
-      try {
-        const resp = await lipachat.sendTemplate({
+    try {
+      if (template && template.name) {
+        finalMessageType = "template";
+        const response = await twilioService.sendTemplate({
           to: toNumberForApi,
-          from: fromNumberForApi,
-          template,
-          apiKey:
-            (await WhatsAppConfig.findOne())?.lipaApiKey || lipaChatApiKey,
+          from: twilioWhatsAppNumber,
+          templateName: template.name,
+          languageCode: template.language || "en",
+          parameters: template.parameters || [],
         });
-        if (resp?.data?.messageId) {
-          lipaMessageId = resp.data.messageId;
-          lipaMessageStatus = resp.data.status?.toLowerCase() || "sent";
-        } else {
-          lipaMessageId = `lipa-template-${Date.now()}`;
-        }
-      } catch (e) {
-        console.error(
-          "Lipachat template send error:",
-          e.response?.data || e.message
-        );
-        lipaMessageId = `lipa-template-error-${Date.now()}`;
-      }
-    } else if (mediaUrl) {
-      finalMessageType =
-        mediaUrl.includes(".jpg") || mediaUrl.includes(".png")
-          ? "image"
-          : mediaUrl.includes(".mp4")
-          ? "video"
-          : "document";
-      try {
-        const resp = await lipachat.sendMedia({
+        twilioMessageId = response.messageId;
+        twilioMessageStatus = response.status || "sent";
+      } else if (mediaUrl) {
+        finalMessageType =
+          mediaUrl.includes(".jpg") || mediaUrl.includes(".png")
+            ? "image"
+            : mediaUrl.includes(".mp4")
+            ? "video"
+            : "document";
+        const response = await twilioService.sendMedia({
           to: toNumberForApi,
-          from: fromNumberForApi,
-          url: mediaUrl,
+          from: twilioWhatsAppNumber,
+          mediaUrl: mediaUrl,
           type: finalMessageType,
-          apiKey:
-            (await WhatsAppConfig.findOne())?.lipaApiKey || lipaChatApiKey,
+          caption: text,
         });
-        if (resp?.data?.messageId) {
-          lipaMessageId = resp.data.messageId;
-          lipaMessageStatus = resp.data.status?.toLowerCase() || "sent";
-        } else {
-          lipaMessageId = `lipa-media-${Date.now()}`;
-        }
-      } catch (e) {
-        console.error(
-          "Lipachat media send error:",
-          e.response?.data || e.message
-        );
-        lipaMessageId = `lipa-media-error-${Date.now()}`;
-      }
-    } else if (text) {
-      finalMessageType = "text";
-      try {
-        const response = await lipachat.sendText({
+        twilioMessageId = response.messageId;
+        twilioMessageStatus = response.status || "sent";
+      } else if (text) {
+        finalMessageType = "text";
+        const response = await twilioService.sendText({
           to: toNumberForApi,
-          from: fromNumberForApi,
+          from: twilioWhatsAppNumber,
           message: text,
-          apiKey:
-            (await WhatsAppConfig.findOne())?.lipaApiKey || lipaChatApiKey,
         });
-        if (response?.data?.messageId) {
-          lipaMessageId = response.data.messageId;
-          lipaMessageStatus = response.data.status?.toLowerCase() || "sent";
-        } else {
-          lipaMessageId = `lipa-text-${Date.now()}`;
-        }
-      } catch (apiError) {
-        console.error(
-          "Error calling Lipachat API for text message:",
-          apiError.response
-            ? JSON.stringify(apiError.response.data, null, 2)
-            : apiError.message
-        );
-        lipaMessageId = `lipa-error-text-${Date.now()}`;
+        twilioMessageId = response.messageId;
+        twilioMessageStatus = response.status || "sent";
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: "No message content (text, media, or template) provided.",
+        });
       }
-    } else {
-      return res.status(400).json({
-        success: false,
-        error: "No message content (text, media, or template) provided.",
-      });
+    } catch (apiError) {
+      console.error("Error calling Twilio API:", apiError);
+      twilioMessageId = `twilio-error-${Date.now()}`;
+      twilioMessageStatus = "failed";
     }
 
     // Find or create conversation for outbound message
@@ -989,7 +877,7 @@ export const sendChatMessage = async (req, res) => {
     if (!conversation) {
       conversation = await Conversation.create({
         contactId: contact.id,
-        provider: "lipachat",
+        provider: "twilio",
         status: "open",
         unreadCount: 0,
         lastMessageAt: new Date(),
@@ -999,14 +887,14 @@ export const sendChatMessage = async (req, res) => {
     }
 
     const messageToSave = {
-      messageId: lipaMessageId || `unknown-${Date.now()}`,
-      from: normalizedFromNumberForDb, // Store the number as it was sent
-      to: toNumberForApi, // Store the number as it was sent
+      messageId: twilioMessageId || `unknown-${Date.now()}`,
+      from: twilioWhatsAppNumber,
+      to: toNumberForApi,
       text: text,
       mediaUrl: finalMessageType !== "text" ? mediaUrl : null,
-      status: lipaMessageStatus,
+      status: twilioMessageStatus,
       contactId: contact.id,
-      sender: normalizedFromNumberForDb, // Our number is the sender
+      sender: twilioWhatsAppNumber,
       template: template ? JSON.stringify(template) : null,
       type: finalMessageType,
       timestamp: new Date(),
@@ -1019,7 +907,7 @@ export const sendChatMessage = async (req, res) => {
       lastInteraction: new Date(),
       lastMessage: text || `Sent ${finalMessageType}`,
       lastMessageSender: "user",
-      lastMessageId: lipaMessageId,
+      lastMessageId: twilioMessageId,
     });
 
     emitWhatsAppMessage({
@@ -1043,7 +931,8 @@ export const sendChatMessage = async (req, res) => {
     });
 
     return res.json({
-      success: lipaMessageStatus !== "failed",
+      success: twilioMessageStatus !== "failed",
+      messageId: twilioMessageId,
       data: message,
     });
   } catch (error) {

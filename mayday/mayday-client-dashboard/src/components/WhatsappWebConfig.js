@@ -196,7 +196,8 @@ const CreateTemplateDialog = ({ open, onClose, onSubmit }) => {
 const WhatsappWebConfig = () => {
   const theme = useTheme();
   const [whatsappConfig, setWhatsappConfig] = useState({
-    apiKey: "",
+    accountSid: "",
+    authToken: "",
     phoneNumber: "",
     enabled: false,
     webhookUrl: "",
@@ -219,9 +220,7 @@ const WhatsappWebConfig = () => {
 
   const fetchWhatsAppConfig = async () => {
     try {
-      const response = await apiClient.get(
-        "/whatsapp/integrations/whatsapp/config"
-      );
+      const response = await apiClient.get("/whatsapp/config");
       if (response.data.success) {
         setWhatsappConfig(response.data.data);
         setOriginalConfig(response.data.data);
@@ -256,7 +255,8 @@ const WhatsappWebConfig = () => {
   const hasChanges = () => {
     if (!originalConfig) return false;
     return (
-      (originalConfig.apiKey || "") !== (whatsappConfig.apiKey || "") ||
+      (originalConfig.accountSid || "") !== (whatsappConfig.accountSid || "") ||
+      (originalConfig.authToken || "") !== (whatsappConfig.authToken || "") ||
       (originalConfig.phoneNumber || "") !==
         (whatsappConfig.phoneNumber || "") ||
       (originalConfig.enabled || false) !== (whatsappConfig.enabled || false) ||
@@ -270,10 +270,7 @@ const WhatsappWebConfig = () => {
     setSuccess(false);
 
     try {
-      const response = await apiClient.post(
-        "/whatsapp/integrations/whatsappConfig",
-        whatsappConfig
-      );
+      const response = await apiClient.post("/whatsapp/config", whatsappConfig);
 
       if (response.data.success) {
         setSuccess(true);
@@ -535,12 +532,44 @@ const WhatsappWebConfig = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Lipachat API Key"
-                type={showAuthToken ? "text" : "password"}
-                value={whatsappConfig.apiKey}
-                onChange={handleChange("apiKey")}
+                label="Twilio Account SID"
+                type="text"
+                value={whatsappConfig.accountSid}
+                onChange={handleChange("accountSid")}
                 variant="outlined"
                 disabled={!whatsappConfig.enabled}
+                helperText="Your Twilio Account SID (starts with AC...)"
+                InputProps={{
+                  startAdornment: (
+                    <KeyIcon sx={{ mr: 1, color: "action.active" }} />
+                  ),
+                  sx: {
+                    borderRadius: 2,
+                    "&:hover fieldset": {
+                      borderColor: "primary.main",
+                    },
+                  },
+                }}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "&:hover fieldset": {
+                      borderColor: "primary.main",
+                    },
+                  },
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Twilio Auth Token"
+                type={showAuthToken ? "text" : "password"}
+                value={whatsappConfig.authToken}
+                onChange={handleChange("authToken")}
+                variant="outlined"
+                disabled={!whatsappConfig.enabled}
+                helperText="Your Twilio Auth Token (keep this secure)"
                 InputProps={{
                   startAdornment: (
                     <KeyIcon sx={{ mr: 1, color: "action.active" }} />
@@ -606,14 +635,6 @@ const WhatsappWebConfig = () => {
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              {/* Slot intentionally left blank (previous Twilio field replaced by number above) */}
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              {/* Content SID removed for Lipachat */}
-            </Grid>
-
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -621,7 +642,7 @@ const WhatsappWebConfig = () => {
                 value={whatsappConfig.webhookUrl}
                 onChange={handleChange("webhookUrl")}
                 variant="outlined"
-                helperText="Set this in Lipachat to: https://your-domain/api/whatsapp/webhook"
+                helperText="Set this in Twilio Console to: https://cs.hugamara.com/api/whatsapp/webhook"
                 disabled={!whatsappConfig.enabled}
                 InputProps={{
                   startAdornment: (
