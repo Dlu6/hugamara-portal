@@ -139,7 +139,7 @@ const Layout = () => {
     IVR: <SchemaIcon sx={{ color: "white" }} />,
     Tools: <SettingsIcon sx={{ color: "white" }} />,
     Voice: <VoiceIcon sx={{ color: "white" }} />,
-    People: <PeopleIcon sx={{ color: "white" }} />,
+    "Contact Manager": <PeopleIcon sx={{ color: "white" }} />,
     Analytics: <AnalyticsIcon sx={{ color: "white" }} />,
     Integrations: <IntegrationIcon sx={{ color: "white" }} />,
     Staff: <UsersIcon sx={{ color: "white" }} />,

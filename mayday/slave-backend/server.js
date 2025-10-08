@@ -46,7 +46,10 @@ import { socketService } from "./services/socketService.js";
 import { EventEmitter } from "events";
 import amiService from "./services/amiService.js";
 import chalk from "chalk";
-import { setupPJSIPAssociations } from "./models/associations.js";
+import {
+  setupPJSIPAssociations,
+  setupContactAssociations,
+} from "./models/associations.js";
 import { PJSIPEndpoint, PJSIPAuth, PJSIPAor } from "./models/pjsipModel.js";
 import { Contact, WhatsAppMessage } from "./models/WhatsAppModel.js";
 import soundFileRoutes from "./routes/soundFileRoutes.js";
@@ -344,10 +347,10 @@ app.use("/api/users/ivr", ivrRoutes);
 app.use("/api/users/odbc", odbcRoutes);
 app.use("/api/users/intervals", intervalRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
+app.use("/api/contacts", contactRoutes);
 app.use("/api/cdr", cdrRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/recordings", recordingRoutes);
-app.use("/api/contact", contactRoutes);
 app.use("/api/licenses", licenseRoutes);
 app.use("/api/call-costs", callCostRoutes);
 app.use("/api/balance-verification", balanceVerificationRoutes);
@@ -581,6 +584,10 @@ const initializeApp = async () => {
 
     // Set up WhatsApp Associations
     setupWhatsAppAssociations(UserModel, { Contact, WhatsAppMessage });
+
+    // Set up Contact Associations
+    const ContactModel = (await import("./models/contactModel.js")).default;
+    setupContactAssociations(UserModel, ContactModel);
 
     // Set up License Associations
     setupLicenseAssociations(UserModel);

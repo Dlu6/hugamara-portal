@@ -72,3 +72,26 @@ export const setupIntegrationAssociations = (
     as: "integration",
   });
 };
+
+// Contact associations
+export const setupContactAssociations = (UserModel, Contact) => {
+  Contact.belongsTo(UserModel, {
+    foreignKey: "createdBy",
+    as: "creator",
+  });
+
+  Contact.belongsTo(UserModel, {
+    foreignKey: "assignedAgentId",
+    as: "assignedAgent",
+  });
+
+  UserModel.hasMany(Contact, {
+    foreignKey: "createdBy",
+    as: "createdContacts",
+  });
+
+  UserModel.hasMany(Contact, {
+    foreignKey: "assignedAgentId",
+    as: "assignedContacts",
+  });
+};

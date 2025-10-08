@@ -125,6 +125,14 @@ const getUserRoutes = (user) => {
           // Add more submenus as needed (e.g., /networks/devices, etc.)
         ],
       },
+      {
+        name: "Contact Manager",
+        path: "/cm",
+        children: [
+          { name: "Contacts", path: "/cm/contacts" },
+          { name: "Import Contacts", path: "/cm/import" },
+        ],
+      },
       { name: "Email Management", path: "/emails" },
       {
         name: "Documentation",

@@ -41,6 +41,18 @@ hugamara/
 
 The system includes a comprehensive callcenter management dashboard built with React and Material-UI, and a desktop Electron softphone used by agents.
 
+### Contact Management Module
+
+- **Complete Contact Management**: Full CRUD operations for customer contacts with comprehensive data model
+- **CSV Import/Export**: Bulk import contacts from CSV files with validation and error handling
+- **Advanced Search & Filtering**: Real-time search across all contact fields with multiple filter options
+- **WhatsApp Integration**: Direct WhatsApp chat initiation from contact profiles
+- **Call Integration**: One-click calling from contact cards with dial pad integration
+- **Contact Classification**: Categorize by type (customer, prospect, supplier, partner, internal, other), priority, and status
+- **Data Validation**: Comprehensive validation for phone numbers, emails, and contact types
+- **Bulk Operations**: Mass update and delete operations for efficient contact management
+- **Professional UI**: Material-UI based interface with responsive design
+
 ### Email Management Module
 
 - **SMTP Configuration**: Complete SMTP server setup with Gmail, Outlook, and custom server support
@@ -51,8 +63,9 @@ The system includes a comprehensive callcenter management dashboard built with R
 
 ### Electron Softphone (Appbar)
 
-- Electron + React desktop client with sections for Dialer, Agent Directory, Agent Status, Reports, WhatsApp, and Email
+- Electron + React desktop client with sections for Dialer, Agent Directory, Agent Status, Reports, WhatsApp, Email, and Contacts
 - Uses SIP.js for WebRTC registration/calls and centralized reconnection/health monitoring
+- Integrated contact management with WhatsApp and calling capabilities
 - Dev start: `cd mayday/electron-softphone && npm run electron:dev`
 
 STUN/ICE configuration:
@@ -1512,6 +1525,14 @@ This architecture avoids putting unnecessary load on the backend application for
 
 - **Callcenter Management System**
 
+  - **Contact Management**: Comprehensive contact management system
+    - Complete CRUD operations for customer contacts
+    - CSV import/export with validation and error handling
+    - Advanced search and filtering capabilities
+    - WhatsApp and call integration from contact profiles
+    - Contact classification by type, priority, and status
+    - Bulk operations for efficient contact management
+    - Professional Material-UI interface with responsive design
   - **Email Management**: Complete email system with SMTP configuration
     - SMTP server setup (Gmail, Outlook, custom servers)
     - User configuration (signatures, auto-reply, sender settings)
@@ -1541,7 +1562,21 @@ This architecture avoids putting unnecessary load on the backend application for
 
 ## Recent Updates
 
-### Email Management System (Latest)
+### Contact Management System (Latest)
+
+- **Complete Contact Management**: Added comprehensive contact management system to callcenter dashboard
+- **CSV Import/Export**: Full CSV import and export functionality with validation and error handling
+- **Advanced Search & Filtering**: Real-time search across all contact fields with multiple filter options
+- **WhatsApp Integration**: Direct WhatsApp chat initiation from contact profiles
+- **Call Integration**: One-click calling from contact cards with dial pad integration
+- **Contact Classification**: Categorize by type (customer, prospect, supplier, partner, internal, other), priority, and status
+- **Data Validation**: Comprehensive validation for phone numbers, emails, and contact types with smart mapping
+- **Bulk Operations**: Mass update and delete operations for efficient contact management
+- **Professional UI**: Material-UI based interface with responsive design and loading indicators
+- **Database Integration**: Full Sequelize ORM integration with dedicated contacts table
+- **Multi-tenant Architecture**: Separate from hospitality management system
+
+### Email Management System
 
 - **Complete Email System**: Added comprehensive email management to callcenter dashboard
 - **SMTP Configuration**: Full SMTP server setup with Gmail, Outlook, and custom server support
@@ -2083,7 +2118,6 @@ ALTER TABLE ps_endpoint_id_ips ADD CONSTRAINT fk_endpoint_id FOREIGN KEY (endpoi
 
 This project is proprietary software for Hugamara Hospitality Group.
 
-
 ## Mayday Unified Outbound Dialplan (file-based)
 
 This repository includes a lean, file-based outbound helper and prefix routing that the provider requires (dynamic From via P-Preferred-Identity). The canonical config is stored here:
@@ -2091,11 +2125,13 @@ This repository includes a lean, file-based outbound helper and prefix routing t
 - docs/asterisk/extensions_mayday_context.conf
 
 Key behavior:
+
 - 2-digit DID prefix (last two digits) selects Caller ID explicitly, then dials: `_4[3-9]X.` → `45 0700…` uses `0323300245`, etc.
 - No prefix: uses `DEFAULT_DID` if set, else falls back to `DEFAULT_DID_FALLBACK=0323300243`.
 - The outbound helper `outbound-dial` normalizes destination to national (07…), sets CLI, and adds P-Preferred-Identity to drive dynamic From.
 
 Recommended deployment on PBX:
+
 1. Copy the file to the server:
    - `/etc/asterisk/extensions_mayday_context.conf`
 2. Ensure it is included from `extensions.conf` (or your existing include chain), e.g.:
@@ -2107,6 +2143,6 @@ Recommended deployment on PBX:
    - `sudo asterisk -rx "dialplan show from-internal"`
 
 Provider alignment:
+
 - Uses `PJSIP_HEADER(add,P-Preferred-Identity)=<sip:${ARG2}@${TRUNK_DOMAIN}>` so the provider sees the DID as From identity even when the trunk has no `from_user` per DID.
 - Ensure the trunk endpoint (`Hugamara_Trunk`) permits identity headers and CLI presentation.
-

@@ -28,6 +28,37 @@ const storage = multer.diskStorage({
   },
 });
 
+// Configure multer for contact imports
+const contactStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    console.log("📁 Storage destination - Processing file:", {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      fieldname: file.fieldname,
+    });
+
+    const uploadDir = path.join(process.cwd(), "uploads", "contact-imports");
+
+    try {
+      await mkdir(uploadDir, { recursive: true });
+      console.log("✅ Upload directory created/verified:", uploadDir);
+      cb(null, uploadDir);
+    } catch (error) {
+      console.error("❌ Error creating upload directory:", error);
+      cb(error);
+    }
+  },
+  filename: (req, file, cb) => {
+    // Generate unique filename
+    const uniqueSuffix = crypto.randomBytes(16).toString("hex");
+    const ext = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext);
+    const filename = `${name}-${uniqueSuffix}${ext}`;
+    console.log("📝 Generated filename:", filename);
+    cb(null, filename);
+  },
+});
+
 // File filter
 const fileFilter = (req, file, cb) => {
   // Allowed file types
@@ -54,6 +85,31 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+// File filter for contact imports (CSV only)
+const contactFileFilter = (req, file, cb) => {
+  // console.log("🔍 File filter - Processing file:", {
+  //   originalname: file.originalname,
+  //   mimetype: file.mimetype,
+  //   fieldname: file.fieldname,
+  // });
+
+  // Only allow CSV files for contact imports
+  const allowedTypes = ["text/csv", "application/csv"];
+
+  if (allowedTypes.includes(file.mimetype)) {
+    // console.log("✅ File type accepted:", file.mimetype);
+    cb(null, true);
+  } else {
+    console.log("❌ File type rejected:", file.mimetype);
+    cb(
+      new Error(
+        `File type ${file.mimetype} is not allowed. Only CSV files are supported for contact imports.`
+      ),
+      false
+    );
+  }
+};
+
 // Configure multer
 export const upload = multer({
   storage,
@@ -63,6 +119,28 @@ export const upload = multer({
     files: 5, // Maximum 5 files per request
   },
 });
+
+// Configure multer for contact imports
+export const contactUpload = multer({
+  storage: contactStorage,
+  fileFilter: contactFileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit for CSV files
+    files: 1, // Only 1 file per request
+  },
+});
+
+// Debug middleware to log multer processing
+export const debugMulter = (req, res, next) => {
+  // console.log("🔍 Multer debug - Before processing:", {
+  //   headers: req.headers,
+  //   contentType: req.headers["content-type"],
+  //   body: req.body,
+  //   files: req.files,
+  //   file: req.file,
+  // });
+  next();
+};
 
 // Upload single file
 export const uploadFile = (req, res, next) => {
