@@ -469,9 +469,9 @@ const pollAgentStatus = async () => {
       broadcastStatusUpdate(statusUpdate.agents);
     }
 
-    console.log(
-      `📊 Agent status poll completed: ${statusUpdate.totalAgents} agents, ${statusUpdate.onlineAgents} online`
-    );
+    // console.log(
+    //   `📊 Agent status poll completed: ${statusUpdate.totalAgents} agents, ${statusUpdate.onlineAgents} online`
+    // );
   } catch (error) {
     console.error("❌ Error polling agent status:", error.message);
     if (amiClient) {

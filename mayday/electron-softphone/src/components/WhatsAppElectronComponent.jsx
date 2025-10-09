@@ -333,8 +333,8 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       case "delivered_to_device":
         // console.log("🔍 Status: Double tick (delivered)");
         return (
-          <Box sx={{ display: "flex" }}>
-            <Check sx={{ ...commonStyle, color: "grey.500", mr: -0.5 }} />
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Check sx={{ ...commonStyle, color: "grey.500", mr: -0.8 }} />
             <Check sx={{ ...commonStyle, color: "grey.500" }} />
           </Box>
         );
@@ -342,8 +342,8 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       case "read_by_recipient":
         // console.log("🔍 Status: Blue double tick (read)");
         return (
-          <Box sx={{ display: "flex" }}>
-            <Check sx={{ ...commonStyle, color: "#34B7F1", mr: -0.5 }} />
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Check sx={{ ...commonStyle, color: "#34B7F1", mr: -0.8 }} />
             <Check sx={{ ...commonStyle, color: "#34B7F1" }} />
           </Box>
         );
@@ -1378,10 +1378,50 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
           minHeight: 64,
         }}
       >
-        <IconButton onClick={handleBackToList}>
+        <IconButton
+          onClick={handleBackToList}
+          sx={{
+            color: "white",
+            "&:hover": {
+              backgroundColor: "rgba(255,255,255,0.1)",
+            },
+          }}
+        >
           <ArrowBack />
         </IconButton>
-        <Avatar>{selectedChat.avatar}</Avatar>
+        <Avatar
+          sx={{
+            width: 40,
+            height: 40,
+            fontSize: "1rem",
+            fontWeight: 600,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+            border: "2px solid rgba(255,255,255,0.3)",
+            background: selectedChat.isGroup
+              ? "linear-gradient(135deg, #128C7E 0%, #075E54 100%)"
+              : "linear-gradient(135deg, #00A884 0%, #128C7E 100%)",
+          }}
+        >
+          {selectedChat.isGroup ? (
+            <MessageIcon sx={{ fontSize: "1rem" }} />
+          ) : (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                height: "100%",
+                fontSize: "1rem",
+                fontWeight: 600,
+                color: "white",
+                textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+              }}
+            >
+              {selectedChat?.avatar}
+            </Box>
+          )}
+        </Avatar>
         {/* Rest of the chat detail header */}
       </Box>
     );
@@ -1980,18 +2020,52 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                             backgroundColor: chat.isOnline
                               ? "#25D366"
                               : "transparent",
-                            border: chat.isOnline ? "2px solid #fff" : "none",
+                            border: chat.isOnline ? "3px solid #fff" : "none",
+                            width: 14,
+                            height: 14,
+                            boxShadow: chat.isOnline
+                              ? "0 0 0 2px #fff, 0 2px 4px rgba(0,0,0,0.1)"
+                              : "none",
                           },
                         }}
                       >
                         <Avatar
                           sx={{
-                            bgcolor: chat.isGroup ? "#128C7E" : "#00A884",
-                            width: 48,
-                            height: 48,
+                            width: 52,
+                            height: 52,
+                            fontSize: "1.1rem",
+                            fontWeight: 600,
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                            border: "2px solid #fff",
+                            background: chat.isGroup
+                              ? "linear-gradient(135deg, #128C7E 0%, #075E54 100%)"
+                              : "linear-gradient(135deg, #00A884 0%, #128C7E 100%)",
+                            "&:hover": {
+                              transform: "scale(1.05)",
+                              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                            },
+                            transition: "all 0.2s ease-in-out",
                           }}
                         >
-                          {chat.isGroup ? <MessageIcon /> : chat?.avatar}
+                          {chat.isGroup ? (
+                            <MessageIcon sx={{ fontSize: "1.2rem" }} />
+                          ) : (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "100%",
+                                height: "100%",
+                                fontSize: "1.1rem",
+                                fontWeight: 600,
+                                color: "white",
+                                textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                              }}
+                            >
+                              {chat?.avatar}
+                            </Box>
+                          )}
                         </Avatar>
                       </Badge>
                     </ListItemAvatar>
