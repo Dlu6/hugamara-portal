@@ -395,19 +395,25 @@ export const emitLicenseUpdate = async () =>
 // WhatsApp-specific socket methods
 export const emitWhatsAppMessage = (data) => {
   if (io) {
+    // console.log("📱 Emitting WhatsApp message:", data);
     io.emit("whatsapp:message", data);
     if (DEBUG_MODE) {
       console.log("📱 Emitted WhatsApp message:", data);
     }
+  } else {
+    console.warn("📱 Socket.IO not available for message");
   }
 };
 
 export const emitWhatsAppStatusUpdate = (data) => {
   if (io) {
+    // console.log("📱 Emitting WhatsApp status update:", data);
     io.emit("whatsapp:status_update", data);
     if (DEBUG_MODE) {
       console.log("📱 Emitted WhatsApp status update:", data);
     }
+  } else {
+    console.warn("📱 Socket.IO not available for status update");
   }
 };
 

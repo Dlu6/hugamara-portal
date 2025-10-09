@@ -1,10 +1,12 @@
 import { Op } from "../config/sequelize.js";
 import {
-  Contact,
   WhatsAppMessage,
   WhatsAppConfig,
   Conversation,
 } from "../models/WhatsAppModel.js";
+import Contact from "../models/contactModel.js";
+
+// Associations are defined in the model files
 import {
   socketService,
   emitWhatsAppMessage,
@@ -152,26 +154,47 @@ export const handleWebhook = async (req, res) => {
       const fromNumber = From.replace("whatsapp:", "");
       const toNumber = To.replace("whatsapp:", "");
 
-      // Find or create contact
-      const [contact, created] = await Contact.findOrCreate({
-        where: { phoneNumber: fromNumber },
-        defaults: {
-          name: fromNumber,
-          lastInteraction: new Date(),
-          lastMessage: Body,
-          isOnline: true,
-          unreadCount: 1,
+      // Try to find existing contact by checking multiple phone fields
+      let contact = await Contact.findOne({
+        where: {
+          [Op.or]: [
+            { whatsappNumber: fromNumber },
+            { primaryPhone: fromNumber },
+            { secondaryPhone: fromNumber },
+          ],
         },
       });
 
-      if (!created) {
-        await contact.increment("unreadCount");
+      if (!contact) {
+        // Create new contact with WhatsApp number
+        contact = await Contact.create({
+          firstName: "WhatsApp",
+          lastName: fromNumber,
+          primaryPhone: fromNumber,
+          whatsappNumber: fromNumber,
+          lastInteraction: new Date(),
+          lastMessage: Body,
+          contactType: "customer",
+          source: "whatsapp",
+          status: "active",
+          createdBy: "system",
+        });
+        // console.log("🆕 Created new contact for WhatsApp number:", fromNumber);
+      } else {
+        // Update existing contact
         await contact.update({
           lastInteraction: new Date(),
           lastMessage: Body,
-          lastMessageSender: "contact",
-          lastMessageId: MessageSid,
+          // Set whatsappNumber if not already set
+          whatsappNumber: contact.whatsappNumber || fromNumber,
         });
+        // console.log(
+        //   "✅ Found existing contact:",
+        //   contact.firstName,
+        //   contact.lastName,
+        //   "for WhatsApp number:",
+        //   fromNumber
+        // );
       }
 
       // Find/create conversation
@@ -221,7 +244,7 @@ export const handleWebhook = async (req, res) => {
 
       console.log(
         "Emitting whatsapp:message for contact:",
-        contact.phoneNumber,
+        contact.primaryPhone,
         "Our DB msg ID:",
         incomingMessage.id,
         "Twilio Msg ID:",
@@ -241,8 +264,11 @@ export const handleWebhook = async (req, res) => {
         },
         contact: {
           id: contact.id,
-          phoneNumber: contact.phoneNumber,
-          name: contact.name,
+          phoneNumber: contact.primaryPhone,
+          name:
+            contact.firstName && contact.lastName
+              ? `${contact.firstName} ${contact.lastName}`
+              : contact.primaryPhone,
           avatar:
             contact.avatar ||
             contact.name?.substring(0, 2).toUpperCase() ||
@@ -343,7 +369,7 @@ export const getContacts = async (req, res) => {
       order: [["lastInteraction", "DESC"]],
       attributes: [
         "id",
-        "phoneNumber",
+        "primaryPhone",
         "lastInteraction",
         "lastMessage",
         "unreadCount",
@@ -367,7 +393,7 @@ export const addContact = async (req, res) => {
   try {
     const { phoneNumber, name } = req.body;
     const contact = await Contact.create({
-      phoneNumber,
+      primaryPhone: phoneNumber,
       name,
       lastInteraction: new Date(),
     });
@@ -381,6 +407,101 @@ export const addContact = async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to add contact",
+    });
+  }
+};
+
+// Create or link WhatsApp contact from Contact Manager
+export const createOrLinkWhatsAppContact = async (req, res) => {
+  try {
+    const { contactId, phoneNumber, name } = req.body;
+
+    // Get contact from Contact Manager if contactId provided
+    let mainContact = null;
+    if (contactId) {
+      mainContact = await Contact.findByPk(contactId);
+      if (!mainContact) {
+        return res.status(404).json({
+          success: false,
+          error: "Contact not found",
+        });
+      }
+    }
+
+    // Use whatsappNumber, fallback to primaryPhone, or use provided phoneNumber
+    const finalPhoneNumber =
+      mainContact?.whatsappNumber || mainContact?.primaryPhone || phoneNumber;
+    const finalName =
+      name ||
+      (mainContact
+        ? `${mainContact.firstName} ${mainContact.lastName}`.trim()
+        : finalPhoneNumber);
+
+    if (!finalPhoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: "Phone number is required",
+      });
+    }
+
+    // Create or find WhatsApp contact
+    const { Contact: WhatsAppContact } = await import(
+      "../models/WhatsAppModel.js"
+    );
+    const [whatsappContact, created] = await WhatsAppContact.findOrCreate({
+      where: { phoneNumber: finalPhoneNumber },
+      defaults: {
+        name: finalName,
+        phoneNumber: finalPhoneNumber,
+        lastInteraction: new Date(),
+      },
+    });
+
+    if (!created) {
+      // Update name if different
+      await whatsappContact.update({
+        name: finalName,
+        lastInteraction: new Date(),
+      });
+    }
+
+    // If we have a main contact, ensure whatsappNumber is set
+    if (mainContact && !mainContact.whatsappNumber) {
+      await mainContact.update({
+        whatsappNumber: finalPhoneNumber,
+      });
+    }
+
+    // Format response for frontend
+    const response = {
+      id: whatsappContact.id,
+      name: finalName,
+      phoneNumber: finalPhoneNumber,
+      avatar:
+        mainContact?.firstName && mainContact?.lastName
+          ? `${mainContact.firstName.charAt(0)}${mainContact.lastName.charAt(
+              0
+            )}`.toUpperCase()
+          : finalPhoneNumber.substring(finalPhoneNumber.length - 2),
+      lastMessage: whatsappContact.lastMessage || "",
+      timestamp: whatsappContact.lastInteraction,
+      unread: whatsappContact.unreadCount || 0,
+      status: whatsappContact.status || "offline",
+      isOnline: whatsappContact.isOnline || false,
+      isGroup: whatsappContact.isGroup || false,
+      messages: [],
+    };
+
+    res.json({
+      success: true,
+      data: response,
+      linked: !!mainContact,
+    });
+  } catch (error) {
+    console.error("Error creating/linking WhatsApp contact:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to create/link WhatsApp contact",
     });
   }
 };
@@ -601,7 +722,12 @@ export const updateWhatsAppConfig = async (req, res) => {
 
 export const getChats = async (req, res) => {
   try {
-    const contacts = await Contact.findAll({
+    // Get WhatsApp contacts with their message history
+    const { Contact: WhatsAppContact } = await import(
+      "../models/WhatsAppModel.js"
+    );
+
+    const whatsappContacts = await WhatsAppContact.findAll({
       attributes: [
         "id",
         "name",
@@ -619,7 +745,7 @@ export const getChats = async (req, res) => {
       include: [
         {
           model: WhatsAppMessage,
-          as: "messageHistory",
+          as: "messages",
           limit: 1,
           order: [["createdAt", "DESC"]],
           attributes: ["text", "timestamp", "status", "sender"],
@@ -628,43 +754,157 @@ export const getChats = async (req, res) => {
       order: [["lastInteraction", "DESC"]],
     });
 
+    // Now get the corresponding main contacts for additional info
+    // Check all phone fields: whatsappNumber, primaryPhone, secondaryPhone
+    const phoneNumbers = whatsappContacts.map((wc) => wc.phoneNumber);
+    const contacts = await Contact.findAll({
+      attributes: [
+        "id",
+        "firstName",
+        "lastName",
+        "company",
+        "primaryPhone",
+        "whatsappNumber",
+        "secondaryPhone",
+        "lastInteraction",
+        "status",
+        "contactType",
+        "source",
+      ],
+      where: {
+        [Op.or]: [
+          { whatsappNumber: { [Op.in]: phoneNumbers } },
+          { primaryPhone: { [Op.in]: phoneNumbers } },
+          { secondaryPhone: { [Op.in]: phoneNumbers } },
+        ],
+      },
+    });
+
+    // Create a map of main contacts by all phone number fields
+    const contactMap = new Map();
+    contacts.forEach((contact) => {
+      if (contact.whatsappNumber)
+        contactMap.set(contact.whatsappNumber, contact);
+      if (contact.primaryPhone) contactMap.set(contact.primaryPhone, contact);
+      if (contact.secondaryPhone)
+        contactMap.set(contact.secondaryPhone, contact);
+    });
+
     // console.log("Fetched contacts:", JSON.stringify(contacts, null, 2));
 
-    const formattedChats = contacts.map((contact) => {
-      const contactData = contact.get({ plain: true });
-      // console.log("Processing contact:", contactData);
+    const formattedChats = whatsappContacts.map((whatsappContact) => {
+      const whatsappData = whatsappContact.get({ plain: true });
+      const mainContact = contactMap.get(whatsappData.phoneNumber);
 
-      // Determine the status to show based on lastMessageSender
-      let displayStatus = contactData.status || "offline";
-      if (
-        contactData.lastMessageSender === "user" &&
-        contactData.messageHistory?.[0]
+      // console.log("🔍 Backend - Processing WhatsApp contact:", {
+      //   id: whatsappData.id,
+      //   phoneNumber: whatsappData.phoneNumber,
+      //   name: whatsappData.name,
+      //   messages: whatsappData.messages,
+      //   mainContact: mainContact
+      //     ? {
+      //         firstName: mainContact.firstName,
+      //         lastName: mainContact.lastName,
+      //         company: mainContact.company,
+      //       }
+      //     : "NOT FOUND",
+      // });
+
+      // Create proper display name from main contact's firstName and lastName
+      let displayName = whatsappData.phoneNumber; // Default to phone number
+
+      if (mainContact && (mainContact.firstName || mainContact.lastName)) {
+        const firstName = mainContact.firstName || "";
+        const lastName = mainContact.lastName || "";
+        displayName = `${firstName} ${lastName}`.trim();
+
+        // If we have a company, add it
+        if (mainContact.company) {
+          displayName += ` (${mainContact.company})`;
+        }
+      } else if (
+        whatsappData.name &&
+        whatsappData.name !== whatsappData.phoneNumber
       ) {
-        // If last message was sent by user, use the message status
-        displayStatus = contactData.messageHistory[0].status || displayStatus;
+        // Fallback to WhatsApp contact name
+        displayName = whatsappData.name;
+      } else {
+        // Format phone number nicely as fallback
+        const phone = whatsappData.phoneNumber;
+        if (phone) {
+          // Format phone number: +1234567890 -> +1 (234) 567-890
+          const cleaned = phone.replace(/\D/g, "");
+          if (cleaned.length >= 10) {
+            if (cleaned.length === 11 && cleaned.startsWith("1")) {
+              // US number: +1 (234) 567-890
+              displayName = `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(
+                4,
+                7
+              )}-${cleaned.slice(7)}`;
+            } else if (cleaned.length === 10) {
+              // 10 digit number: (234) 567-890
+              displayName = `(${cleaned.slice(0, 3)}) ${cleaned.slice(
+                3,
+                6
+              )}-${cleaned.slice(6)}`;
+            } else {
+              // Other format: just show as is
+              displayName = phone;
+            }
+          } else {
+            displayName = phone;
+          }
+        }
+      }
+
+      // Create avatar initials from main contact's firstName and lastName
+      let avatarInitials = "UN";
+      if (mainContact && (mainContact.firstName || mainContact.lastName)) {
+        const firstInitial = mainContact.firstName
+          ? mainContact.firstName.charAt(0).toUpperCase()
+          : "";
+        const lastInitial = mainContact.lastName
+          ? mainContact.lastName.charAt(0).toUpperCase()
+          : "";
+        avatarInitials = firstInitial + lastInitial;
+      } else if (
+        whatsappData.name &&
+        whatsappData.name !== whatsappData.phoneNumber
+      ) {
+        avatarInitials = whatsappData.name.substring(0, 2).toUpperCase();
+      } else {
+        avatarInitials = whatsappData.phoneNumber.substring(0, 2).toUpperCase();
+      }
+
+      // Determine the status to show based on last message
+      let displayStatus = whatsappData.status || "offline";
+      if (whatsappData.messages?.[0]) {
+        // If we have message history, use the message status
+        displayStatus = whatsappData.messages[0].status || displayStatus;
+        console.log("🔍 Backend - Using message status:", displayStatus);
+      } else {
+        console.log("🔍 Backend - Using contact status:", displayStatus);
       }
 
       return {
-        id: contactData.id,
-        name: contactData.name || contactData.phoneNumber,
-        phoneNumber: contactData.phoneNumber,
-        avatar: contactData.name
-          ? contactData.name.substring(0, 2).toUpperCase()
-          : contactData.phoneNumber.substring(0, 2).toUpperCase(),
+        id: whatsappData.id,
+        name: displayName,
+        phoneNumber: whatsappData.phoneNumber,
+        avatar: avatarInitials,
         lastMessage:
-          contactData.messageHistory?.[0]?.text ||
-          contactData.lastMessage ||
-          "",
+          whatsappData.messages?.[0]?.text || whatsappData.lastMessage || "",
         timestamp:
-          contactData.messageHistory?.[0]?.timestamp ||
-          contactData.lastInteraction,
-        unread: contactData.unreadCount || 0,
+          whatsappData.messages?.[0]?.timestamp || whatsappData.lastInteraction,
+        unread: whatsappData.unreadCount || 0,
         status: displayStatus,
-        isOnline: contactData.isOnline || false,
-        isBlocked: contactData.isBlocked || false,
-        isGroup: contactData.isGroup || false,
-        lastMessageSender: contactData.lastMessageSender,
-        lastMessageId: contactData.lastMessageId,
+        isOnline: whatsappData.isOnline || false,
+        isBlocked: whatsappData.isBlocked || false,
+        isGroup: whatsappData.isGroup || false,
+        // Include original contact data for reference
+        originalContact: {
+          whatsappContact: whatsappData,
+          mainContact: mainContact,
+        },
       };
     });
 
@@ -686,25 +926,55 @@ export const getChats = async (req, res) => {
 export const getChatMessages = async (req, res) => {
   try {
     const { contactId } = req.params;
+    // console.log(
+    //   "🔍 getChatMessages - Looking for contact with phoneNumber:",
+    //   contactId
+    // );
 
-    const contact = await Contact.findOne({
-      attributes: ["id", "phoneNumber", "name"],
+    // First, find the WhatsApp contact directly
+    const { Contact: WhatsAppContact } = await import(
+      "../models/WhatsAppModel.js"
+    );
+    const whatsappContact = await WhatsAppContact.findOne({
       where: { phoneNumber: contactId },
     });
 
-    if (!contact) {
+    // console.log(
+    //   "🔍 getChatMessages - Found WhatsApp contact:",
+    //   whatsappContact
+    //     ? {
+    //         id: whatsappContact.id,
+    //         phoneNumber: whatsappContact.phoneNumber,
+    //         name: whatsappContact.name,
+    //       }
+    //     : "NOT FOUND"
+    // );
+
+    if (!whatsappContact) {
       return res.status(404).json({
         success: false,
-        error: "Contact not found",
+        error: "WhatsApp contact not found",
       });
     }
 
+    // Get messages linked to the WhatsApp contact
     const messages = await WhatsAppMessage.findAll({
       where: {
-        contactId: contact.id,
+        contactId: whatsappContact.id,
       },
       order: [["timestamp", "ASC"]],
     });
+
+    // console.log("🔍 getChatMessages - Found messages count:", messages.length);
+    if (messages.length > 0) {
+      // console.log("🔍 getChatMessages - First message:", {
+      //   id: messages[0].id,
+      //   text: messages[0].text,
+      //   from: messages[0].from,
+      //   to: messages[0].to,
+      //   status: messages[0].status,
+      // });
+    }
 
     // Ensure we have a valid Twilio number
     const twilioNumber =
@@ -713,15 +983,15 @@ export const getChatMessages = async (req, res) => {
       "+12566809340";
 
     // Debug logging
-    console.log("DEBUG getChatMessages:");
-    console.log("twilioWhatsAppNumber:", twilioWhatsAppNumber);
-    console.log("typeof twilioWhatsAppNumber:", typeof twilioWhatsAppNumber);
-    console.log("twilioNumber (fallback):", twilioNumber);
-    console.log("messages count:", messages.length);
-    if (messages.length > 0) {
-      console.log("first message.from:", messages[0].from);
-      console.log("first message.to:", messages[0].to);
-    }
+    // console.log("DEBUG getChatMessages:");
+    // console.log("twilioWhatsAppNumber:", twilioWhatsAppNumber);
+    // console.log("typeof twilioWhatsAppNumber:", typeof twilioWhatsAppNumber);
+    // console.log("twilioNumber (fallback):", twilioNumber);
+    // console.log("messages count:", messages.length);
+    // if (messages.length > 0) {
+    //   console.log("first message.from:", messages[0].from);
+    //   console.log("first message.to:", messages[0].to);
+    // }
 
     const formattedMessages = messages.map((message) => {
       // Use the twilioNumber we defined above
@@ -735,16 +1005,16 @@ export const getChatMessages = async (req, res) => {
           : "contact"; // The external contact sent this message
 
       // Debug logging for each message
-      console.log("Processing message:", {
-        id: message.id,
-        from: message.from,
-        to: message.to,
-        sender: sender,
-        status: message.status,
-        text: message.text?.substring(0, 20) + "...",
-        normalizedTwilioNumber: normalizedTwilioNumber,
-        isFromTwilio: message.from === normalizedTwilioNumber,
-      });
+      // console.log("Processing message:", {
+      //   id: message.id,
+      //   from: message.from,
+      //   to: message.to,
+      //   sender: sender,
+      //   status: message.status,
+      //   text: message.text?.substring(0, 20) + "...",
+      //   normalizedTwilioNumber: normalizedTwilioNumber,
+      //   isFromTwilio: message.from === normalizedTwilioNumber,
+      // });
 
       return {
         id: message.id,
@@ -779,16 +1049,23 @@ export const sendChatMessage = async (req, res) => {
     const { contactId } = req.params;
     const { text, mediaUrl, template } = req.body;
 
-    console.log("SENDCHATMESSAGE: Twilio WhatsApp integration");
-    console.log("SENDCHATMESSAGE: Contact ID:", contactId);
-    console.log("SENDCHATMESSAGE: Message content:", {
-      text,
-      mediaUrl,
-      template,
-    });
+    // console.log("SENDCHATMESSAGE: Twilio WhatsApp integration");
+    // console.log("SENDCHATMESSAGE: Contact ID:", contactId);
+    // console.log("SENDCHATMESSAGE: Message content:", {
+    //   text,
+    //   mediaUrl,
+    //   template,
+    // });
 
+    // Try to find contact by checking multiple phone fields
     const contact = await Contact.findOne({
-      where: { phoneNumber: contactId },
+      where: {
+        [Op.or]: [
+          { whatsappNumber: contactId },
+          { primaryPhone: contactId },
+          { secondaryPhone: contactId },
+        ],
+      },
     });
 
     if (!contact) {
@@ -797,6 +1074,14 @@ export const sendChatMessage = async (req, res) => {
         error: "Contact not found",
       });
     }
+
+    // console.log("SENDCHATMESSAGE: Found contact:", {
+    //   id: contact.id,
+    //   firstName: contact.firstName,
+    //   lastName: contact.lastName,
+    //   primaryPhone: contact.primaryPhone,
+    //   whatsappNumber: contact.whatsappNumber,
+    // });
 
     if (!twilioAccountSid || !twilioAuthToken) {
       console.error(
@@ -808,13 +1093,16 @@ export const sendChatMessage = async (req, res) => {
       });
     }
 
-    // Ensure 'to' number is correctly formatted (E.164 with +)
-    const toNumberForApi = contact.phoneNumber.startsWith("+")
-      ? contact.phoneNumber
-      : `+${contact.phoneNumber}`;
+    // Use whatsappNumber if available, otherwise primaryPhone
+    const phoneToUse = contact.whatsappNumber || contact.primaryPhone;
 
-    console.log(`SENDCHATMESSAGE: Using FROM number: ${twilioWhatsAppNumber}`);
-    console.log(`SENDCHATMESSAGE: Using TO number: ${toNumberForApi}`);
+    // Ensure 'to' number is correctly formatted (E.164 with +)
+    const toNumberForApi = phoneToUse.startsWith("+")
+      ? phoneToUse
+      : `+${phoneToUse}`;
+
+    // console.log(`SENDCHATMESSAGE: Using FROM number: ${twilioWhatsAppNumber}`);
+    // console.log(`SENDCHATMESSAGE: Using TO number: ${toNumberForApi}`);
 
     let twilioMessageId = null;
     let twilioMessageStatus = "failed";
@@ -869,14 +1157,27 @@ export const sendChatMessage = async (req, res) => {
       twilioMessageStatus = "failed";
     }
 
-    // Find or create conversation for outbound message
+    // Find or create WhatsApp contact for conversation
+    const { Contact: WhatsAppContact } = await import(
+      "../models/WhatsAppModel.js"
+    );
+    const [whatsappContact] = await WhatsAppContact.findOrCreate({
+      where: { phoneNumber: toNumberForApi },
+      defaults: {
+        name: `${contact.firstName} ${contact.lastName}`.trim(),
+        phoneNumber: toNumberForApi,
+        lastInteraction: new Date(),
+      },
+    });
+
+    // Find or create conversation for outbound message using WhatsApp contact ID
     let conversation = await Conversation.findOne({
-      where: { contactId: contact.id, status: "open" },
+      where: { contactId: whatsappContact.id, status: "open" },
       order: [["updatedAt", "DESC"]],
     });
     if (!conversation) {
       conversation = await Conversation.create({
-        contactId: contact.id,
+        contactId: whatsappContact.id, // Use WhatsApp contact's integer ID
         provider: "twilio",
         status: "open",
         unreadCount: 0,
@@ -893,7 +1194,7 @@ export const sendChatMessage = async (req, res) => {
       text: text,
       mediaUrl: finalMessageType !== "text" ? mediaUrl : null,
       status: twilioMessageStatus,
-      contactId: contact.id,
+      contactId: whatsappContact.id, // Use WhatsApp contact's integer ID
       sender: twilioWhatsAppNumber,
       template: template ? JSON.stringify(template) : null,
       type: finalMessageType,
@@ -903,7 +1204,16 @@ export const sendChatMessage = async (req, res) => {
 
     const message = await WhatsAppMessage.create(messageToSave);
 
+    // Update main contact
     await contact.update({
+      lastInteraction: new Date(),
+      lastMessage: text || `Sent ${finalMessageType}`,
+      lastMessageSender: "user",
+      lastMessageId: twilioMessageId,
+    });
+
+    // Update WhatsApp contact
+    await whatsappContact.update({
       lastInteraction: new Date(),
       lastMessage: text || `Sent ${finalMessageType}`,
       lastMessageSender: "user",
@@ -922,8 +1232,9 @@ export const sendChatMessage = async (req, res) => {
         type: message.type,
       },
       contact: {
-        id: contact.id,
-        phoneNumber: contact.phoneNumber,
+        id: whatsappContact.id,
+        phoneNumber: whatsappContact.phoneNumber,
+        name: whatsappContact.name,
         lastMessageSender: "user",
         lastMessageId: message.messageId,
         conversationId: conversation.id,
@@ -1085,7 +1396,7 @@ export const handleMessageStatus = async (messageId, status) => {
   try {
     const message = await WhatsAppMessage.findOne({
       where: { messageId: messageId }, // Assuming messageId is the Lipachat message ID
-      include: [{ model: Contact, attributes: ["phoneNumber", "id"] }],
+      include: [{ model: Contact, attributes: ["primaryPhone", "id"] }],
     });
 
     if (message && message.whatsapp_contact) {
@@ -1100,7 +1411,7 @@ export const handleMessageStatus = async (messageId, status) => {
         dbMessageId: message.id,
         status: normalizedStatus,
         timestamp: new Date().toISOString(), // Or use timestamp from Lipachat if available in this context
-        contactPhoneNumber: message.whatsapp_contact.phoneNumber,
+        contactPhoneNumber: message.whatsapp_contact.primaryPhone,
         contactId: message.whatsapp_contact.id,
       });
     } else {
@@ -1118,50 +1429,50 @@ export const markChatAsRead = async (req, res) => {
     const { contactId } = req.params; // This will be the phone number
     const phoneNumber = contactId.startsWith("+") ? contactId : `+${contactId}`;
 
-    const contact = await Contact.findOne({
+    // Find WhatsApp contact directly
+    const { Contact: WhatsAppContact } = await import(
+      "../models/WhatsAppModel.js"
+    );
+    const whatsappContact = await WhatsAppContact.findOne({
       where: { phoneNumber: phoneNumber },
     });
 
-    if (!contact) {
+    if (!whatsappContact) {
       return res
         .status(404)
-        .json({ success: false, error: "Contact not found" });
+        .json({ success: false, error: "WhatsApp contact not found" });
     }
 
-    // Reset unread on the latest open conversation
-    const conversation = await Conversation.findOne({
-      where: { contactId: contact.id, status: "open" },
-      order: [["updatedAt", "DESC"]],
+    // Reset unread count on the WhatsApp contact
+    await whatsappContact.update({
+      unreadCount: 0,
     });
-    if (conversation && conversation.unreadCount > 0) {
-      await conversation.update({ unreadCount: 0 });
 
-      // Emit an update to inform clients
-      emitWhatsAppMessage({
-        // Re-using emitWhatsAppMessage structure for simplicity
-        // It will trigger 'whatsapp:chat_update' on the frontend
-        message: {
-          // Provide minimal message-like info if needed, or adapt frontend
-          id: null, // No specific message, just chat update
-          timestamp: conversation.lastMessageAt || new Date(),
-        },
-        contact: {
-          id: contact.id,
-          phoneNumber: contact.phoneNumber,
-          name: contact.name,
-          avatar:
-            contact.avatar ||
-            contact.name?.substring(0, 2).toUpperCase() ||
-            phoneNumber.substring(phoneNumber.length - 2),
-          lastMessage: contact.lastMessage,
-          unreadCount: 0,
-          isOnline: contact.isOnline,
-          lastMessageSender: contact.lastMessageSender,
-          lastMessageId: contact.lastMessageId,
-          conversationId: conversation.id,
-        },
-      });
-    }
+    // Emit an update to inform clients
+    emitWhatsAppMessage({
+      // Re-using emitWhatsAppMessage structure for simplicity
+      // It will trigger 'whatsapp:chat_update' on the frontend
+      message: {
+        // Provide minimal message-like info if needed, or adapt frontend
+        id: null, // No specific message, just chat update
+        timestamp: whatsappContact.lastInteraction || new Date(),
+      },
+      contact: {
+        id: whatsappContact.id,
+        phoneNumber: whatsappContact.phoneNumber,
+        name: whatsappContact.name || whatsappContact.phoneNumber,
+        avatar:
+          whatsappContact.avatar ||
+          whatsappContact.phoneNumber.substring(
+            whatsappContact.phoneNumber.length - 2
+          ),
+        lastMessage: whatsappContact.lastMessage,
+        unreadCount: 0, // Now zero
+        isOnline: whatsappContact.isOnline,
+        lastMessageSender: whatsappContact.lastMessageSender,
+        lastMessageId: whatsappContact.lastMessageId,
+      },
+    });
 
     res.json({ success: true, data: { unreadCount: 0 } });
   } catch (error) {

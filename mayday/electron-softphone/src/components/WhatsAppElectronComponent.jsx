@@ -82,67 +82,7 @@ import {
 } from "../services/storageService";
 import logoutManager from "../services/logoutManager";
 
-// Dummy data for chats and messages
-const dummyChats = [
-  {
-    id: 1,
-    name: "Councelor X",
-    phoneNumber: "0700771301",
-    avatar: "JS",
-    lastMessage: "Thanks for your help with the project!",
-    timestamp: "2024-02-20T10:30:00",
-    unread: 2,
-    status: "read",
-    isOnline: true,
-    messages: [
-      {
-        id: 1,
-        text: "Hi, how are you?",
-        timestamp: "2024-02-20T10:25:00",
-        sender: "user",
-        status: "read",
-      },
-      {
-        id: 2,
-        text: "I'm good, thanks! How about you?",
-        timestamp: "2024-02-20T10:27:00",
-        sender: "contact",
-        status: "read",
-      },
-      {
-        id: 3,
-        text: "Thanks for your help with the project!",
-        timestamp: "2024-02-20T10:30:00",
-        sender: "contact",
-        status: "read",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Councelor Y",
-    phoneNumber: "0700771302",
-    avatar: "AJ",
-    lastMessage: "When can we schedule the meeting?",
-    timestamp: "2024-02-20T09:15:00",
-    unread: 0,
-    status: "delivered",
-    isOnline: false,
-    messages: [],
-  },
-  {
-    id: 3,
-    name: "Clinical Team",
-    phoneNumber: "0700771303",
-    avatar: "MT",
-    lastMessage: "Bob: Let's discuss the new campaign",
-    timestamp: "2024-02-19T16:45:00",
-    unread: 5,
-    status: "sent",
-    isGroup: true,
-    messages: [],
-  },
-];
+// Removed dummy data - using only real data from API
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8004/api";
@@ -203,7 +143,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   const [messageMenuAnchor, setMessageMenuAnchor] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const messagesEndRef = useRef(null);
-  const [chats, setChats] = useState(dummyChats);
+  const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [whatsappConfig, setWhatsappConfig] = useState(null);
@@ -310,9 +250,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
     if (!newMessage.trim() && !attachedFiles.length && !mediaFiles.length)
       return;
 
+    const messageText = newMessage; // Save message text
+    setNewMessage(""); // Clear input IMMEDIATELY
+
     try {
       const messageData = {
-        text: newMessage,
+        text: messageText, // Use saved text
         timestamp: new Date().toISOString(),
         status: "pending",
       };
@@ -340,7 +283,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
           chat.phoneNumber === selectedChat.phoneNumber
             ? {
                 ...chat,
-                lastMessage: newMessage,
+                lastMessage: messageText,
                 lastMessageId: response.messageId,
                 status: "sent",
                 timestamp: messageData.timestamp,
@@ -353,14 +296,19 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         ...prev,
         messages: prev.messages.map((msg) =>
           msg.id === tempId
-            ? { ...msg, id: response.messageId, status: "sent" }
+            ? {
+                ...msg,
+                id: response.messageId,
+                messageId: response.messageId,
+                status: "sent",
+              }
             : msg
         ),
       }));
-
-      setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
+      // On error, could optionally restore the message to input
+      // setNewMessage(messageText);
     }
   };
 
@@ -376,16 +324,15 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   const getMessageStatus = (status) => {
     const commonStyle = { fontSize: 16, ml: 0.5 };
 
-    // Debug logging
-    console.log("getMessageStatus called with status:", status);
-
     switch (status) {
       case "sent":
       case "queued":
       case "sending":
+        // console.log("🔍 Status: Single tick (sent/queued/sending)");
         return <Check sx={{ ...commonStyle, color: "grey.500" }} />;
       case "delivered":
       case "delivered_to_device":
+        console.log("🔍 Status: Double tick (delivered)");
         return (
           <Box sx={{ display: "flex" }}>
             <Check sx={{ ...commonStyle, color: "grey.500", mr: -0.5 }} />
@@ -394,6 +341,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         );
       case "read":
       case "read_by_recipient":
+        console.log("🔍 Status: Blue double tick (read)");
         return (
           <Box sx={{ display: "flex" }}>
             <Check sx={{ ...commonStyle, color: "#34B7F1", mr: -0.5 }} />
@@ -402,9 +350,13 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         );
       case "failed":
       case "undelivered":
+        // console.log("🔍 Status: Error (failed/undelivered)");
         return <Error sx={{ ...commonStyle, color: "red.500" }} />;
+      case "received":
+        // console.log("🔍 Status: Received (no tick for received messages)");
+        return null; // Don't show ticks for received messages
       default:
-        console.log("Unknown status, using default:", status);
+        // console.log("🔍 Unknown status, using default:", status);
         return <Schedule sx={{ ...commonStyle, color: "grey.500" }} />;
     }
   };
@@ -1518,25 +1470,45 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       setLoading(true);
       setError(null); // Clear any previous errors
       const response = await whatsAppService.getChats();
-      // console.log("API Response:", response);
+
+      // Log the raw API response to understand the data structure
+      // console.log("🔍 Raw API Response:", response);
+      // console.log("🔍 Response data:", response.data);
 
       if (response.success) {
-        const chats = response.data.map((contact) => ({
-          id: contact.id,
-          name: contact.name || contact.phoneNumber,
-          phoneNumber: contact.phoneNumber,
-          avatar:
-            contact?.avatar ||
-            contact?.name?.substring(0, 2).toUpperCase() ||
-            "UN",
-          lastMessage: contact?.lastMessage || "",
-          timestamp: contact.lastInteraction,
-          unread: contact.unreadCount || 0,
-          status: contact.status || "offline",
-          isOnline: contact.isOnline || false,
-          isGroup: contact.isGroup || false,
-          messages: contact.messageHistory || [],
-        }));
+        // Log each contact object to see what properties are available
+        response.data.forEach((contact, index) => {
+          // if (contact.messageHistory && contact.messageHistory.length > 0) {
+          //   console.log(
+          //     `🔍 Contact ${index} - Last message:`,
+          //     contact.messageHistory[contact.messageHistory.length - 1]
+          //   );
+          // }
+        });
+
+        const chats = response.data.map((contact) => {
+          // console.log("🔍 Frontend - Processing contact:", contact);
+
+          // The backend now handles all the formatting, so we can use the data directly
+          return {
+            id: contact.id,
+            name: contact.name,
+            phoneNumber: contact.phoneNumber,
+            avatar: contact.avatar,
+            lastMessage: contact.lastMessage,
+            timestamp: contact.timestamp,
+            unread: contact.unread,
+            status: contact.status,
+            isOnline: contact.isOnline,
+            isGroup: contact.isGroup,
+            messages: contact.messageHistory || [],
+            // Store original contact data for reference
+            originalContact: contact.originalContact,
+          };
+        });
+
+        // Log the processed chats
+        // console.log("🔍 Processed chats:", chats);
 
         setChats(chats);
         const initialUnreadCounts = chats.reduce(
@@ -1630,7 +1602,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   useEffect(() => {
     // Register this component with the logout manager
     const unregister = logoutManager.onLogout(async () => {
-      console.log("🔒 Logout callback executed - cancelling WhatsApp requests");
+      // console.log("🔒 Logout callback executed - cancelling WhatsApp requests");
       whatsAppService.cancelAllRequests();
     });
 
@@ -1657,6 +1629,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       ? "/mayday-api/socket.io/"
       : "/socket.io/";
 
+    // console.log("📱 Connecting to socket:", {
+    //   socketUrl,
+    //   socketPath,
+    //   token: token ? "present" : "missing",
+    // });
+
     const newSocket = io(socketUrl, {
       path: socketPath,
       auth: {
@@ -1669,8 +1647,31 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       reconnectionDelay: 1000,
     });
 
+    newSocket.on("connect", () => {
+      // console.log("📱 WhatsApp Socket connected!");
+      // console.log("📱 Socket ID:", newSocket.id);
+      // Test socket by emitting a test event
+      newSocket.emit("test", { message: "WhatsApp socket test" });
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.log("📱 WhatsApp Socket disconnected:", reason);
+    });
+
+    newSocket.on("connect_error", (error) => {
+      console.error("📱 WhatsApp Socket connection error:", error);
+    });
+
+    // Listen for all events to debug
+    newSocket.onAny((eventName, ...args) => {
+      // console.log("📱 Socket event received:", eventName, args);
+      if (eventName === "whatsapp:status_update") {
+        console.log("📱 Status update received:", args[0]);
+      }
+    });
+
     newSocket.on("whatsapp:message", (data) => {
-      console.log("Received whatsapp message:", data);
+      // console.log("📱 Received whatsapp message:", data);
       const { message, contact } = data;
 
       // Format the incoming message to match our expected structure
@@ -1721,15 +1722,30 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
     // Listen for status updates
     socket.on("whatsapp:status_update", ({ messageId, status, timestamp }) => {
-      console.log("Status update received:", { messageId, status, timestamp });
+      console.log("📱 Status update received:", {
+        messageId,
+        status,
+        timestamp,
+      });
+
+      // Debug: Check what we're comparing
+      if (selectedChat) {
+        console.log("📱 Current selected chat messages:");
+        selectedChat.messages.forEach((msg, idx) => {
+          console.log(
+            `  [${idx}] msg.messageId="${msg.messageId}" === incoming="${messageId}"`,
+            msg.messageId === messageId
+          );
+        });
+      }
 
       // Update both chat list and selected chat
       setChats((prevChats) =>
         prevChats.map((chat) => {
-          // Only update status if this chat has the message as its last message
+          // Compare against messageId (Twilio MessageSid), not database id
           const isLastMessage =
             chat.messages?.length > 0 &&
-            chat.messages[chat.messages.length - 1].id === messageId;
+            chat.messages[chat.messages.length - 1].messageId === messageId;
 
           return {
             ...chat,
@@ -1744,7 +1760,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         return {
           ...prev,
           messages: prev.messages.map((msg) =>
-            msg.id === messageId
+            msg.messageId === messageId // Fixed - compare messageId not id
               ? { ...msg, status, timestamp: timestamp || msg.timestamp }
               : msg
           ),
@@ -1762,7 +1778,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
     // Listen for new messages
     socket.on("whatsapp:message", (data) => {
-      console.log("New message received:", data);
+      // console.log("New message received:", data);
       const { message, contact } = data;
 
       const formattedMessage = {
@@ -1878,15 +1894,28 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
           {viewMode === "chats" ? (
             <List sx={{ p: 0, bgcolor: "background.paper" }}>
-              {chats
-                .filter(
+              {(() => {
+                const filteredChats = chats.filter(
                   (chat) =>
                     chat.name
                       .toLowerCase()
                       .includes(searchQuery.toLowerCase()) ||
                     chat.phoneNumber.includes(searchQuery)
-                )
-                .map((chat, index) => (
+                );
+
+                return filteredChats;
+              })().map((chat, index) => {
+                // console.log(`🔍 Rendering chat ${index}:`, {
+                //   id: chat.id,
+                //   name: chat.name,
+                //   phoneNumber: chat.phoneNumber,
+                //   lastMessage: chat.lastMessage,
+                //   unread: chat.unread,
+                //   status: chat.status,
+                //   avatar: chat.avatar,
+                //   originalContact: chat.originalContact,
+                // });
+                return (
                   <ListItem
                     button
                     key={chat.id}
@@ -2003,7 +2032,8 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                       }
                     />
                   </ListItem>
-                ))}
+                );
+              })}
             </List>
           ) : (
             <List sx={{ p: 0, bgcolor: "background.paper" }}>
@@ -2075,7 +2105,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             </List>
           )}
 
-          {/* Add this right after the search TextField (around line 1791) */}
+          {/* No chats message */}
           {!loading &&
             chats.filter(
               (chat) =>
@@ -2086,6 +2116,15 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                 <Typography color="textSecondary">
                   {searchQuery ? "No chats found" : "No chats available"}
                 </Typography>
+                {chats.length === 0 && (
+                  <Typography
+                    variant="caption"
+                    color="textSecondary"
+                    sx={{ mt: 1, display: "block" }}
+                  >
+                    Loading chats from API...
+                  </Typography>
+                )}
               </Box>
             )}
         </>

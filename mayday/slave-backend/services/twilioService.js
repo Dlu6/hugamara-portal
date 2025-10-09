@@ -1,5 +1,21 @@
 import twilio from "twilio";
 
+// Check webhook configuration on startup
+const WEBHOOK_URL = process.env.TWILIO_WEBHOOK_URL;
+const isWebhookConfigured = WEBHOOK_URL && !WEBHOOK_URL.includes("localhost");
+
+if (!isWebhookConfigured) {
+  console.warn(
+    "⚠️  TWILIO_WEBHOOK_URL not set or is localhost. Real-time status updates will not work."
+  );
+  console.warn(
+    "💡 Set TWILIO_WEBHOOK_URL to your public URL (e.g., ngrok or production domain)"
+  );
+  console.warn(
+    "💡 Example: TWILIO_WEBHOOK_URL=https://your-ngrok-url.ngrok.io"
+  );
+}
+
 // Initialize Twilio client
 const getTwilioClient = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -25,24 +41,25 @@ export const sendText = async ({ to, from, message, messageId }) => {
     const client = getTwilioClient();
     const fromNumber = from || getWhatsAppNumber();
 
-    console.log("📤 Sending WhatsApp text via Twilio:", {
-      to,
-      from: fromNumber,
-      message,
-      messageId,
-    });
+    // console.log("📤 Sending WhatsApp text via Twilio:", {
+    //   to,
+    //   from: fromNumber,
+    //   message,
+    //   messageId,
+    // });
 
     const messageResponse = await client.messages.create({
       body: message,
       from: `whatsapp:${fromNumber}`,
       to: `whatsapp:${to}`,
-      // Use messageId as a custom identifier if provided
-      ...(messageId && {
-        statusCallback: `${process.env.TWILIO_WEBHOOK_URL}/whatsapp/status`,
-      }),
+      // Only set statusCallback if we have a public URL
+      ...(messageId &&
+        isWebhookConfigured && {
+          statusCallback: `${WEBHOOK_URL}/api/whatsapp/webhook/statusCallback`,
+        }),
     });
 
-    console.log("📤 Twilio WhatsApp response:", messageResponse.sid);
+    // console.log("📤 Twilio WhatsApp response:", messageResponse.sid);
 
     return {
       success: true,
@@ -68,22 +85,26 @@ export const sendMedia = async ({
     const client = getTwilioClient();
     const fromNumber = from || getWhatsAppNumber();
 
-    console.log("📤 Sending WhatsApp media via Twilio:", {
-      to,
-      from: fromNumber,
-      mediaUrl,
-      type,
-      caption,
-    });
+    // console.log("📤 Sending WhatsApp media via Twilio:", {
+    //   to,
+    //   from: fromNumber,
+    //   mediaUrl,
+    //   type,
+    //   caption,
+    // });
 
     const messageResponse = await client.messages.create({
       mediaUrl: [mediaUrl],
       from: `whatsapp:${fromNumber}`,
       to: `whatsapp:${to}`,
       ...(caption && { body: caption }),
+      // Only set statusCallback if we have a public URL
+      ...(isWebhookConfigured && {
+        statusCallback: `${WEBHOOK_URL}/api/whatsapp/webhook/statusCallback`,
+      }),
     });
 
-    console.log("📤 Twilio WhatsApp media response:", messageResponse.sid);
+    // console.log("📤 Twilio WhatsApp media response:", messageResponse.sid);
 
     return {
       success: true,
@@ -131,11 +152,15 @@ export const sendTemplate = async ({
       body: templateBody,
       from: `whatsapp:${fromNumber}`,
       to: `whatsapp:${to}`,
+      // Only set statusCallback if we have a public URL
+      ...(isWebhookConfigured && {
+        statusCallback: `${WEBHOOK_URL}/api/whatsapp/webhook/statusCallback`,
+      }),
       // For templates, you might need to use a different approach
       // This is a simplified version - actual template sending may require different API calls
     });
 
-    console.log("📤 Twilio WhatsApp template response:", messageResponse.sid);
+    // console.log("📤 Twilio WhatsApp template response:", messageResponse.sid);
 
     return {
       success: true,

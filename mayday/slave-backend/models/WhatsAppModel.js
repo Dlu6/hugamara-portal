@@ -191,6 +191,16 @@ const WhatsAppMessage = sequelize.define(
         key: "id",
       },
     },
+    contactId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "contacts",
+        key: "id",
+      },
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
+    },
   },
   {
     tableName: "whatsapp_messages",
@@ -241,14 +251,7 @@ const WhatsAppConfig = sequelize.define(
 );
 
 // Define associations
-Contact.hasMany(WhatsAppMessage, {
-  foreignKey: "contactId",
-  as: "messageHistory",
-});
-
-WhatsAppMessage.belongsTo(Contact, {
-  foreignKey: "contactId",
-});
+// Note: Associations are set up in whatsappAssociations.js to avoid conflicts
 
 export { Contact, WhatsAppMessage, WhatsAppConfig };
 
