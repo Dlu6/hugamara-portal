@@ -7,7 +7,6 @@ import {
   ListItemText,
   ListItemAvatar,
   Avatar,
-  Typography,
   IconButton,
   InputAdornment,
   Badge,
@@ -332,7 +331,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         return <Check sx={{ ...commonStyle, color: "grey.500" }} />;
       case "delivered":
       case "delivered_to_device":
-        console.log("🔍 Status: Double tick (delivered)");
+        // console.log("🔍 Status: Double tick (delivered)");
         return (
           <Box sx={{ display: "flex" }}>
             <Check sx={{ ...commonStyle, color: "grey.500", mr: -0.5 }} />
@@ -341,7 +340,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         );
       case "read":
       case "read_by_recipient":
-        console.log("🔍 Status: Blue double tick (read)");
+        // console.log("🔍 Status: Blue double tick (read)");
         return (
           <Box sx={{ display: "flex" }}>
             <Check sx={{ ...commonStyle, color: "#34B7F1", mr: -0.5 }} />
@@ -594,12 +593,22 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             icon={<InsertDriveFile />}
             label={
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography noWrap sx={{ maxWidth: 150 }}>
+                <Box
+                  component="span"
+                  noWrap
+                  sx={{ maxWidth: 150, fontSize: "0.875rem" }}
+                >
                   {file.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
+                </Box>
+                <Box
+                  component="span"
+                  sx={{
+                    fontSize: "0.75rem",
+                    color: "text.secondary",
+                  }}
+                >
                   ({formatFileSize(file.size)})
-                </Typography>
+                </Box>
                 {file.progress > 0 && file.progress < 100 && (
                   <CircularProgress
                     size={16}
@@ -797,12 +806,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   // Update renderMessage to better handle image display
   const renderMessage = (message) => {
     // Debug logging for message status
-    console.log("Rendering message:", {
-      id: message.id,
-      sender: message.sender,
-      status: message.status,
-      text: message.text?.substring(0, 20) + "...",
-    });
+    // console.log("Rendering message:", {
+    //   id: message.id,
+    //   sender: message.sender,
+    //   status: message.status,
+    //   text: message.text?.substring(0, 20) + "...",
+    // });
 
     return (
       <Box
@@ -835,7 +844,9 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             },
           }}
         >
-          <Typography variant="body1">{message.text}</Typography>
+          <Box component="span" sx={{ fontSize: "1rem", lineHeight: 1.5 }}>
+            {message.text}
+          </Box>
           <Box
             sx={{
               display: "flex",
@@ -843,15 +854,17 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
               justifyContent: "flex-end",
             }}
           >
-            <Typography
-              variant="caption"
+            <Box
+              component="span"
               sx={{
                 color: "text.secondary",
                 mr: 0.5,
+                fontSize: "0.75rem",
+                lineHeight: 1.5,
               }}
             >
               {formatTimestamp(message.timestamp)}
-            </Typography>
+            </Box>
             {message.sender !== "contact" && getMessageStatus(message.status)}
           </Box>
         </Paper>
@@ -1006,7 +1019,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
           p: 2,
         }}
       >
-        <Typography variant="h6">Edit Image</Typography>
+        <Box
+          component="h6"
+          sx={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}
+        >
+          Edit Image
+        </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Tooltip title="Square">
             <IconButton
@@ -1101,9 +1119,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             gap: 2,
           }}
         >
-          <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+          <Box
+            component="h6"
+            sx={{ fontSize: "1rem", fontWeight: 500, margin: 0 }}
+          >
             Preview
-          </Typography>
+          </Box>
           <Box
             sx={{
               width: "100%",
@@ -1301,9 +1322,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             minHeight: 64,
           }}
         >
-          <Typography variant="h6">
+          <Box
+            component="h6"
+            sx={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}
+          >
             {viewMode === "chats" ? "WhatsApp Chats" : "Conversations"}
-          </Typography>
+          </Box>
           <Box sx={{ display: "flex", gap: 1 }}>
             <Chip
               label="Chats"
@@ -1386,13 +1410,27 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             flexGrow: 1,
           }}
         >
-          <Typography variant="caption" color="primary">
+          <Box
+            component="span"
+            sx={{
+              fontSize: "0.75rem",
+              color: "primary.main",
+              lineHeight: 1.5,
+            }}
+          >
             Replying to{" "}
             {replyingTo.sender === "user" ? "yourself" : selectedChat.name}
-          </Typography>
-          <Typography variant="body2" noWrap>
+          </Box>
+          <Box
+            component="span"
+            noWrap
+            sx={{
+              fontSize: "0.875rem",
+              lineHeight: 1.5,
+            }}
+          >
             {replyingTo.text || "Media message"}
-          </Typography>
+          </Box>
         </Box>
         <IconButton size="small" onClick={() => setReplyingTo(null)}>
           <CloseIcon fontSize="small" />
@@ -1966,21 +2004,27 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                             alignItems: "center",
                           }}
                         >
-                          <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: chat.unread ? 600 : 400 }}
+                          <Box
+                            component="span"
+                            sx={{
+                              fontWeight: chat.unread ? 600 : 400,
+                              fontSize: "1rem",
+                              lineHeight: 1.5,
+                            }}
                           >
                             {chat.name}
-                          </Typography>
-                          <Typography
-                            variant="caption"
+                          </Box>
+                          <Box
+                            component="span"
                             sx={{
                               color: chat.unread ? "#00A884" : "#667781",
                               fontWeight: chat.unread ? 500 : 400,
+                              fontSize: "0.75rem",
+                              lineHeight: 1.5,
                             }}
                           >
                             {formatTimestamp(chat.timestamp)}
-                          </Typography>
+                          </Box>
                         </Box>
                       }
                       secondary={
@@ -1999,8 +2043,8 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                             }}
                           >
                             {!chat.isGroup && getMessageStatus(chat.status)}
-                            <Typography
-                              variant="body2"
+                            <Box
+                              component="span"
                               sx={{
                                 color: chat.unread ? "#111b21" : "#667781",
                                 fontWeight: chat.unread ? 500 : 400,
@@ -2008,10 +2052,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                                 textOverflow: "ellipsis",
                                 whiteSpace: "nowrap",
                                 maxWidth: "260px",
+                                fontSize: "0.875rem",
+                                lineHeight: 1.5,
                               }}
                             >
                               {chat.lastMessage}
-                            </Typography>
+                            </Box>
                           </Box>
                           {chat.unread > 0 && (
                             <Badge
@@ -2030,6 +2076,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                           )}
                         </Box>
                       }
+                      primaryTypographyProps={{
+                        component: "div",
+                      }}
+                      secondaryTypographyProps={{
+                        component: "div",
+                      }}
                     />
                   </ListItem>
                 );
@@ -2091,14 +2143,27 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                         </Box>
                       }
                       secondary={
-                        <Typography variant="caption" color="text.secondary">
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: "0.75rem",
+                            color: "text.secondary",
+                            lineHeight: 1.5,
+                          }}
+                        >
                           contactId: {c.contactId} • agent:{" "}
                           {c.assignedAgentId || "unassigned"} • last:{" "}
                           {c.lastMessageAt
                             ? formatTimestamp(c.lastMessageAt)
                             : "-"}
-                        </Typography>
+                        </Box>
                       }
+                      primaryTypographyProps={{
+                        component: "div",
+                      }}
+                      secondaryTypographyProps={{
+                        component: "div",
+                      }}
                     />
                   </ListItem>
                 ))}
@@ -2113,17 +2178,29 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                 chat.phoneNumber.includes(searchQuery)
             ).length === 0 && (
               <Box sx={{ p: 3, textAlign: "center" }}>
-                <Typography color="textSecondary">
+                <Box
+                  component="span"
+                  sx={{
+                    color: "text.secondary",
+                    fontSize: "1rem",
+                    lineHeight: 1.5,
+                  }}
+                >
                   {searchQuery ? "No chats found" : "No chats available"}
-                </Typography>
+                </Box>
                 {chats.length === 0 && (
-                  <Typography
-                    variant="caption"
-                    color="textSecondary"
-                    sx={{ mt: 1, display: "block" }}
+                  <Box
+                    component="span"
+                    sx={{
+                      color: "text.secondary",
+                      fontSize: "0.75rem",
+                      lineHeight: 1.5,
+                      mt: 1,
+                      display: "block",
+                    }}
                   >
                     Loading chats from API...
-                  </Typography>
+                  </Box>
                 )}
               </Box>
             )}
