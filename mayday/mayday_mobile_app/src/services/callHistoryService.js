@@ -237,7 +237,10 @@ const callHistoryService = {
       userfield: call.userfield,
       // Display text
       displayName: callerName || callerNumber,
-      displayDuration: this.formatDuration(call.duration || call.billsec || 0),
+      displayDuration:
+        typeof call.duration === "string" && call.duration.includes(":")
+          ? call.duration
+          : this.formatDuration(call.billsec || call.duration || 0),
       displayTimestamp: this.formatTimestamp(call.timestamp),
       displayCalledNumber: call.calledNumber
         ? `Dialed ${call.calledNumber}`

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,10 +11,17 @@ import { makeCall } from "../../services/sipClient";
 import * as Haptics from "expo-haptics";
 import { Audio } from "expo-av";
 
-export default function DialerScreen({ navigation }) {
-  const [number, setNumber] = useState("");
+export default function DialerScreen({ navigation, route }) {
+  const [number, setNumber] = useState(route?.params?.prefillNumber || "");
   const { registered, connecting } = useSelector((s) => s.sip);
   const soundRef = useRef(null);
+
+  // Update number if prefillNumber changes
+  useEffect(() => {
+    if (route?.params?.prefillNumber) {
+      setNumber(route.params.prefillNumber);
+    }
+  }, [route?.params?.prefillNumber]);
 
   const call = () => {
     if (!registered || !number) return;

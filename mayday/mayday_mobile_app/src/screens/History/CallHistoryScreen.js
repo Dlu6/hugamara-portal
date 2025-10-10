@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
-import { Ionicons } from "@expo/vector-icons";
 import {
   fetchCallHistory,
   setHistoryFilters,
@@ -32,6 +31,16 @@ export default function CallHistoryScreen({ navigation }) {
       dispatch(fetchCallHistory({ token, extension, limit: 50 }));
     }
   }, [dispatch, token, extension]);
+
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    return {
+      all: callHistory.length,
+      inbound: callHistory.filter((c) => c.type === "inbound").length,
+      outbound: callHistory.filter((c) => c.type === "outbound").length,
+      missed: callHistory.filter((c) => c.status === "missed").length,
+    };
+  }, [callHistory]);
 
   // Filter call history based on current filters
   const filteredHistory = useMemo(() => {
@@ -71,9 +80,10 @@ export default function CallHistoryScreen({ navigation }) {
 
   const handleCallPress = (call) => {
     if (call.phoneNumber && call.phoneNumber !== "Unknown") {
-      makeCall(call.phoneNumber);
-      // Navigate to Dialer tab to show active call
-      navigation.navigate("Dialer");
+      // Navigate to Dialer tab and populate the number field
+      navigation.navigate("Dialer", {
+        prefillNumber: call.phoneNumber,
+      });
     } else {
       Alert.alert("Error", "Cannot dial this number");
     }
@@ -106,14 +116,17 @@ export default function CallHistoryScreen({ navigation }) {
             )}
           </View>
         </View>
-        <View style={styles.callItemRight}>
-          <Ionicons name="call" size={20} color="#22C55E" />
-        </View>
+        <TouchableOpacity
+          style={styles.callButton}
+          onPress={() => handleCallPress(item)}
+        >
+          <Text style={styles.callButtonText}>📞</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
 
-  const renderFilterButton = (type, label) => {
+  const renderFilterButton = (type, label, count) => {
     const isActive = historyFilters.type === type;
     return (
       <TouchableOpacity
@@ -126,7 +139,7 @@ export default function CallHistoryScreen({ navigation }) {
             isActive && styles.filterButtonTextActive,
           ]}
         >
-          {label}
+          {label} ({count})
         </Text>
       </TouchableOpacity>
     );
@@ -145,7 +158,7 @@ export default function CallHistoryScreen({ navigation }) {
     if (callHistoryError) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="alert-circle" size={48} color="#EF4444" />
+          <Text style={styles.errorIcon}>⚠️</Text>
           <Text style={styles.emptyText}>Failed to load call history</Text>
           <Text style={styles.errorText}>{callHistoryError}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
@@ -157,7 +170,7 @@ export default function CallHistoryScreen({ navigation }) {
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="call-outline" size={48} color="#9CA3AF" />
+        <Text style={styles.emptyIcon}>📞</Text>
         <Text style={styles.emptyText}>No calls found</Text>
         <Text style={styles.emptySubtext}>
           {searchText
@@ -174,22 +187,20 @@ export default function CallHistoryScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.title}>Call History</Text>
         <TouchableOpacity onPress={handleRefresh} disabled={callHistoryLoading}>
-          <Ionicons
-            name="refresh"
-            size={24}
-            color={callHistoryLoading ? "#9CA3AF" : "#22C55E"}
-          />
+          <Text
+            style={[
+              styles.refreshIcon,
+              { color: callHistoryLoading ? "#9CA3AF" : "#22C55E" },
+            ]}
+          >
+            ↻
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Ionicons
-          name="search"
-          size={20}
-          color="#9CA3AF"
-          style={styles.searchIcon}
-        />
+        <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           style={styles.searchInput}
           placeholder="Search by number or name..."
@@ -199,17 +210,17 @@ export default function CallHistoryScreen({ navigation }) {
         />
         {searchText.length > 0 && (
           <TouchableOpacity onPress={() => setSearchText("")}>
-            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            <Text style={styles.clearIcon}>✕</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Filter Buttons */}
       <View style={styles.filterContainer}>
-        {renderFilterButton("all", "All")}
-        {renderFilterButton("inbound", "Inbound")}
-        {renderFilterButton("outbound", "Outbound")}
-        {renderFilterButton("missed", "Missed")}
+        {renderFilterButton("all", "All", filterCounts.all)}
+        {renderFilterButton("inbound", "Inbound", filterCounts.inbound)}
+        {renderFilterButton("outbound", "Outbound", filterCounts.outbound)}
+        {renderFilterButton("missed", "Missed", filterCounts.missed)}
       </View>
 
       {/* Call List */}
@@ -270,12 +281,22 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     marginRight: 8,
+    fontSize: 18,
   },
   searchInput: {
     flex: 1,
     color: "#FFFFFF",
     fontSize: 16,
     paddingVertical: 0,
+  },
+  clearIcon: {
+    color: "#9CA3AF",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  refreshIcon: {
+    fontSize: 24,
+    fontWeight: "bold",
   },
   filterContainer: {
     flexDirection: "row",
@@ -353,8 +374,20 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 12,
   },
-  callItemRight: {
-    padding: 8,
+  callButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#22C55E",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  callButtonText: {
+    fontSize: 20,
   },
   emptyContainer: {
     flex: 1,
@@ -364,6 +397,12 @@ const styles = StyleSheet.create({
   },
   emptyListContainer: {
     flexGrow: 1,
+  },
+  emptyIcon: {
+    fontSize: 48,
+  },
+  errorIcon: {
+    fontSize: 48,
   },
   emptyText: {
     color: "#FFFFFF",
