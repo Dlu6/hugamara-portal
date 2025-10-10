@@ -46,4 +46,6 @@ export const ENDPOINTS = {
   LICENSE_CURRENT: "/licenses/current",
   CREATE_SESSION: "/licenses/create-session",
   END_SESSION: "/licenses/end-session",
+  CALL_HISTORY: "/cdr/call-history",
+  CALL_COUNTS: "/cdr/call-counts",
 };

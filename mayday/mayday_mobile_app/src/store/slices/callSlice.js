@@ -1,8 +1,34 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import callHistoryService from "../../services/callHistoryService";
+
+// Async thunk for fetching call history
+export const fetchCallHistory = createAsyncThunk(
+  "call/fetchCallHistory",
+  async ({ token, extension, limit = 50 }, { rejectWithValue }) => {
+    try {
+      const result = await callHistoryService.getEnhancedCallHistory(
+        token,
+        extension,
+        limit
+      );
+      return result.data.records || [];
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 const initialState = {
   active: null, // { id, number, direction, status, isMuted, isOnHold }
   history: [],
+  // Call history state
+  callHistory: [],
+  callHistoryLoading: false,
+  callHistoryError: null,
+  historyFilters: {
+    type: "all", // "all", "inbound", "outbound", "missed"
+    search: "",
+  },
 };
 
 const callSlice = createSlice({
@@ -46,6 +72,39 @@ const callSlice = createSlice({
       }
       state.active = null;
     },
+    // Call history actions
+    setCallHistory(state, action) {
+      state.callHistory = action.payload;
+    },
+    setHistoryLoading(state, action) {
+      state.callHistoryLoading = action.payload;
+    },
+    setHistoryError(state, action) {
+      state.callHistoryError = action.payload;
+    },
+    setHistoryFilters(state, action) {
+      state.historyFilters = { ...state.historyFilters, ...action.payload };
+    },
+    clearCallHistory(state) {
+      state.callHistory = [];
+      state.callHistoryError = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchCallHistory.pending, (state) => {
+        state.callHistoryLoading = true;
+        state.callHistoryError = null;
+      })
+      .addCase(fetchCallHistory.fulfilled, (state, action) => {
+        state.callHistoryLoading = false;
+        state.callHistory = action.payload;
+        state.callHistoryError = null;
+      })
+      .addCase(fetchCallHistory.rejected, (state, action) => {
+        state.callHistoryLoading = false;
+        state.callHistoryError = action.payload;
+      });
   },
 });
 
@@ -56,5 +115,10 @@ export const {
   endCall,
   setMute,
   setHold,
+  setCallHistory,
+  setHistoryLoading,
+  setHistoryError,
+  setHistoryFilters,
+  clearCallHistory,
 } = callSlice.actions;
 export default callSlice.reducer;

@@ -174,7 +174,12 @@ export function makeCall(number) {
         { urls: "stun:stun3.l.google.com:19302" },
         { urls: "stun:stun4.l.google.com:19302" },
       ],
+      iceTransportPolicy: "all", // Try all candidates (relay, srflx, host)
+      bundlePolicy: "balanced", // Bundle audio/video when possible
+      rtcpMuxPolicy: "require", // Multiplex RTP and RTCP on same port
+      iceCandidatePoolSize: 10, // Pre-gather 10 ICE candidates
     },
+    iceGatheringTimeout: 5000, // Wait up to 5 seconds for ICE gathering
   };
   console.log("[SIP] Making call to:", number);
   state.ua.call(target, options);
@@ -192,7 +197,12 @@ export function answerCall() {
           { urls: "stun:stun3.l.google.com:19302" },
           { urls: "stun:stun4.l.google.com:19302" },
         ],
+        iceTransportPolicy: "all", // Try all candidates (relay, srflx, host)
+        bundlePolicy: "balanced", // Bundle audio/video when possible
+        rtcpMuxPolicy: "require", // Multiplex RTP and RTCP on same port
+        iceCandidatePoolSize: 10, // Pre-gather 10 ICE candidates
       },
+      iceGatheringTimeout: 5000, // Wait up to 5 seconds for ICE gathering
     });
   }
 }
