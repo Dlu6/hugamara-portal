@@ -5,6 +5,8 @@ import IncomingCallScreen from "../screens/Calls/IncomingCallScreen";
 import CallScreen from "../screens/Calls/CallScreen";
 import BottomTabNavigator from "./BottomTabNavigator"; // Import the new Tab Navigator
 import SettingsScreen from "../screens/Settings/SettingsScreen";
+import ContactDetailScreen from "../screens/Contacts/ContactDetailScreen";
+import CreateContactScreen from "../screens/Contacts/CreateContactScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -17,6 +19,8 @@ export default function RootNavigator() {
       <Stack.Screen name="IncomingCall" component={IncomingCallScreen} />
       <Stack.Screen name="Call" component={CallScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="ContactDetail" component={ContactDetailScreen} />
+      <Stack.Screen name="CreateContact" component={CreateContactScreen} />
     </Stack.Navigator>
   );
 }

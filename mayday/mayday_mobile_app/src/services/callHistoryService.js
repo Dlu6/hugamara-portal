@@ -1,4 +1,8 @@
-import { getApiBaseUrl, ENDPOINTS } from "../config/endpoints";
+import {
+  getApiBaseUrl,
+  normalizeApiBaseUrl,
+  ENDPOINTS,
+} from "../config/endpoints";
 
 const callHistoryService = {
   /**
@@ -78,7 +82,11 @@ const callHistoryService = {
         limit: limit.toString(),
       });
 
-      const baseUrl = getApiBaseUrl();
+      const rawBaseUrl = getApiBaseUrl();
+      // Check if the base URL already includes the API path
+      const baseUrl = rawBaseUrl.includes("/mayday-api/api")
+        ? rawBaseUrl
+        : normalizeApiBaseUrl(rawBaseUrl);
       const response = await fetch(
         `${baseUrl}${ENDPOINTS.CALL_HISTORY}?${params}`,
         {

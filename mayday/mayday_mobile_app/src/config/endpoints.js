@@ -53,4 +53,9 @@ export const ENDPOINTS = {
   ADMIN_QUEUE_ACTIVITY: "/admin/queue-activity",
   ADMIN_HISTORICAL_STATS: "/admin/historical-stats",
   MY_PERFORMANCE: "/reports/my-performance",
+  // Contacts endpoints
+  CONTACTS: "/contacts",
+  CONTACT_BY_ID: "/contacts",
+  CONTACT_STATS: "/contacts/stats",
+  CONTACT_SEARCH: "/contacts/search",
 };
