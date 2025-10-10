@@ -1,7 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
-  active: null, // { id, number, direction, status, session, isMuted, isOnHold }
+  active: null, // { id, number, direction, status, isMuted, isOnHold }
   history: [],
 };
 
@@ -10,19 +10,18 @@ const callSlice = createSlice({
   initialState,
   reducers: {
     startCall(state, action) {
-      const { number, session } = action.payload;
+      const { number } = action.payload;
       state.active = {
         id: Date.now(),
         number,
         direction: "outbound",
-        status: "dialing",
+        status: "connecting",
         isMuted: false,
         isOnHold: false,
-        session,
       };
     },
     incomingCall(state, action) {
-      const { caller, session } = action.payload;
+      const { caller } = action.payload;
       state.active = {
         id: Date.now(),
         number: caller,
@@ -30,7 +29,6 @@ const callSlice = createSlice({
         status: "ringing",
         isMuted: false,
         isOnHold: false,
-        session,
       };
     },
     updateCallStatus(state, action) {
@@ -44,7 +42,7 @@ const callSlice = createSlice({
     },
     endCall(state) {
       if (state.active) {
-        state.history.unshift({ ...state.active, session: null }); // Don't store session in history
+        state.history.unshift({ ...state.active });
       }
       state.active = null;
     },

@@ -10,6 +10,7 @@ import {
   subscribeIncomingNotifications,
 } from "./services/notifications";
 import { ToastProvider } from "./contexts/ToastContext";
+import CallManager from "./components/CallManager";
 
 export default function App() {
   useEffect(() => {
@@ -22,6 +23,7 @@ export default function App() {
     <Provider store={store}>
       <ToastProvider>
         <NavigationContainer ref={navigationRef}>
+          <CallManager />
           <RootNavigator />
         </NavigationContainer>
       </ToastProvider>

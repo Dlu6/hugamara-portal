@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import { endCall } from "../../store/slices/callSlice";
 import { hangupCall, toggleHold, toggleMute } from "../../services/sipClient";
@@ -7,7 +8,8 @@ import { hangupCall, toggleHold, toggleMute } from "../../services/sipClient";
 export default function CallScreen({ navigation, route }) {
   const dispatch = useDispatch();
   const number = route?.params?.number || "Unknown";
-  const { isMuted, isOnHold } = useSelector((s) => s.call.active) || {};
+  const callState = useSelector((s) => s.call.active);
+  const { isMuted, isOnHold, status } = callState || {};
 
   const [speaker, setSpeaker] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -24,8 +26,6 @@ export default function CallScreen({ navigation, route }) {
     navigation.replace("Main", { screen: "Dialer" });
   };
 
-  // TODO: Connect speaker function to an audio management service
-
   const format = (s) => {
     const m = Math.floor(s / 60)
       .toString()
@@ -34,94 +34,198 @@ export default function CallScreen({ navigation, route }) {
     return `${m}:${r}`;
   };
 
+  const getStatusText = () => {
+    if (isOnHold) return "On Hold";
+    if (status === "connecting") return "Connecting...";
+    if (status === "ringing") return "Ringing...";
+    if (status === "active") return "Answering...";
+    if (status === "connected") return "In Call";
+    return "In Call";
+  };
+
+  const getStatusColor = () => {
+    if (isOnHold) return "#F59E0B";
+    if (status === "connecting") return "#8E8E93";
+    if (status === "ringing") return "#3B82F6";
+    if (status === "active") return "#10B981";
+    if (status === "connected") return "#34C759";
+    return "#34C759";
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>In Call</Text>
-      <Text style={styles.number}>{number}</Text>
-      <Text style={styles.timer}>{format(seconds)}</Text>
+      {/* Call Info Section */}
+      <View style={styles.callInfoSection}>
+        <View style={styles.avatarContainer}>
+          <Ionicons name="person" size={64} color="#FFFFFF" />
+        </View>
 
-      <View style={styles.grid}>
-        <TouchableOpacity onPress={toggleMute} style={styles.tile}>
-          <Text style={styles.tileText}>{isMuted ? "Unmute" : "Mute"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={toggleHold} style={styles.tile}>
-          <Text style={styles.tileText}>{isOnHold ? "Resume" : "Hold"}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setSpeaker(!speaker)}
-          style={styles.tile}
-        >
-          <Text style={styles.tileText}>
-            {speaker ? "Earpiece" : "Speaker"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            /* TODO: Implement Keypad modal */
-          }}
-          style={styles.tile}
-        >
-          <Text style={styles.tileText}>Keypad</Text>
-        </TouchableOpacity>
+        <Text style={styles.number}>{number}</Text>
+        <Text style={[styles.statusText, { color: getStatusColor() }]}>
+          {getStatusText()}
+        </Text>
+        <Text style={styles.timer}>{format(seconds)}</Text>
       </View>
 
-      <TouchableOpacity onPress={handleHangup} style={styles.hangupBig}>
-        <Text style={styles.hangupText}>Hang Up</Text>
-      </TouchableOpacity>
+      {/* Control Buttons Grid */}
+      <View style={styles.controlsSection}>
+        <View style={styles.controlsGrid}>
+          {/* Row 1 */}
+          <ControlButton
+            icon={isMuted ? "mic-off" : "mic"}
+            label={isMuted ? "Unmute" : "Mute"}
+            onPress={toggleMute}
+            active={isMuted}
+          />
+          <ControlButton
+            icon="keypad"
+            label="Keypad"
+            onPress={() => {
+              /* TODO: Implement keypad modal */
+            }}
+          />
+
+          {/* Row 2 */}
+          <ControlButton
+            icon={speaker ? "volume-high" : "volume-low"}
+            label={speaker ? "Speaker" : "Speaker"}
+            onPress={() => setSpeaker(!speaker)}
+            active={speaker}
+          />
+          <ControlButton
+            icon={isOnHold ? "play" : "pause"}
+            label={isOnHold ? "Resume" : "Hold"}
+            onPress={toggleHold}
+            active={isOnHold}
+          />
+        </View>
+      </View>
+
+      {/* Hang Up Button */}
+      <View style={styles.hangupSection}>
+        <TouchableOpacity onPress={handleHangup} style={styles.hangupButton}>
+          <Ionicons name="call" size={32} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.hangupLabel}>End Call</Text>
+      </View>
     </View>
+  );
+}
+
+function ControlButton({ icon, label, onPress, active }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.controlButton, active && styles.controlButtonActive]}
+    >
+      <Ionicons name={icon} size={28} color="#FFFFFF" />
+      <Text style={styles.controlLabel}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0A0A",
-    padding: 24,
-    justifyContent: "center",
+    backgroundColor: "#000000",
+    paddingTop: 80,
+    paddingBottom: 60,
+    paddingHorizontal: 24,
+  },
+  callInfoSection: {
+    flex: 1,
     alignItems: "center",
+    justifyContent: "center",
   },
-  title: { color: "#FFFFFF", fontSize: 22, fontWeight: "700" },
-  number: { color: "#9CA3AF", marginTop: 8 },
-  timer: {
+  avatarContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#2C2C2E",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  number: {
     color: "#FFFFFF",
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
-    marginVertical: 20,
+    marginBottom: 8,
+    letterSpacing: -0.6,
   },
-  grid: {
-    width: "100%",
+  statusText: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 12,
+    letterSpacing: -0.2,
+  },
+  timer: {
+    color: "#8E8E93",
+    fontSize: 18,
+    fontWeight: "500",
+    letterSpacing: -0.3,
+  },
+  controlsSection: {
+    paddingVertical: 24,
+  },
+  controlsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 12,
-    columnGap: 12,
-    marginBottom: 24,
+    justifyContent: "center",
+    gap: 24,
   },
-  tile: {
-    width: "48%",
-    backgroundColor: "#111827",
-    paddingVertical: 18,
-    borderRadius: 12,
+  controlButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: "#2C2C2E",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#374151",
+    justifyContent: "center",
     shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+    marginBottom: 8,
   },
-  tileText: { color: "#FFFFFF", fontWeight: "700" },
-  hangupBig: {
-    backgroundColor: "#B91C1C",
-    paddingVertical: 16,
-    paddingHorizontal: 28,
-    borderRadius: 999,
-    shadowColor: "#000",
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    borderWidth: 1,
-    borderColor: "#7F1D1D",
+  controlButtonActive: {
+    backgroundColor: "#3A3A3C",
   },
-  hangupText: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
+  controlLabel: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 6,
+    letterSpacing: -0.1,
+  },
+  hangupSection: {
+    alignItems: "center",
+    paddingTop: 32,
+  },
+  hangupButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FF3B30",
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ rotate: "135deg" }],
+    shadowColor: "#FF3B30",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
+    marginBottom: 16,
+  },
+  hangupLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    letterSpacing: -0.2,
+  },
 });
