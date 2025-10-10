@@ -48,4 +48,9 @@ export const ENDPOINTS = {
   END_SESSION: "/licenses/end-session",
   CALL_HISTORY: "/cdr/call-history",
   CALL_COUNTS: "/cdr/call-counts",
+  // Dashboard endpoints (using existing admin endpoints)
+  ADMIN_CALL_STATS: "/admin/call-stats",
+  ADMIN_QUEUE_ACTIVITY: "/admin/queue-activity",
+  ADMIN_HISTORICAL_STATS: "/admin/historical-stats",
+  MY_PERFORMANCE: "/reports/my-performance",
 };

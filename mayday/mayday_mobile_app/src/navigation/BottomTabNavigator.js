@@ -7,7 +7,7 @@ import DialerScreen from "../screens/Calls/DialerScreen";
 import CallHistoryScreen from "../screens/History/CallHistoryScreen";
 import ContactsScreen from "../screens/Contacts/ContactsScreen";
 import AgentStatusScreen from "../screens/Agent/AgentStatusScreen";
-import DashboardScreen from "../screens/Dashboard/DashboardScreen";
+import DashboardMobileScreen from "../screens/DashboardMobileScreen/DashboardMobileScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -41,7 +41,7 @@ export default function BottomTabNavigator() {
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={DashboardMobileScreen}
         options={{
           tabBarIcon: ({ focused, color }) => {
             return <Text style={{ color, fontSize: 20 }}>🏠</Text>;

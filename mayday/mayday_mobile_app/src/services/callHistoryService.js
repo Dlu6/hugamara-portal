@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "../config/endpoints";
+import { getApiBaseUrl, ENDPOINTS } from "../config/endpoints";
 
 const callHistoryService = {
   /**
@@ -79,13 +79,16 @@ const callHistoryService = {
       });
 
       const baseUrl = getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/cdr/call-history?${params}`, {
-        method: "GET",
-        headers: {
-          Authorization: authHeader,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${baseUrl}${ENDPOINTS.CALL_HISTORY}?${params}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: authHeader,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       const result = await this.handleApiResponse(response, "Get call history");
 

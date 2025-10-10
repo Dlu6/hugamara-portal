@@ -10,21 +10,50 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
-import { fetchMyPerformanceStats } from "../../store/slices/dashboardSlice";
+import {
+  fetchMyPerformanceStats,
+  fetchSystemStats,
+  fetchQueueStatus,
+  fetchActiveAgents,
+  fetchActiveCalls,
+  setTimeRange,
+} from "../../store/slices/dashboardSlice";
 import io from "socket.io-client";
 import Constants from "expo-constants";
 import { getApiBaseUrl } from "../../config/endpoints";
 
 const { width } = Dimensions.get("window");
 
-export default function DashboardScreen() {
+export default function DashboardMobileScreen() {
   const dispatch = useDispatch();
-  const { stats, status, error } = useSelector((s) => s.dashboard);
+  const {
+    stats,
+    systemStats,
+    queueStatus,
+    activeAgents,
+    activeCalls,
+    timeRange,
+    status,
+    systemStatsStatus,
+    queueStatusStatus,
+    activeAgentsStatus,
+    activeCallsStatus,
+    error,
+  } = useSelector((s) => s.dashboard);
   const { user } = useSelector((s) => s.auth);
   const [refreshing, setRefreshing] = useState(false);
+  const [timeRangeIndex, setTimeRangeIndex] = useState(0);
 
   useEffect(() => {
-    dispatch(fetchMyPerformanceStats("today"));
+    // Fetch all dashboard data
+    const timeRanges = ["today", "week", "month"];
+    const currentTimeRange = timeRanges[timeRangeIndex];
+
+    dispatch(fetchMyPerformanceStats(currentTimeRange));
+    dispatch(fetchSystemStats(currentTimeRange));
+    dispatch(fetchQueueStatus());
+    dispatch(fetchActiveAgents());
+    dispatch(fetchActiveCalls());
 
     // Realtime updates via Socket.IO (best-effort)
     const extra = Constants?.expoConfig?.extra || {};
@@ -37,34 +66,58 @@ export default function DashboardScreen() {
       socket.on("connect", () => {
         // Optionally authenticate/identify here if backend supports it
       });
-      // If backend emits call updates, re-fetch quick personal stats
-      const refresh = () => dispatch(fetchMyPerformanceStats("today"));
+      // If backend emits call updates, re-fetch all stats
+      const refresh = () => {
+        dispatch(fetchMyPerformanceStats(currentTimeRange));
+        dispatch(fetchSystemStats(currentTimeRange));
+        dispatch(fetchQueueStatus());
+        dispatch(fetchActiveAgents());
+        dispatch(fetchActiveCalls());
+      };
       socket.on("call_started", refresh);
       socket.on("call_ended", refresh);
       socket.on("stats_updated", refresh);
+      socket.on("agent_status_changed", refresh);
     } catch (e) {
       // Ignore socket wiring errors; fallback interval below covers updates
     }
 
     // Fallback polling every 60s to keep numbers fresh if socket is unavailable
-    const id = setInterval(
-      () => dispatch(fetchMyPerformanceStats("today")),
-      60000
-    );
+    const id = setInterval(() => {
+      dispatch(fetchMyPerformanceStats(currentTimeRange));
+      dispatch(fetchSystemStats(currentTimeRange));
+      dispatch(fetchQueueStatus());
+      dispatch(fetchActiveAgents());
+      dispatch(fetchActiveCalls());
+    }, 60000);
 
     return () => {
       clearInterval(id);
       if (socket && socket.connected) socket.close();
     };
-  }, [dispatch]);
+  }, [dispatch, timeRangeIndex]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchMyPerformanceStats("today")).unwrap();
+      const timeRanges = ["today", "week", "month"];
+      const currentTimeRange = timeRanges[timeRangeIndex];
+
+      await Promise.all([
+        dispatch(fetchMyPerformanceStats(currentTimeRange)).unwrap(),
+        dispatch(fetchSystemStats(currentTimeRange)).unwrap(),
+        dispatch(fetchQueueStatus()).unwrap(),
+        dispatch(fetchActiveAgents()).unwrap(),
+        dispatch(fetchActiveCalls()).unwrap(),
+      ]);
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const handleTimeRangeChange = (index) => {
+    setTimeRangeIndex(index);
+    dispatch(setTimeRange(index));
   };
 
   const errorMessage =
@@ -101,18 +154,96 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Quick Stats Row */}
+        {/* Time Range Selector */}
+        <View style={styles.timeRangeContainer}>
+          <View style={styles.timeRangeTabs}>
+            {["Today", "Week", "Month"].map((label, index) => (
+              <TouchableOpacity
+                key={label}
+                style={[
+                  styles.timeRangeTab,
+                  timeRangeIndex === index && styles.timeRangeTabActive,
+                ]}
+                onPress={() => handleTimeRangeChange(index)}
+              >
+                <Text
+                  style={[
+                    styles.timeRangeTabText,
+                    timeRangeIndex === index && styles.timeRangeTabTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* System Overview Stats */}
+        <View style={styles.systemOverviewContainer}>
+          <Text style={styles.systemOverviewTitle}>System Overview</Text>
+          <View style={styles.systemStatsGrid}>
+            <SystemStatCard
+              icon="call"
+              iconColor="#2196F3"
+              title="Waiting Calls"
+              value={systemStats.activeCalls || 0}
+              subtitle="Active Calls"
+            />
+            <SystemStatCard
+              icon="checkmark-circle"
+              iconColor="#4CAF50"
+              title="Answered Calls"
+              value={systemStats.answeredCalls || 0}
+              subtitle={
+                timeRangeIndex === 0
+                  ? "Today"
+                  : timeRangeIndex === 1
+                  ? "This Week"
+                  : "This Month"
+              }
+            />
+            <SystemStatCard
+              icon="close-circle"
+              iconColor="#F44336"
+              title="Abandoned Calls"
+              value={systemStats.abandonedCalls || 0}
+              subtitle={`${
+                timeRangeIndex === 0
+                  ? "Today"
+                  : timeRangeIndex === 1
+                  ? "This Week"
+                  : "This Month"
+              } (${systemStats.abandonRate || 0}%)`}
+            />
+            <SystemStatCard
+              icon="stats-chart"
+              iconColor="#9C27B0"
+              title="Total Calls"
+              value={systemStats.totalCalls || 0}
+              subtitle={
+                timeRangeIndex === 0
+                  ? "Today"
+                  : timeRangeIndex === 1
+                  ? "This Week"
+                  : "This Month"
+              }
+            />
+          </View>
+        </View>
+
+        {/* Quick Personal Stats Row */}
         <View style={styles.quickStatsRow}>
           <View style={styles.quickStatItem}>
             <Text style={styles.quickStatValue}>{stats.totalCalls || 0}</Text>
-            <Text style={styles.quickStatLabel}>Total Calls</Text>
+            <Text style={styles.quickStatLabel}>My Total Calls</Text>
           </View>
           <View style={styles.quickStatDivider} />
           <View style={styles.quickStatItem}>
             <Text style={styles.quickStatValue}>
               {(stats.inbound || 0) - (stats.missed || 0)}
             </Text>
-            <Text style={styles.quickStatLabel}>Answered</Text>
+            <Text style={styles.quickStatLabel}>My Answered</Text>
           </View>
           <View style={styles.quickStatDivider} />
           <View style={styles.quickStatItem}>
@@ -124,8 +255,8 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      {/* Loading State */}
-      {status === "loading" && (
+      {/* Loading State - Only show on initial load */}
+      {status === "loading" && stats.totalCalls === 0 && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color="#3B82F6" size="large" />
           <Text style={styles.loadingText}>Loading dashboard...</Text>
@@ -143,8 +274,10 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* Main Content */}
-      {status === "succeeded" && (
+      {/* Main Content - Show if we have any data or after first load */}
+      {(status === "succeeded" ||
+        systemStatsStatus === "succeeded" ||
+        stats.totalCalls > 0) && (
         <View style={styles.contentSection}>
           {/* Call Metrics Grid */}
           <View style={styles.section}>
@@ -157,7 +290,7 @@ export default function DashboardScreen() {
                 value={String(stats.inbound || 0)}
               />
               <MetricCard
-                icon="arrow-up-circle"
+                icon="⬆️"
                 iconColor="#3B82F6"
                 title="Outbound"
                 value={String(stats.outbound || 0)}
@@ -226,6 +359,23 @@ function MetricCard({ icon, title, value, iconColor }) {
       </View>
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricTitle}>{title}</Text>
+    </View>
+  );
+}
+
+function SystemStatCard({ icon, title, value, subtitle, iconColor }) {
+  return (
+    <View style={styles.systemStatCard}>
+      <View style={styles.systemStatHeader}>
+        <View
+          style={[styles.systemStatIcon, { backgroundColor: iconColor + "20" }]}
+        >
+          <Ionicons name={icon} size={24} color={iconColor} />
+        </View>
+      </View>
+      <Text style={styles.systemStatValue}>{value}</Text>
+      <Text style={styles.systemStatTitle}>{title}</Text>
+      {subtitle && <Text style={styles.systemStatSubtitle}>{subtitle}</Text>}
     </View>
   );
 }
@@ -311,6 +461,97 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
 
+  // Time Range Selector
+  timeRangeContainer: {
+    marginBottom: 24,
+  },
+  timeRangeTabs: {
+    flexDirection: "row",
+    backgroundColor: "#2C2C2E",
+    borderRadius: 12,
+    padding: 4,
+  },
+  timeRangeTab: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  timeRangeTabActive: {
+    backgroundColor: "#007AFF",
+  },
+  timeRangeTabText: {
+    color: "#8E8E93",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  timeRangeTabTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+
+  // System Overview
+  systemOverviewContainer: {
+    marginBottom: 24,
+  },
+  systemOverviewTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 16,
+    letterSpacing: -0.3,
+  },
+  systemStatsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  systemStatCard: {
+    width: (width - 72) / 2,
+    backgroundColor: "#2C2C2E",
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  systemStatHeader: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  systemStatIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  systemStatValue: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 4,
+    letterSpacing: -0.5,
+  },
+  systemStatTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 2,
+    letterSpacing: -0.2,
+  },
+  systemStatSubtitle: {
+    color: "#8E8E93",
+    fontSize: 12,
+    fontWeight: "400",
+    letterSpacing: -0.1,
+  },
+
   // Quick Stats - Apple card style with pronounced shadows
   quickStatsRow: {
     flexDirection: "row",
@@ -390,6 +631,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  metricIconEmoji: {
+    fontSize: 20,
   },
   metricValue: {
     color: "#FFFFFF",
