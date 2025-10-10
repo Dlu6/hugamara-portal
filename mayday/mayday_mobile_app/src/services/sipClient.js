@@ -1,6 +1,10 @@
 import JsSIP from "jssip";
 import { EventEmitter } from "events";
 import { requestAudioPermission } from "./webrtc";
+import { setupJsSIPWebRTC } from "./webrtcShim";
+
+// Initialize WebRTC shim for JsSIP before any usage
+setupJsSIPWebRTC();
 
 // Singleton state for the SIP User Agent and session
 const state = {

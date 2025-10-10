@@ -17,6 +17,7 @@ import {
 } from "../../config/endpoints";
 import * as SecureStore from "expo-secure-store";
 import { Ionicons } from "@expo/vector-icons";
+import { useToast } from "../../contexts/ToastContext";
 
 export default function LoginMobileScreen({ navigation }) {
   const [email, setEmail] = useState("mobile@gmail.com");
@@ -28,6 +29,7 @@ export default function LoginMobileScreen({ navigation }) {
   const dispatch = useDispatch();
   const authStatus = useSelector((s) => s.auth.status);
   const sipConnecting = useSelector((s) => s.sip.connecting);
+  const { showError, showSuccess } = useToast();
 
   const isLoading = authStatus === "loading" || sipConnecting;
 
@@ -109,6 +111,7 @@ export default function LoginMobileScreen({ navigation }) {
 
         // Navigate to the main app screen on successful login and SIP registration
         navigation.replace("Main");
+        showSuccess("Login successful! Welcome to Mayday Mobile.");
       } else {
         throw new Error(
           "Login response did not include valid SIP credentials."
@@ -116,8 +119,11 @@ export default function LoginMobileScreen({ navigation }) {
       }
     } catch (e) {
       console.warn("Login or SIP Registration Error:", e?.message || e);
-      // Here you could show an alert to the user
-      // Alert.alert("Login Failed", e?.message || "An unknown error occurred.");
+      // Show error toast to user
+      const errorMessage =
+        e?.message ||
+        "An unknown error occurred. Please check your credentials and try again.";
+      showError(errorMessage);
     }
   };
 
@@ -126,7 +132,7 @@ export default function LoginMobileScreen({ navigation }) {
       <Text style={styles.title}>Mayday Mobile</Text>
       <TextInput
         style={styles.input}
-        placeholder="Host (e.g. https://tenant.example.com/mayday-api)"
+        placeholder="Host (e.g. https://tenant.example.com)"
         placeholderTextColor="#9CA3AF"
         value={host}
         onChangeText={(text) => {

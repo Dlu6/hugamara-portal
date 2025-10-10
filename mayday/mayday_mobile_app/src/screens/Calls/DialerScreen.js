@@ -55,29 +55,33 @@ export default function DialerScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Dialer</Text>
-      <View style={styles.statusRow}>
-        <View style={[styles.dot, { backgroundColor: statusColor }]} />
-        <Text style={styles.statusText}>{statusText}</Text>
-      </View>
+      <View style={styles.topSection}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Dialer</Text>
+          <View style={styles.statusRow}>
+            <View style={[styles.dot, { backgroundColor: statusColor }]} />
+            <Text style={styles.statusText}>{statusText}</Text>
+          </View>
+        </View>
 
-      <View style={styles.numberDisplayWrap}>
-        <TextInput
-          style={styles.numberDisplay}
-          value={number}
-          onChangeText={setNumber}
-          placeholder="Enter number"
-          placeholderTextColor="#9CA3AF"
-          keyboardType="phone-pad"
-        />
-        <View style={styles.editRow}>
-          <TouchableOpacity
-            onPress={backspace}
-            onLongPress={clearAll}
-            style={styles.editBtn}
-          >
-            <Text style={styles.editText}>⌫</Text>
-          </TouchableOpacity>
+        <View style={styles.numberDisplayWrap}>
+          <TextInput
+            style={styles.numberDisplay}
+            value={number}
+            onChangeText={setNumber}
+            placeholder="Enter number"
+            placeholderTextColor="#9CA3AF"
+            keyboardType="phone-pad"
+          />
+          <View style={styles.editRow}>
+            <TouchableOpacity
+              onPress={backspace}
+              onLongPress={clearAll}
+              style={styles.editBtn}
+            >
+              <Text style={styles.editText}>⌫</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -95,27 +99,32 @@ export default function DialerScreen({ navigation }) {
         )}
       </View>
 
-      <TouchableOpacity
-        onPress={call}
-        style={[styles.callBtn, (!registered || !number) && styles.disabledBtn]}
-        disabled={!registered || !number}
-      >
-        <Text style={styles.callText}>Call</Text>
-      </TouchableOpacity>
+      <View style={styles.bottomSection}>
+        <TouchableOpacity
+          onPress={call}
+          style={[
+            styles.callBtn,
+            (!registered || !number) && styles.disabledBtn,
+          ]}
+          disabled={!registered || !number}
+        >
+          <Text style={styles.callText}>Call</Text>
+        </TouchableOpacity>
 
-      <View style={styles.row}>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("History")}
-          style={styles.secondaryBtn}
-        >
-          <Text style={styles.secondaryText}>History</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Settings")}
-          style={styles.secondaryBtn}
-        >
-          <Text style={styles.secondaryText}>Settings</Text>
-        </TouchableOpacity>
+        <View style={styles.row}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("History")}
+            style={styles.secondaryBtn}
+          >
+            <Text style={styles.secondaryText}>History</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("Settings")}
+            style={styles.secondaryBtn}
+          >
+            <Text style={styles.secondaryText}>Settings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -128,6 +137,12 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 32,
   },
+  topSection: {
+    flex: 0,
+  },
+  header: {
+    marginBottom: 16,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 22,
@@ -138,7 +153,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginTop: 6,
-    marginBottom: 16,
   },
   dot: { width: 10, height: 10, borderRadius: 10 },
   statusText: { color: "#FFFFFF", fontWeight: "600" },
@@ -178,6 +192,8 @@ const styles = StyleSheet.create({
     columnGap: 12,
     rowGap: 12,
     marginTop: 8,
+    marginBottom: 16,
+    height: 280,
   },
   key: {
     width: "30%",
@@ -199,13 +215,19 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     textAlignVertical: "center",
+    lineHeight: 24,
+    includeFontPadding: false,
+  },
+  bottomSection: {
+    flex: 1,
+    justifyContent: "flex-end",
+    paddingBottom: 20,
   },
   callBtn: {
     backgroundColor: "#0B9246",
     padding: 16,
     borderRadius: 14,
     alignItems: "center",
-    marginTop: 22,
     shadowColor: "#000",
     shadowOpacity: 0.35,
     shadowRadius: 10,

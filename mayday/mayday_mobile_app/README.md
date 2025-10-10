@@ -71,49 +71,111 @@ No native config is needed for these packages on Expo SDK 52.
 
 ## Quick Start
 
-1. Install dependencies in the mobile package:
-   ```bash
-   cd mayday/mayday_mobile_app
-   npm install
-   npx expo install expo-haptics expo-av
-   ```
-2. Start the Dev Client bundler:
-   ```bash
-   npm run start
-   ```
-3. On the Login screen:
-   - Enter Host (e.g., `https://cs.hugamara.com/mayday-api`)
-   - Enter Email/Password
-   - Toggle Remember Me if you want the values saved securely
-   - Login
+### Step 1: Build the Dev Client (One-Time Setup)
+
+The app requires a custom development client because of react-native-webrtc. **DO NOT use Expo Go** - it doesn't support native modules.
+
+**Option A: Build via EAS (Recommended - builds in cloud)**
+
+```bash
+cd mayday/mayday_mobile_app
+npm install
+npx expo install  # Ensure all dependencies are installed
+eas build --profile development --platform android
+```
+
+- Wait for build to complete (5-15 minutes)
+- Download and install the .apk on your Android device
+- Or use the provided QR code to install directly
+
+**Option B: Build locally (Faster but requires Android Studio/Xcode)**
+
+```bash
+cd mayday/mayday_mobile_app
+npm install
+npx expo prebuild  # Generates native folders
+npx expo run:android  # Builds and installs on connected device/emulator
+```
+
+For iOS:
+
+```bash
+eas build --profile development --platform ios
+# Or build locally: npx expo run:ios
+```
+
+### Step 2: Start the Dev Server
+
+```bash
+npm run start
+# This runs: expo start --dev-client --clear
+```
+
+**Important:** Open your custom dev client app (NOT Expo Go) on your device and scan the QR code.
+
+### Step 3: Login and Test
+
+On the Login screen:
+
+- Enter Host (e.g., `https://cs.hugamara.com/mayday-api`)
+- Enter Email/Password
+- Toggle Remember Me if you want the values saved securely
+- Login
+
+The app will register with SIP and enable calling functionality.
+
+## Important Notes
+
+- **DO NOT use Expo Go** - it doesn't support react-native-webrtc
+- **Use the custom dev client** you built in Step 1
+- The dev client includes all native modules (WebRTC, SecureStore, etc.)
+- You only need to rebuild the dev client when:
+  - Adding/removing native modules
+  - Changing native configuration
+  - Updating major dependencies
+- Metro bundler updates (code changes) happen instantly with hot reload
 
 ## Troubleshooting
 
-- "Login failed (405)": The base URL likely missed `/api`. Enter `https://<tenant>/mayday-api` (the app will append `/api`).
-- "SIP registration failed": Ensure the login response contains a `user.pjsip` object with `server`, `password`, `ws_servers`, and `ice_servers`.
-- "Microphone Permission" keeps prompting: Grant permission once; the app will persist status on Android. You can verify under Settings → Media Tests.
+- **"App hangs on startup"**: You're using Expo Go instead of the dev client. Build and install the dev client (see Step 1).
+- **"Network request failed"**: Dev server not running or wrong URL. Ensure `npm run start` is running.
+- **"Login failed (405)"**: The base URL likely missed `/api`. Enter `https://<tenant>/mayday-api` (the app will append `/api`).
+- **"SIP registration failed"**: Ensure the login response contains a `user.pjsip` object with `server`, `password`, `ws_servers`, and `ice_servers`.
+- **"Microphone Permission" keeps prompting**: Grant permission once; the app will persist status on Android. You can verify under Settings → Media Tests.
+- **"Cannot find native module 'ExpoAsset'"**: The dev client wasn't built with all plugins. Run `npx expo prebuild --clean` and rebuild.
 
 ## Scripts
 
-- `npm run start`: Starts the Metro bundler for the dev client (defaults to production backend).
-- `npm run start:devclient`: Starts the bundler with a public tunnel, useful for physical devices.
-- `npm run start:vm`: An explicit script to start the bundler pointing to the production VM backend.
-- `npm run build:dev:android`: Creates a development client build for Android using EAS.
+- `npm run start`: Starts the Metro bundler for the dev client (requires custom dev client, not Expo Go).
+- `npm run start:tunnel`: Starts the bundler with a public tunnel and dev client mode.
+- `npm run start:devclient`: Same as start:tunnel, useful for physical devices over the internet.
+- `npm run start:vm`: Starts bundler with production VM backend URL pre-configured.
+- `npm run android`: Builds and runs the app locally on Android (requires Android Studio).
+- `npm run ios`: Builds and runs the app locally on iOS (requires Xcode on macOS).
+- `npm run build:dev:android`: Creates a development client build for Android using EAS (cloud build).
+- `npm run build:dev:ios`: Creates a development client build for iOS using EAS (cloud build).
+- `npm run prebuild`: Generates native android/ios folders for local builds (run before `npm run android/ios`).
 
-## Development Checklist
+## Development Workflow
 
-1.  Ensure the target backend (production or local) is running and reachable.
-2.  Install the Development Client on your device/emulator (via EAS build or `expo run:android`).
-3.  Start the Metro bundler with the correct environment variables if not using the default.
-4.  Login with a user that has a `webRTC` typology. The app will navigate to the Dialer screen and attempt SIP registration.
+1.  **First time setup**: Build and install the dev client (see Quick Start Step 1) - only needed once.
+2.  **Daily development**:
+    - Start Metro bundler: `npm run start`
+    - Open the dev client app on your device (not Expo Go)
+    - Code changes hot-reload automatically
+3.  **Backend**: Ensure the target backend (production or local) is running and reachable.
+4.  **Testing calls**: Login with a user that has a `webRTC` typology. The app will navigate to the Dialer screen and attempt SIP registration.
+5.  **Rebuild dev client only when**: Adding/removing native dependencies or changing native configuration.
 
-## Troubleshooting
+## Additional Troubleshooting
 
 - **Network request failed on login:**
   - Ensure the `API_BASE_URL` is set via `EXPO_PUBLIC_API_BASE_URL` for local dev, or that the backend exposes `/api/system/public-config` to advertise the correct base.
   - If using a local backend, start the bundler with the `EXPO_PUBLIC_API_BASE_URL` environment variable set correctly (e.g., `http://10.0.2.2:8004/api` for the Android emulator).
-- **Cannot find native module 'ExpoAsset':**
-  - Ensure the `expo-asset` plugin is in your `app.config.js`: `plugins: ["expo-asset"]`. Rebuild the dev client if you add it.
 - **SIP not Registered:**
   - Verify the `ws_servers` URI in the login response is correct (e.g., `wss://cs.hugamara.com:8089/ws`).
   - Ensure the WSS port is open and the TLS certificate is valid and trusted by the device.
+- **Dev client build fails:**
+  - Check that your EAS account is properly configured: `npx expo whoami`
+  - Verify `eas.json` has correct configuration for development builds
+  - Ensure all dependencies are installed: `npm install && npx expo install`
