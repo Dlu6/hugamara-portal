@@ -1,48 +1,89 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons"; // Using Expo's built-in icon library
+import { Text } from "react-native";
 
 // Screens
 import DialerScreen from "../screens/Calls/DialerScreen";
 import CallHistoryScreen from "../screens/History/CallHistoryScreen";
 import ContactsScreen from "../screens/Contacts/ContactsScreen";
 import AgentStatusScreen from "../screens/Agent/AgentStatusScreen";
-import DashboardScreen from "../screens/Dashboard/DashboardScreen";
+import DashboardMobileScreen from "../screens/DashboardMobileScreen/DashboardMobileScreen";
 
 const Tab = createBottomTabNavigator();
-
-const ICONS = {
-  Dialer: { focused: "keypad", unfocused: "keypad-outline" },
-  History: { focused: "time", unfocused: "time-outline" },
-  Contacts: { focused: "people", unfocused: "people-outline" },
-  Status: { focused: "person-circle", unfocused: "person-circle-outline" },
-  Dashboard: { focused: "stats-chart", unfocused: "stats-chart-outline" },
-};
 
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#0A0A0A",
-          borderTopColor: "#1F2937",
+          backgroundColor: "#1C1C1E",
+          borderTopColor: "#3A3A3C",
+          borderTopWidth: 1,
+          height: 90,
+          paddingBottom: 20,
+          paddingTop: 8,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 12,
+          elevation: 8,
         },
-        tabBarActiveTintColor: "#FFFFFF",
-        tabBarInactiveTintColor: "#9CA3AF",
-        tabBarIcon: ({ focused, color, size }) => {
-          const iconName = focused
-            ? ICONS[route.name].focused
-            : ICONS[route.name].unfocused;
-          return <Ionicons name={iconName} size={size} color={color} />;
+        tabBarActiveTintColor: "#007AFF",
+        tabBarInactiveTintColor: "#8E8E93",
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "600",
+          marginTop: 4,
+          letterSpacing: -0.2,
         },
-      })}
+      }}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="History" component={CallHistoryScreen} />
-      <Tab.Screen name="Dialer" component={DialerScreen} />
-      <Tab.Screen name="Contacts" component={ContactsScreen} />
-      <Tab.Screen name="Status" component={AgentStatusScreen} />
+      <Tab.Screen
+        name="Dashboard"
+        component={DashboardMobileScreen}
+        options={{
+          tabBarIcon: ({ focused, color }) => {
+            return <Text style={{ color, fontSize: 20 }}>🏠</Text>;
+          },
+        }}
+      />
+      <Tab.Screen
+        name="History"
+        component={CallHistoryScreen}
+        options={{
+          tabBarIcon: ({ focused, color }) => {
+            return <Text style={{ color, fontSize: 20 }}>🕒</Text>;
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Dialer"
+        component={DialerScreen}
+        options={{
+          tabBarIcon: ({ focused, color }) => {
+            return <Text style={{ color, fontSize: 20 }}>📞</Text>;
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Contacts"
+        component={ContactsScreen}
+        options={{
+          tabBarIcon: ({ focused, color }) => {
+            return <Text style={{ color, fontSize: 20 }}>👥</Text>;
+          },
+        }}
+      />
+      <Tab.Screen
+        name="Status"
+        component={AgentStatusScreen}
+        options={{
+          tabBarIcon: ({ focused, color }) => {
+            return <Text style={{ color, fontSize: 20 }}>👤</Text>;
+          },
+        }}
+      />
     </Tab.Navigator>
   );
 }

@@ -82,6 +82,7 @@ import {
 } from "@mui/icons-material";
 import ContentFrame from "./ContentFrame";
 import contactService from "../services/contactService";
+import whatsAppService from "../services/whatsAppService";
 import { useNotification } from "../contexts/NotificationContext";
 
 // Contact form component
@@ -294,25 +295,45 @@ const ContactForm = ({ open, onClose, contact, onSave, onWhatsAppChat }) => {
     }
   };
 
-  const handleWhatsAppChat = () => {
+  const handleWhatsAppChat = async () => {
     if (formData.whatsappNumber || formData.primaryPhone) {
-      const whatsAppContact = {
-        id: `wa-${contact?.id || Date.now()}`,
-        name: `${formData.firstName} ${formData.lastName}`.trim(),
-        phoneNumber: formData.whatsappNumber || formData.primaryPhone,
-        avatar: contactService.generateAvatarInitials(
-          formData.firstName,
-          formData.lastName
-        ),
-        isGroup: false,
-        messages: [],
-        unread: 0,
-        isOnline: false,
-        timestamp: new Date().toISOString(),
-      };
+      try {
+        // If we have a contact ID, link it properly
+        if (contact?.id) {
+          const response = await whatsAppService.createOrLinkContact({
+            contactId: contact.id,
+            phoneNumber: formData.whatsappNumber || formData.primaryPhone,
+            name: `${formData.firstName} ${formData.lastName}`.trim(),
+          });
 
-      onWhatsAppChat(whatsAppContact);
-      onClose();
+          if (response.success) {
+            onWhatsAppChat(response.data);
+            onClose();
+          }
+        } else {
+          // No contact ID yet (new contact), create local WhatsApp contact
+          const whatsAppContact = {
+            id: `wa-${Date.now()}`,
+            name: `${formData.firstName} ${formData.lastName}`.trim(),
+            phoneNumber: formData.whatsappNumber || formData.primaryPhone,
+            avatar: contactService.generateAvatarInitials(
+              formData.firstName,
+              formData.lastName
+            ),
+            isGroup: false,
+            messages: [],
+            unread: 0,
+            isOnline: false,
+            timestamp: new Date().toISOString(),
+          };
+
+          onWhatsAppChat(whatsAppContact);
+          onClose();
+        }
+      } catch (error) {
+        console.error("Error opening WhatsApp chat:", error);
+        showNotification("Failed to open WhatsApp chat", "error");
+      }
     }
   };
 
@@ -951,23 +972,34 @@ const Contacts = ({ open, onClose, onWhatsAppChat, onCall }) => {
     loadStats();
   };
 
-  const handleWhatsAppChat = (contact) => {
-    const whatsAppContact = {
-      id: `wa-${contact.id}`,
-      name: `${contact.firstName} ${contact.lastName}`.trim(),
-      phoneNumber: contact.whatsappNumber || contact.primaryPhone,
-      avatar: contactService.generateAvatarInitials(
-        contact.firstName,
-        contact.lastName
-      ),
-      isGroup: false,
-      messages: [],
-      unread: 0,
-      isOnline: false,
-      timestamp: new Date().toISOString(),
-    };
+  const handleWhatsAppChat = async (contact) => {
+    try {
+      // Call API to create/link WhatsApp contact
+      const response = await whatsAppService.createOrLinkContact({
+        contactId: contact.id,
+        phoneNumber: contact.whatsappNumber || contact.primaryPhone,
+        name: `${contact.firstName} ${contact.lastName}`.trim(),
+      });
 
-    onWhatsAppChat(whatsAppContact);
+      if (response.success) {
+        // console.log(
+        //   "✅ WhatsApp contact linked:",
+        //   response.data,
+        //   "Linked to Contact Manager:",
+        //   response.linked
+        // );
+        // Open WhatsApp chat with linked contact
+        onWhatsAppChat(response.data);
+      } else {
+        showNotification("Failed to open WhatsApp chat", "error");
+      }
+    } catch (error) {
+      console.error("Error linking WhatsApp contact:", error);
+      showNotification(
+        error.response?.data?.error || "Failed to open WhatsApp chat",
+        "error"
+      );
+    }
   };
 
   const handleCall = (contact) => {

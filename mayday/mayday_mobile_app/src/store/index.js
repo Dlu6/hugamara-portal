@@ -6,6 +6,7 @@ import notifications from "./slices/notificationsSlice";
 import settings from "./slices/settingsSlice";
 import agent from "./slices/agentSlice";
 import dashboard from "./slices/dashboardSlice";
+import contacts from "./slices/contactsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -16,5 +17,6 @@ export const store = configureStore({
     settings,
     agent,
     dashboard,
+    contacts,
   },
 });

@@ -1,6 +1,10 @@
 import JsSIP from "jssip";
 import { EventEmitter } from "events";
 import { requestAudioPermission } from "./webrtc";
+import { setupJsSIPWebRTC } from "./webrtcShim";
+
+// Initialize WebRTC shim for JsSIP before any usage
+setupJsSIPWebRTC();
 
 // Singleton state for the SIP User Agent and session
 const state = {
@@ -89,16 +93,28 @@ async function connect(config) {
     }
 
     // --- In-Call Event Handlers ---
+    e.session.on("progress", (response) => {
+      console.log("[SIP] Call progress - remote is ringing");
+      state.eventEmitter.emit("call_progress");
+    });
+    e.session.on("accepted", () => {
+      console.log("[SIP] Call accepted - remote answered");
+      state.eventEmitter.emit("call_accepted");
+    });
+    e.session.on("confirmed", () => {
+      console.log("[SIP] Call confirmed - media established");
+      state.eventEmitter.emit("call_confirmed");
+    });
     e.session.on("ended", () => {
+      console.log("[SIP] Call ended");
       state.session = null;
       state.eventEmitter.emit("call_ended");
     });
-    e.session.on("failed", () => {
+    e.session.on("failed", (data) => {
+      console.log("[SIP] Call failed:", data?.cause || "unknown");
       state.session = null;
       state.eventEmitter.emit("call_failed");
     });
-    e.session.on("accepted", () => state.eventEmitter.emit("call_accepted"));
-    e.session.on("confirmed", () => state.eventEmitter.emit("call_confirmed"));
     e.session.on("hold", () => state.eventEmitter.emit("hold", true));
     e.session.on("unhold", () => state.eventEmitter.emit("hold", false));
     e.session.on("muted", () => state.eventEmitter.emit("mute", true));
@@ -153,20 +169,40 @@ export function makeCall(number) {
     pcConfig: {
       iceServers: state.lastConfig.iceServers || [
         { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" },
       ],
+      iceTransportPolicy: "all", // Try all candidates (relay, srflx, host)
+      bundlePolicy: "balanced", // Bundle audio/video when possible
+      rtcpMuxPolicy: "require", // Multiplex RTP and RTCP on same port
+      iceCandidatePoolSize: 10, // Pre-gather 10 ICE candidates
     },
+    iceGatheringTimeout: 5000, // Wait up to 5 seconds for ICE gathering
   };
+  console.log("[SIP] Making call to:", number);
   state.ua.call(target, options);
 }
 
 export function answerCall() {
   if (state.session) {
+    console.log("[SIP] Answering call");
     state.session.answer({
       pcConfig: {
         iceServers: state.lastConfig.iceServers || [
           { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+          { urls: "stun:stun2.l.google.com:19302" },
+          { urls: "stun:stun3.l.google.com:19302" },
+          { urls: "stun:stun4.l.google.com:19302" },
         ],
+        iceTransportPolicy: "all", // Try all candidates (relay, srflx, host)
+        bundlePolicy: "balanced", // Bundle audio/video when possible
+        rtcpMuxPolicy: "require", // Multiplex RTP and RTCP on same port
+        iceCandidatePoolSize: 10, // Pre-gather 10 ICE candidates
       },
+      iceGatheringTimeout: 5000, // Wait up to 5 seconds for ICE gathering
     });
   }
 }

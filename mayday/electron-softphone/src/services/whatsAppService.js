@@ -137,6 +137,16 @@ const whatsAppService = {
     });
   },
 
+  createOrLinkContact: async (contactData) => {
+    return safeApiCall(async () => {
+      const response = await axios.post(
+        `${API_BASE_URL}/contacts/link`,
+        contactData
+      );
+      return response.data;
+    });
+  },
+
   // Cancel all ongoing requests when logout starts
   cancelAllRequests: () => {
     if (window.axiosCancelTokenSource) {

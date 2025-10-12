@@ -9,6 +9,8 @@ import {
   setupNotificationChannel,
   subscribeIncomingNotifications,
 } from "./services/notifications";
+import { ToastProvider } from "./contexts/ToastContext";
+import CallManager from "./components/CallManager";
 
 export default function App() {
   useEffect(() => {
@@ -19,9 +21,12 @@ export default function App() {
 
   return (
     <Provider store={store}>
-      <NavigationContainer ref={navigationRef}>
-        <RootNavigator />
-      </NavigationContainer>
+      <ToastProvider>
+        <NavigationContainer ref={navigationRef}>
+          <CallManager />
+          <RootNavigator />
+        </NavigationContainer>
+      </ToastProvider>
     </Provider>
   );
 }

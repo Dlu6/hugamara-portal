@@ -122,11 +122,16 @@ module.exports = {
         REDIS_SESSION_TTL: "1800000",
         REDIS_SESSION_CLEANUP_INTERVAL: "300000",
 
-        // External APIs
-        LIPACHAT_API_KEY:
-          "55d6305cf8e27aee1783b9e4f8b6ba7c-2f57ab67-4353-46f1-85cf-88ec6c7f75d6",
-        LIPACHAT_PHONE_NUMBER: "+15557612891",
-        LIPACHAT_GATEWAY_URL: "https://gateway.lipachat.com/api/v1/whatsapp",
+        // External APIs - Twilio WhatsApp
+        TWILIO_ACCOUNT_SID:
+          process.env.TWILIO_ACCOUNT_SID || "YOUR_TWILIO_ACCOUNT_SID",
+        TWILIO_AUTH_TOKEN:
+          process.env.TWILIO_AUTH_TOKEN || "YOUR_TWILIO_AUTH_TOKEN",
+        TWILIO_WHATSAPP_NUMBER:
+          process.env.TWILIO_WHATSAPP_NUMBER || "+12566809340",
+        TWILIO_WEBHOOK_URL:
+          process.env.TWILIO_WEBHOOK_URL ||
+          "https://cs.hugamara.com/api/whatsapp/webhook",
         LIPACHAT_WEBHOOK_SECRET: "",
 
         // Trunk Provider Configuration

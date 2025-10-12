@@ -1,9 +1,38 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { answerCall, hangupCall } from "../../services/sipClient";
 
 export default function IncomingCallScreen({ navigation, route }) {
   const caller = route?.params?.caller || "Unknown";
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Create pulsing animation for the incoming call indicator
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+
+    return () => pulse.stop();
+  }, [pulseAnim]);
 
   const handleAnswer = () => {
     answerCall();
@@ -17,21 +46,43 @@ export default function IncomingCallScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Incoming Call</Text>
-      <Text style={styles.sub}>{caller}</Text>
-      <View style={styles.row}>
-        <TouchableOpacity
-          onPress={handleAnswer}
-          style={[styles.btn, styles.answer]}
+      {/* Caller Info Section */}
+      <View style={styles.callerSection}>
+        <Animated.View
+          style={[
+            styles.avatarContainer,
+            { transform: [{ scale: pulseAnim }] },
+          ]}
         >
-          <Text style={styles.btnText}>Answer</Text>
-        </TouchableOpacity>
+          <Ionicons name="person" size={80} color="#FFFFFF" />
+        </Animated.View>
+
+        <Text style={styles.incomingText}>Incoming Call</Text>
+        <Text style={styles.callerName}>{caller}</Text>
+        <Text style={styles.callerSubtext}>Mobile</Text>
+      </View>
+
+      {/* Action Buttons */}
+      <View style={styles.actionsSection}>
         <TouchableOpacity
           onPress={handleDecline}
-          style={[styles.btn, styles.reject]}
+          style={[styles.actionButton, styles.declineButton]}
         >
-          <Text style={styles.btnText}>Decline</Text>
+          <Ionicons name="close" size={32} color="#FFFFFF" />
         </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleAnswer}
+          style={[styles.actionButton, styles.answerButton]}
+        >
+          <Ionicons name="call" size={32} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Action Labels */}
+      <View style={styles.labelsSection}>
+        <Text style={styles.actionLabel}>Decline</Text>
+        <Text style={styles.actionLabel}>Accept</Text>
       </View>
     </View>
   );
@@ -40,24 +91,86 @@ export default function IncomingCallScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0A0A",
-    padding: 24,
-    justifyContent: "center",
+    backgroundColor: "#000000",
+    paddingTop: 100,
+    paddingBottom: 60,
+    paddingHorizontal: 24,
+  },
+  callerSection: {
+    flex: 1,
     alignItems: "center",
+    justifyContent: "center",
   },
-  title: { color: "#FFFFFF", fontSize: 22, fontWeight: "700" },
-  sub: { color: "#9CA3AF", marginTop: 8, marginBottom: 16 },
-  row: { flexDirection: "row", gap: 12 },
-  btn: {
-    paddingVertical: 16,
-    paddingHorizontal: 28,
+  avatarContainer: {
+    width: 160,
+    height: 160,
     borderRadius: 80,
+    backgroundColor: "#2C2C2E",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 32,
     shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 10,
   },
-  answer: { backgroundColor: "#0B9246", marginRight: 12 },
-  reject: { backgroundColor: "#B91C1C" },
-  btnText: { color: "#FFFFFF", fontWeight: "700" },
+  incomingText: {
+    color: "#8E8E93",
+    fontSize: 16,
+    fontWeight: "500",
+    marginBottom: 8,
+    letterSpacing: -0.2,
+  },
+  callerName: {
+    color: "#FFFFFF",
+    fontSize: 36,
+    fontWeight: "700",
+    marginBottom: 4,
+    letterSpacing: -0.8,
+  },
+  callerSubtext: {
+    color: "#8E8E93",
+    fontSize: 16,
+    fontWeight: "500",
+    letterSpacing: -0.2,
+  },
+  actionsSection: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingHorizontal: 40,
+    marginBottom: 16,
+  },
+  actionButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  declineButton: {
+    backgroundColor: "#FF3B30",
+  },
+  answerButton: {
+    backgroundColor: "#34C759",
+  },
+  labelsSection: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingHorizontal: 40,
+  },
+  actionLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    letterSpacing: -0.2,
+    width: 80,
+    textAlign: "center",
+  },
 });

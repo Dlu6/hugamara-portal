@@ -6,6 +6,7 @@ import {
   getMessages,
   getMessageStatus,
   handleWebhook,
+  testWebhook,
   // sendMessage,
   updateContact,
   uploadMedia,
@@ -20,6 +21,7 @@ import {
   createTemplate,
   deleteTemplate,
   markChatAsRead,
+  createOrLinkWhatsAppContact,
 } from "../controllers/whatsappController.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import { Conversation } from "../models/WhatsAppModel.js";
@@ -39,6 +41,7 @@ router.get("/status/:messageId", getMessageStatus);
 router.get("/contacts", getContacts);
 router.post("/contacts", authMiddleware, addContact);
 router.put("/contacts/:contactId", authMiddleware, updateContact);
+router.post("/contacts/link", authMiddleware, createOrLinkWhatsAppContact);
 
 // Media handling
 router.post("/media", authMiddleware, uploadMedia);
@@ -59,6 +62,7 @@ router.delete("/templates/:templateId", deleteTemplate);
 
 // Webhook routes
 router.post("/webhook", handleWebhook);
+router.get("/webhook/test", testWebhook); // Test endpoint
 // router.post("/status-callback", handleWebhook);
 router.post("/webhook/statusCallback", handleWebhook);
 

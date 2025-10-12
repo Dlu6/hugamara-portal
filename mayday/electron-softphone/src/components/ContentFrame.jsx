@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, IconButton, Typography } from "@mui/material";
+import { Box, IconButton } from "@mui/material";
 import { Close as CloseIcon } from "@mui/icons-material";
 
 const ContentFrame = ({
@@ -43,7 +43,16 @@ const ContentFrame = ({
           minHeight: "64px",
         }}
       >
-        <Typography variant="h6">{title}</Typography>
+        {typeof title === "string" ? (
+          <Box
+            component="h6"
+            sx={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}
+          >
+            {title}
+          </Box>
+        ) : (
+          title
+        )}
         {!hideCloseButton && (
           <IconButton onClick={onClose} sx={{ color: "white" }}>
             <CloseIcon />

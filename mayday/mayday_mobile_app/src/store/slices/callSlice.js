@@ -1,8 +1,34 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import callHistoryService from "../../services/callHistoryService";
+
+// Async thunk for fetching call history
+export const fetchCallHistory = createAsyncThunk(
+  "call/fetchCallHistory",
+  async ({ token, extension, limit = 50 }, { rejectWithValue }) => {
+    try {
+      const result = await callHistoryService.getEnhancedCallHistory(
+        token,
+        extension,
+        limit
+      );
+      return result.data.records || [];
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 const initialState = {
-  active: null, // { id, number, direction, status, session, isMuted, isOnHold }
+  active: null, // { id, number, direction, status, isMuted, isOnHold }
   history: [],
+  // Call history state
+  callHistory: [],
+  callHistoryLoading: false,
+  callHistoryError: null,
+  historyFilters: {
+    type: "all", // "all", "inbound", "outbound", "missed"
+    search: "",
+  },
 };
 
 const callSlice = createSlice({
@@ -10,19 +36,18 @@ const callSlice = createSlice({
   initialState,
   reducers: {
     startCall(state, action) {
-      const { number, session } = action.payload;
+      const { number } = action.payload;
       state.active = {
         id: Date.now(),
         number,
         direction: "outbound",
-        status: "dialing",
+        status: "connecting",
         isMuted: false,
         isOnHold: false,
-        session,
       };
     },
     incomingCall(state, action) {
-      const { caller, session } = action.payload;
+      const { caller } = action.payload;
       state.active = {
         id: Date.now(),
         number: caller,
@@ -30,7 +55,6 @@ const callSlice = createSlice({
         status: "ringing",
         isMuted: false,
         isOnHold: false,
-        session,
       };
     },
     updateCallStatus(state, action) {
@@ -44,10 +68,43 @@ const callSlice = createSlice({
     },
     endCall(state) {
       if (state.active) {
-        state.history.unshift({ ...state.active, session: null }); // Don't store session in history
+        state.history.unshift({ ...state.active });
       }
       state.active = null;
     },
+    // Call history actions
+    setCallHistory(state, action) {
+      state.callHistory = action.payload;
+    },
+    setHistoryLoading(state, action) {
+      state.callHistoryLoading = action.payload;
+    },
+    setHistoryError(state, action) {
+      state.callHistoryError = action.payload;
+    },
+    setHistoryFilters(state, action) {
+      state.historyFilters = { ...state.historyFilters, ...action.payload };
+    },
+    clearCallHistory(state) {
+      state.callHistory = [];
+      state.callHistoryError = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchCallHistory.pending, (state) => {
+        state.callHistoryLoading = true;
+        state.callHistoryError = null;
+      })
+      .addCase(fetchCallHistory.fulfilled, (state, action) => {
+        state.callHistoryLoading = false;
+        state.callHistory = action.payload;
+        state.callHistoryError = null;
+      })
+      .addCase(fetchCallHistory.rejected, (state, action) => {
+        state.callHistoryLoading = false;
+        state.callHistoryError = action.payload;
+      });
   },
 });
 
@@ -58,5 +115,10 @@ export const {
   endCall,
   setMute,
   setHold,
+  setCallHistory,
+  setHistoryLoading,
+  setHistoryError,
+  setHistoryFilters,
+  clearCallHistory,
 } = callSlice.actions;
 export default callSlice.reducer;

@@ -7,7 +7,6 @@ import {
   ListItemText,
   ListItemAvatar,
   Avatar,
-  Typography,
   IconButton,
   InputAdornment,
   Badge,
@@ -66,6 +65,7 @@ import {
   Refresh as RefreshIcon,
   Check,
   Schedule,
+  Error,
 } from "@mui/icons-material";
 import AddIcon from "@mui/icons-material/Add";
 import ContentFrame from "./ContentFrame";
@@ -81,67 +81,7 @@ import {
 } from "../services/storageService";
 import logoutManager from "../services/logoutManager";
 
-// Dummy data for chats and messages
-const dummyChats = [
-  {
-    id: 1,
-    name: "Councelor X",
-    phoneNumber: "0700771301",
-    avatar: "JS",
-    lastMessage: "Thanks for your help with the project!",
-    timestamp: "2024-02-20T10:30:00",
-    unread: 2,
-    status: "read",
-    isOnline: true,
-    messages: [
-      {
-        id: 1,
-        text: "Hi, how are you?",
-        timestamp: "2024-02-20T10:25:00",
-        sender: "user",
-        status: "read",
-      },
-      {
-        id: 2,
-        text: "I'm good, thanks! How about you?",
-        timestamp: "2024-02-20T10:27:00",
-        sender: "contact",
-        status: "read",
-      },
-      {
-        id: 3,
-        text: "Thanks for your help with the project!",
-        timestamp: "2024-02-20T10:30:00",
-        sender: "contact",
-        status: "read",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Councelor Y",
-    phoneNumber: "0700771302",
-    avatar: "AJ",
-    lastMessage: "When can we schedule the meeting?",
-    timestamp: "2024-02-20T09:15:00",
-    unread: 0,
-    status: "delivered",
-    isOnline: false,
-    messages: [],
-  },
-  {
-    id: 3,
-    name: "Clinical Team",
-    phoneNumber: "0700771303",
-    avatar: "MT",
-    lastMessage: "Bob: Let's discuss the new campaign",
-    timestamp: "2024-02-19T16:45:00",
-    unread: 5,
-    status: "sent",
-    isGroup: true,
-    messages: [],
-  },
-];
+// Removed dummy data - using only real data from API
 
 const API_BASE_URL =
   process.env.REACT_APP_API_URL || "http://localhost:8004/api";
@@ -202,7 +142,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   const [messageMenuAnchor, setMessageMenuAnchor] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const messagesEndRef = useRef(null);
-  const [chats, setChats] = useState(dummyChats);
+  const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [whatsappConfig, setWhatsappConfig] = useState(null);
@@ -309,9 +249,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
     if (!newMessage.trim() && !attachedFiles.length && !mediaFiles.length)
       return;
 
+    const messageText = newMessage; // Save message text
+    setNewMessage(""); // Clear input IMMEDIATELY
+
     try {
       const messageData = {
-        text: newMessage,
+        text: messageText, // Use saved text
         timestamp: new Date().toISOString(),
         status: "pending",
       };
@@ -339,7 +282,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
           chat.phoneNumber === selectedChat.phoneNumber
             ? {
                 ...chat,
-                lastMessage: newMessage,
+                lastMessage: messageText,
                 lastMessageId: response.messageId,
                 status: "sent",
                 timestamp: messageData.timestamp,
@@ -352,14 +295,19 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         ...prev,
         messages: prev.messages.map((msg) =>
           msg.id === tempId
-            ? { ...msg, id: response.messageId, status: "sent" }
+            ? {
+                ...msg,
+                id: response.messageId,
+                messageId: response.messageId,
+                status: "sent",
+              }
             : msg
         ),
       }));
-
-      setNewMessage("");
     } catch (error) {
       console.error("Error sending message:", error);
+      // On error, could optionally restore the message to input
+      // setNewMessage(messageText);
     }
   };
 
@@ -377,22 +325,37 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
     switch (status) {
       case "sent":
+      case "queued":
+      case "sending":
+        // console.log("🔍 Status: Single tick (sent/queued/sending)");
         return <Check sx={{ ...commonStyle, color: "grey.500" }} />;
       case "delivered":
+      case "delivered_to_device":
+        // console.log("🔍 Status: Double tick (delivered)");
         return (
-          <Box sx={{ display: "flex" }}>
-            <Check sx={{ ...commonStyle, color: "grey.500", mr: -0.5 }} />
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Check sx={{ ...commonStyle, color: "grey.500", mr: -0.8 }} />
             <Check sx={{ ...commonStyle, color: "grey.500" }} />
           </Box>
         );
       case "read":
+      case "read_by_recipient":
+        // console.log("🔍 Status: Blue double tick (read)");
         return (
-          <Box sx={{ display: "flex" }}>
-            <Check sx={{ ...commonStyle, color: "#34B7F1", mr: -0.5 }} />
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <Check sx={{ ...commonStyle, color: "#34B7F1", mr: -0.8 }} />
             <Check sx={{ ...commonStyle, color: "#34B7F1" }} />
           </Box>
         );
+      case "failed":
+      case "undelivered":
+        // console.log("🔍 Status: Error (failed/undelivered)");
+        return <Error sx={{ ...commonStyle, color: "red.500" }} />;
+      case "received":
+        // console.log("🔍 Status: Received (no tick for received messages)");
+        return null; // Don't show ticks for received messages
       default:
+        // console.log("🔍 Unknown status, using default:", status);
         return <Schedule sx={{ ...commonStyle, color: "grey.500" }} />;
     }
   };
@@ -630,12 +593,22 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             icon={<InsertDriveFile />}
             label={
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography noWrap sx={{ maxWidth: 150 }}>
+                <Box
+                  component="span"
+                  noWrap
+                  sx={{ maxWidth: 150, fontSize: "0.875rem" }}
+                >
                   {file.name}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
+                </Box>
+                <Box
+                  component="span"
+                  sx={{
+                    fontSize: "0.75rem",
+                    color: "text.secondary",
+                  }}
+                >
                   ({formatFileSize(file.size)})
-                </Typography>
+                </Box>
                 {file.progress > 0 && file.progress < 100 && (
                   <CircularProgress
                     size={16}
@@ -831,59 +804,73 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   };
 
   // Update renderMessage to better handle image display
-  const renderMessage = (message) => (
-    <Box
-      key={message.id}
-      sx={{
-        display: "flex",
-        justifyContent:
-          message.sender === "contact" ? "flex-start" : "flex-end",
-        mb: 1,
-      }}
-    >
-      <Paper
+  const renderMessage = (message) => {
+    // Debug logging for message status
+    // console.log("Rendering message:", {
+    //   id: message.id,
+    //   sender: message.sender,
+    //   status: message.status,
+    //   text: message.text?.substring(0, 20) + "...",
+    // });
+
+    return (
+      <Box
+        key={message.id}
         sx={{
-          maxWidth: "70%",
-          p: 1.5,
-          bgcolor: message.sender === "contact" ? "#fff" : "#dcf8c6",
-          borderRadius: 2,
-          position: "relative",
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            top: 0,
-            [message.sender === "contact" ? "left" : "right"]: -10,
-            borderStyle: "solid",
-            borderWidth: "10px 10px 0 0",
-            borderColor: `${
-              message.sender === "contact" ? "#fff" : "#dcf8c6"
-            } transparent transparent transparent`,
-            transform: message.sender === "contact" ? "none" : "scaleX(-1)",
-          },
+          display: "flex",
+          justifyContent:
+            message.sender === "contact" ? "flex-start" : "flex-end",
+          mb: 1,
         }}
       >
-        <Typography variant="body1">{message.text}</Typography>
-        <Box
+        <Paper
           sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
+            maxWidth: "70%",
+            p: 1.5,
+            bgcolor: message.sender === "contact" ? "#fff" : "#dcf8c6",
+            borderRadius: 2,
+            position: "relative",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              [message.sender === "contact" ? "left" : "right"]: -10,
+              borderStyle: "solid",
+              borderWidth: "10px 10px 0 0",
+              borderColor: `${
+                message.sender === "contact" ? "#fff" : "#dcf8c6"
+              } transparent transparent transparent`,
+              transform: message.sender === "contact" ? "none" : "scaleX(-1)",
+            },
           }}
         >
-          <Typography
-            variant="caption"
+          <Box component="span" sx={{ fontSize: "1rem", lineHeight: 1.5 }}>
+            {message.text}
+          </Box>
+          <Box
             sx={{
-              color: "text.secondary",
-              mr: 0.5,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
             }}
           >
-            {formatTimestamp(message.timestamp)}
-          </Typography>
-          {message.sender !== "contact" && getMessageStatus(message.status)}
-        </Box>
-      </Paper>
-    </Box>
-  );
+            <Box
+              component="span"
+              sx={{
+                color: "text.secondary",
+                mr: 0.5,
+                fontSize: "0.75rem",
+                lineHeight: 1.5,
+              }}
+            >
+              {formatTimestamp(message.timestamp)}
+            </Box>
+            {message.sender !== "contact" && getMessageStatus(message.status)}
+          </Box>
+        </Paper>
+      </Box>
+    );
+  };
 
   // Enhanced centerAspectCrop function
   function centerAspectCrop(mediaWidth, mediaHeight, aspect) {
@@ -1032,7 +1019,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
           p: 2,
         }}
       >
-        <Typography variant="h6">Edit Image</Typography>
+        <Box
+          component="h6"
+          sx={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}
+        >
+          Edit Image
+        </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Tooltip title="Square">
             <IconButton
@@ -1127,9 +1119,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             gap: 2,
           }}
         >
-          <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+          <Box
+            component="h6"
+            sx={{ fontSize: "1rem", fontWeight: 500, margin: 0 }}
+          >
             Preview
-          </Typography>
+          </Box>
           <Box
             sx={{
               width: "100%",
@@ -1327,9 +1322,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             minHeight: 64,
           }}
         >
-          <Typography variant="h6">
+          <Box
+            component="h6"
+            sx={{ fontSize: "1.25rem", fontWeight: 500, margin: 0 }}
+          >
             {viewMode === "chats" ? "WhatsApp Chats" : "Conversations"}
-          </Typography>
+          </Box>
           <Box sx={{ display: "flex", gap: 1 }}>
             <Chip
               label="Chats"
@@ -1380,10 +1378,50 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
           minHeight: 64,
         }}
       >
-        <IconButton onClick={handleBackToList}>
+        <IconButton
+          onClick={handleBackToList}
+          sx={{
+            color: "white",
+            "&:hover": {
+              backgroundColor: "rgba(255,255,255,0.1)",
+            },
+          }}
+        >
           <ArrowBack />
         </IconButton>
-        <Avatar>{selectedChat.avatar}</Avatar>
+        <Avatar
+          sx={{
+            width: 40,
+            height: 40,
+            fontSize: "1rem",
+            fontWeight: 600,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+            border: "2px solid rgba(255,255,255,0.3)",
+            background: selectedChat.isGroup
+              ? "linear-gradient(135deg, #128C7E 0%, #075E54 100%)"
+              : "linear-gradient(135deg, #00A884 0%, #128C7E 100%)",
+          }}
+        >
+          {selectedChat.isGroup ? (
+            <MessageIcon sx={{ fontSize: "1rem" }} />
+          ) : (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                height: "100%",
+                fontSize: "1rem",
+                fontWeight: 600,
+                color: "white",
+                textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+              }}
+            >
+              {selectedChat?.avatar}
+            </Box>
+          )}
+        </Avatar>
         {/* Rest of the chat detail header */}
       </Box>
     );
@@ -1412,13 +1450,27 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
             flexGrow: 1,
           }}
         >
-          <Typography variant="caption" color="primary">
+          <Box
+            component="span"
+            sx={{
+              fontSize: "0.75rem",
+              color: "primary.main",
+              lineHeight: 1.5,
+            }}
+          >
             Replying to{" "}
             {replyingTo.sender === "user" ? "yourself" : selectedChat.name}
-          </Typography>
-          <Typography variant="body2" noWrap>
+          </Box>
+          <Box
+            component="span"
+            noWrap
+            sx={{
+              fontSize: "0.875rem",
+              lineHeight: 1.5,
+            }}
+          >
             {replyingTo.text || "Media message"}
-          </Typography>
+          </Box>
         </Box>
         <IconButton size="small" onClick={() => setReplyingTo(null)}>
           <CloseIcon fontSize="small" />
@@ -1496,25 +1548,45 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       setLoading(true);
       setError(null); // Clear any previous errors
       const response = await whatsAppService.getChats();
-      // console.log("API Response:", response);
+
+      // Log the raw API response to understand the data structure
+      // console.log("🔍 Raw API Response:", response);
+      // console.log("🔍 Response data:", response.data);
 
       if (response.success) {
-        const chats = response.data.map((contact) => ({
-          id: contact.id,
-          name: contact.name || contact.phoneNumber,
-          phoneNumber: contact.phoneNumber,
-          avatar:
-            contact?.avatar ||
-            contact?.name?.substring(0, 2).toUpperCase() ||
-            "UN",
-          lastMessage: contact?.lastMessage || "",
-          timestamp: contact.lastInteraction,
-          unread: contact.unreadCount || 0,
-          status: contact.status || "offline",
-          isOnline: contact.isOnline || false,
-          isGroup: contact.isGroup || false,
-          messages: contact.messageHistory || [],
-        }));
+        // Log each contact object to see what properties are available
+        response.data.forEach((contact, index) => {
+          // if (contact.messageHistory && contact.messageHistory.length > 0) {
+          //   console.log(
+          //     `🔍 Contact ${index} - Last message:`,
+          //     contact.messageHistory[contact.messageHistory.length - 1]
+          //   );
+          // }
+        });
+
+        const chats = response.data.map((contact) => {
+          // console.log("🔍 Frontend - Processing contact:", contact);
+
+          // The backend now handles all the formatting, so we can use the data directly
+          return {
+            id: contact.id,
+            name: contact.name,
+            phoneNumber: contact.phoneNumber,
+            avatar: contact.avatar,
+            lastMessage: contact.lastMessage,
+            timestamp: contact.timestamp,
+            unread: contact.unread,
+            status: contact.status,
+            isOnline: contact.isOnline,
+            isGroup: contact.isGroup,
+            messages: contact.messageHistory || [],
+            // Store original contact data for reference
+            originalContact: contact.originalContact,
+          };
+        });
+
+        // Log the processed chats
+        // console.log("🔍 Processed chats:", chats);
 
         setChats(chats);
         const initialUnreadCounts = chats.reduce(
@@ -1608,7 +1680,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
   useEffect(() => {
     // Register this component with the logout manager
     const unregister = logoutManager.onLogout(async () => {
-      console.log("🔒 Logout callback executed - cancelling WhatsApp requests");
+      // console.log("🔒 Logout callback executed - cancelling WhatsApp requests");
       whatsAppService.cancelAllRequests();
     });
 
@@ -1635,6 +1707,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       ? "/mayday-api/socket.io/"
       : "/socket.io/";
 
+    // console.log("📱 Connecting to socket:", {
+    //   socketUrl,
+    //   socketPath,
+    //   token: token ? "present" : "missing",
+    // });
+
     const newSocket = io(socketUrl, {
       path: socketPath,
       auth: {
@@ -1647,8 +1725,31 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
       reconnectionDelay: 1000,
     });
 
+    newSocket.on("connect", () => {
+      // console.log("📱 WhatsApp Socket connected!");
+      // console.log("📱 Socket ID:", newSocket.id);
+      // Test socket by emitting a test event
+      newSocket.emit("test", { message: "WhatsApp socket test" });
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.log("📱 WhatsApp Socket disconnected:", reason);
+    });
+
+    newSocket.on("connect_error", (error) => {
+      console.error("📱 WhatsApp Socket connection error:", error);
+    });
+
+    // Listen for all events to debug
+    newSocket.onAny((eventName, ...args) => {
+      // console.log("📱 Socket event received:", eventName, args);
+      if (eventName === "whatsapp:status_update") {
+        console.log("📱 Status update received:", args[0]);
+      }
+    });
+
     newSocket.on("whatsapp:message", (data) => {
-      console.log("Received whatsapp message:", data);
+      // console.log("📱 Received whatsapp message:", data);
       const { message, contact } = data;
 
       // Format the incoming message to match our expected structure
@@ -1699,15 +1800,30 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
     // Listen for status updates
     socket.on("whatsapp:status_update", ({ messageId, status, timestamp }) => {
-      console.log("Status update received:", { messageId, status, timestamp });
+      console.log("📱 Status update received:", {
+        messageId,
+        status,
+        timestamp,
+      });
+
+      // Debug: Check what we're comparing
+      if (selectedChat) {
+        console.log("📱 Current selected chat messages:");
+        selectedChat.messages.forEach((msg, idx) => {
+          console.log(
+            `  [${idx}] msg.messageId="${msg.messageId}" === incoming="${messageId}"`,
+            msg.messageId === messageId
+          );
+        });
+      }
 
       // Update both chat list and selected chat
       setChats((prevChats) =>
         prevChats.map((chat) => {
-          // Only update status if this chat has the message as its last message
+          // Compare against messageId (Twilio MessageSid), not database id
           const isLastMessage =
             chat.messages?.length > 0 &&
-            chat.messages[chat.messages.length - 1].id === messageId;
+            chat.messages[chat.messages.length - 1].messageId === messageId;
 
           return {
             ...chat,
@@ -1722,7 +1838,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
         return {
           ...prev,
           messages: prev.messages.map((msg) =>
-            msg.id === messageId
+            msg.messageId === messageId // Fixed - compare messageId not id
               ? { ...msg, status, timestamp: timestamp || msg.timestamp }
               : msg
           ),
@@ -1740,7 +1856,7 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
     // Listen for new messages
     socket.on("whatsapp:message", (data) => {
-      console.log("New message received:", data);
+      // console.log("New message received:", data);
       const { message, contact } = data;
 
       const formattedMessage = {
@@ -1856,15 +1972,28 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
 
           {viewMode === "chats" ? (
             <List sx={{ p: 0, bgcolor: "background.paper" }}>
-              {chats
-                .filter(
+              {(() => {
+                const filteredChats = chats.filter(
                   (chat) =>
                     chat.name
                       .toLowerCase()
                       .includes(searchQuery.toLowerCase()) ||
                     chat.phoneNumber.includes(searchQuery)
-                )
-                .map((chat, index) => (
+                );
+
+                return filteredChats;
+              })().map((chat, index) => {
+                // console.log(`🔍 Rendering chat ${index}:`, {
+                //   id: chat.id,
+                //   name: chat.name,
+                //   phoneNumber: chat.phoneNumber,
+                //   lastMessage: chat.lastMessage,
+                //   unread: chat.unread,
+                //   status: chat.status,
+                //   avatar: chat.avatar,
+                //   originalContact: chat.originalContact,
+                // });
+                return (
                   <ListItem
                     button
                     key={chat.id}
@@ -1891,18 +2020,52 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                             backgroundColor: chat.isOnline
                               ? "#25D366"
                               : "transparent",
-                            border: chat.isOnline ? "2px solid #fff" : "none",
+                            border: chat.isOnline ? "3px solid #fff" : "none",
+                            width: 14,
+                            height: 14,
+                            boxShadow: chat.isOnline
+                              ? "0 0 0 2px #fff, 0 2px 4px rgba(0,0,0,0.1)"
+                              : "none",
                           },
                         }}
                       >
                         <Avatar
                           sx={{
-                            bgcolor: chat.isGroup ? "#128C7E" : "#00A884",
-                            width: 48,
-                            height: 48,
+                            width: 52,
+                            height: 52,
+                            fontSize: "1.1rem",
+                            fontWeight: 600,
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                            border: "2px solid #fff",
+                            background: chat.isGroup
+                              ? "linear-gradient(135deg, #128C7E 0%, #075E54 100%)"
+                              : "linear-gradient(135deg, #00A884 0%, #128C7E 100%)",
+                            "&:hover": {
+                              transform: "scale(1.05)",
+                              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                            },
+                            transition: "all 0.2s ease-in-out",
                           }}
                         >
-                          {chat.isGroup ? <MessageIcon /> : chat?.avatar}
+                          {chat.isGroup ? (
+                            <MessageIcon sx={{ fontSize: "1.2rem" }} />
+                          ) : (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "100%",
+                                height: "100%",
+                                fontSize: "1.1rem",
+                                fontWeight: 600,
+                                color: "white",
+                                textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                              }}
+                            >
+                              {chat?.avatar}
+                            </Box>
+                          )}
                         </Avatar>
                       </Badge>
                     </ListItemAvatar>
@@ -1915,21 +2078,27 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                             alignItems: "center",
                           }}
                         >
-                          <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: chat.unread ? 600 : 400 }}
+                          <Box
+                            component="span"
+                            sx={{
+                              fontWeight: chat.unread ? 600 : 400,
+                              fontSize: "1rem",
+                              lineHeight: 1.5,
+                            }}
                           >
                             {chat.name}
-                          </Typography>
-                          <Typography
-                            variant="caption"
+                          </Box>
+                          <Box
+                            component="span"
                             sx={{
                               color: chat.unread ? "#00A884" : "#667781",
                               fontWeight: chat.unread ? 500 : 400,
+                              fontSize: "0.75rem",
+                              lineHeight: 1.5,
                             }}
                           >
                             {formatTimestamp(chat.timestamp)}
-                          </Typography>
+                          </Box>
                         </Box>
                       }
                       secondary={
@@ -1948,8 +2117,8 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                             }}
                           >
                             {!chat.isGroup && getMessageStatus(chat.status)}
-                            <Typography
-                              variant="body2"
+                            <Box
+                              component="span"
                               sx={{
                                 color: chat.unread ? "#111b21" : "#667781",
                                 fontWeight: chat.unread ? 500 : 400,
@@ -1957,10 +2126,12 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                                 textOverflow: "ellipsis",
                                 whiteSpace: "nowrap",
                                 maxWidth: "260px",
+                                fontSize: "0.875rem",
+                                lineHeight: 1.5,
                               }}
                             >
                               {chat.lastMessage}
-                            </Typography>
+                            </Box>
                           </Box>
                           {chat.unread > 0 && (
                             <Badge
@@ -1979,9 +2150,16 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                           )}
                         </Box>
                       }
+                      primaryTypographyProps={{
+                        component: "div",
+                      }}
+                      secondaryTypographyProps={{
+                        component: "div",
+                      }}
                     />
                   </ListItem>
-                ))}
+                );
+              })}
             </List>
           ) : (
             <List sx={{ p: 0, bgcolor: "background.paper" }}>
@@ -2039,21 +2217,34 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                         </Box>
                       }
                       secondary={
-                        <Typography variant="caption" color="text.secondary">
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: "0.75rem",
+                            color: "text.secondary",
+                            lineHeight: 1.5,
+                          }}
+                        >
                           contactId: {c.contactId} • agent:{" "}
                           {c.assignedAgentId || "unassigned"} • last:{" "}
                           {c.lastMessageAt
                             ? formatTimestamp(c.lastMessageAt)
                             : "-"}
-                        </Typography>
+                        </Box>
                       }
+                      primaryTypographyProps={{
+                        component: "div",
+                      }}
+                      secondaryTypographyProps={{
+                        component: "div",
+                      }}
                     />
                   </ListItem>
                 ))}
             </List>
           )}
 
-          {/* Add this right after the search TextField (around line 1791) */}
+          {/* No chats message */}
           {!loading &&
             chats.filter(
               (chat) =>
@@ -2061,9 +2252,30 @@ const WhatsAppElectronComponent = ({ open, onClose, initialChat = null }) => {
                 chat.phoneNumber.includes(searchQuery)
             ).length === 0 && (
               <Box sx={{ p: 3, textAlign: "center" }}>
-                <Typography color="textSecondary">
+                <Box
+                  component="span"
+                  sx={{
+                    color: "text.secondary",
+                    fontSize: "1rem",
+                    lineHeight: 1.5,
+                  }}
+                >
                   {searchQuery ? "No chats found" : "No chats available"}
-                </Typography>
+                </Box>
+                {chats.length === 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      color: "text.secondary",
+                      fontSize: "0.75rem",
+                      lineHeight: 1.5,
+                      mt: 1,
+                      display: "block",
+                    }}
+                  >
+                    Loading chats from API...
+                  </Box>
+                )}
               </Box>
             )}
         </>

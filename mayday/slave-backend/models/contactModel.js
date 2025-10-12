@@ -300,6 +300,12 @@ const Contact = sequelize.define(
         unique: true,
       },
       {
+        fields: ["whatsappNumber"],
+      },
+      {
+        fields: ["secondaryPhone"],
+      },
+      {
         fields: ["email"],
         where: {
           email: {
