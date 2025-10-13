@@ -193,8 +193,11 @@ const PhonebarInfo = ({ open, onClose }) => {
                   <ListItemText
                     primary="Support Email"
                     secondary={
-                      <Link href="mailto:sales@mmict.info" underline="hover">
-                        sales@mmict.info
+                      <Link
+                        href="mailto:support@maydaycrm.com"
+                        underline="hover"
+                      >
+                        support@maydaycrm.com
                       </Link>
                     }
                   />
@@ -206,8 +209,8 @@ const PhonebarInfo = ({ open, onClose }) => {
                   <ListItemText
                     primary="Website"
                     secondary={
-                      <Link href="https://mmict.it/" underline="hover">
-                        https://mmict.it/
+                      <Link href="https://www.maydaycrm.com" underline="hover">
+                        https://maydaycrm.com
                       </Link>
                     }
                   />
@@ -220,7 +223,11 @@ const PhonebarInfo = ({ open, onClose }) => {
                   <ListItemText
                     primary="Documentation"
                     secondary={
-                      <Link href="#" target="_blank" underline="hover">
+                      <Link
+                        href="https://www.maydaycrm.com/wiki/"
+                        target="_blank"
+                        underline="hover"
+                      >
                         View documentation
                       </Link>
                     }
