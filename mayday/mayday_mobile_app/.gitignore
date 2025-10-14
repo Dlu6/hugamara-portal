@@ -7,3 +7,7 @@ web-build/
 *.log
 .DS_Store
 .env
+
+# Expo prebuild output (we use managed workflow)
+android/
+ios/

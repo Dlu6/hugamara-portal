@@ -7,6 +7,7 @@ import { store } from "./store";
 import { navigationRef } from "./navigation/navigationRef";
 import {
   setupNotificationChannel,
+  setupNotificationCategories,
   subscribeIncomingNotifications,
 } from "./services/notifications";
 import { ToastProvider } from "./contexts/ToastContext";
@@ -15,6 +16,7 @@ import CallManager from "./components/CallManager";
 export default function App() {
   useEffect(() => {
     setupNotificationChannel("calls");
+    setupNotificationCategories();
     const unsubscribe = subscribeIncomingNotifications();
     return () => unsubscribe && unsubscribe();
   }, []);

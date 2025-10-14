@@ -183,7 +183,7 @@ const callHistoryService = {
 
     switch (call.type) {
       case "inbound":
-        info.icon = "↓";
+        info.icon = "arrow-down-circle";
         // Green for incoming calls (regardless of status)
         info.color = "#22C55E"; // green
         if (call.status === "completed") {
@@ -195,7 +195,7 @@ const callHistoryService = {
         }
         break;
       case "outbound":
-        info.icon = "↑";
+        info.icon = "arrow-up-circle";
         // Red for outgoing calls (regardless of status)
         info.color = "#EF4444"; // red
         if (call.status === "completed") {
@@ -207,7 +207,7 @@ const callHistoryService = {
         }
         break;
       default:
-        info.icon = "📞";
+        info.icon = "call";
         info.title = "Call";
     }
 

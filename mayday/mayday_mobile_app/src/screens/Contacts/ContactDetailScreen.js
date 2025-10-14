@@ -9,6 +9,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   fetchContactById,
@@ -148,7 +149,7 @@ export default function ContactDetailScreen({ route, navigation }) {
             style={styles.callButton}
             onPress={() => handlePhoneCall(contact.primaryPhone)}
           >
-            <Text style={styles.callButtonIcon}>📞</Text>
+            <Ionicons name="call" size={20} color="#FFFFFF" />
             <Text style={styles.callButtonText}>
               Call {contact.primaryPhone}
             </Text>
@@ -163,7 +164,10 @@ export default function ContactDetailScreen({ route, navigation }) {
         {contact.primaryPhone && (
           <View style={styles.contactItem}>
             <View style={styles.contactInfo}>
-              <Text style={styles.contactLabel}>📞 Primary Phone</Text>
+              <View style={styles.labelRow}>
+                <Ionicons name="call" size={16} color="#22C55E" />
+                <Text style={styles.contactLabel}> Primary Phone</Text>
+              </View>
               <Text style={styles.contactValue}>{contact.primaryPhone}</Text>
             </View>
             <TouchableOpacity
@@ -178,7 +182,10 @@ export default function ContactDetailScreen({ route, navigation }) {
         {contact.secondaryPhone && (
           <View style={styles.contactItem}>
             <View style={styles.contactInfo}>
-              <Text style={styles.contactLabel}>📞 Secondary Phone</Text>
+              <View style={styles.labelRow}>
+                <Ionicons name="call" size={16} color="#22C55E" />
+                <Text style={styles.contactLabel}> Secondary Phone</Text>
+              </View>
               <Text style={styles.contactValue}>{contact.secondaryPhone}</Text>
             </View>
             <TouchableOpacity
@@ -195,7 +202,10 @@ export default function ContactDetailScreen({ route, navigation }) {
             style={styles.contactItem}
             onPress={() => handleEmail(contact.email)}
           >
-            <Text style={styles.contactLabel}>✉️ Email</Text>
+            <View style={styles.labelRow}>
+              <Ionicons name="mail" size={16} color="#3B82F6" />
+              <Text style={styles.contactLabel}> Email</Text>
+            </View>
             <Text style={styles.contactValue}>{contact.email}</Text>
           </TouchableOpacity>
         )}
@@ -205,7 +215,10 @@ export default function ContactDetailScreen({ route, navigation }) {
             style={styles.contactItem}
             onPress={() => handleWebsite(contact.website)}
           >
-            <Text style={styles.contactLabel}>🌐 Website</Text>
+            <View style={styles.labelRow}>
+              <Ionicons name="globe" size={16} color="#8B5CF6" />
+              <Text style={styles.contactLabel}> Website</Text>
+            </View>
             <Text style={styles.contactValue}>{contact.website}</Text>
           </TouchableOpacity>
         )}
@@ -378,15 +391,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 12,
     marginTop: 16,
+    gap: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
-  },
-  callButtonIcon: {
-    fontSize: 18,
-    marginRight: 8,
   },
   callButtonText: {
     color: "#FFFFFF",
@@ -430,10 +440,14 @@ const styles = StyleSheet.create({
   contactInfo: {
     flex: 1,
   },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
   contactLabel: {
     color: "#9CA3AF",
     fontSize: 14,
-    marginBottom: 2,
   },
   contactValue: {
     color: "#FFFFFF",

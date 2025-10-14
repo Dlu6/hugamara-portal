@@ -1,6 +1,6 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Text } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 // Screens
 import DialerScreen from "../screens/Calls/DialerScreen";
@@ -43,45 +43,65 @@ export default function BottomTabNavigator() {
         name="Dashboard"
         component={DashboardMobileScreen}
         options={{
-          tabBarIcon: ({ focused, color }) => {
-            return <Text style={{ color, fontSize: 20 }}>🏠</Text>;
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
       <Tab.Screen
         name="History"
         component={CallHistoryScreen}
         options={{
-          tabBarIcon: ({ focused, color }) => {
-            return <Text style={{ color, fontSize: 20 }}>🕒</Text>;
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons
+              name={focused ? "time" : "time-outline"}
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
       <Tab.Screen
         name="Dialer"
         component={DialerScreen}
         options={{
-          tabBarIcon: ({ focused, color }) => {
-            return <Text style={{ color, fontSize: 20 }}>📞</Text>;
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons
+              name={focused ? "call" : "call-outline"}
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
       <Tab.Screen
         name="Contacts"
         component={ContactsScreen}
         options={{
-          tabBarIcon: ({ focused, color }) => {
-            return <Text style={{ color, fontSize: 20 }}>👥</Text>;
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons
+              name={focused ? "people" : "people-outline"}
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
       <Tab.Screen
         name="Status"
         component={AgentStatusScreen}
         options={{
-          tabBarIcon: ({ focused, color }) => {
-            return <Text style={{ color, fontSize: 20 }}>👤</Text>;
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={size}
+              color={color}
+            />
+          ),
         }}
       />
     </Tab.Navigator>

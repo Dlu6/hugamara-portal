@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   fetchCallHistory,
@@ -102,7 +103,7 @@ export default function CallHistoryScreen({ navigation }) {
           <View
             style={[styles.callIcon, { backgroundColor: statusInfo.color }]}
           >
-            <Text style={styles.callIconText}>{statusInfo.icon}</Text>
+            <Ionicons name={statusInfo.icon} size={20} color="#FFFFFF" />
           </View>
           <View style={styles.callDetails}>
             <Text style={styles.callNumber}>{item.displayName}</Text>
@@ -120,7 +121,7 @@ export default function CallHistoryScreen({ navigation }) {
           style={styles.callButton}
           onPress={() => handleCallPress(item)}
         >
-          <Text style={styles.callButtonText}>📞</Text>
+          <Ionicons name="call" size={20} color="#22C55E" />
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -158,7 +159,7 @@ export default function CallHistoryScreen({ navigation }) {
     if (callHistoryError) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.errorIcon}>⚠️</Text>
+          <Ionicons name="warning-outline" size={64} color="#EF4444" />
           <Text style={styles.emptyText}>Failed to load call history</Text>
           <Text style={styles.errorText}>{callHistoryError}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
@@ -170,7 +171,7 @@ export default function CallHistoryScreen({ navigation }) {
 
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📞</Text>
+        <Ionicons name="call-outline" size={64} color="#3A3A3C" />
         <Text style={styles.emptyText}>No calls found</Text>
         <Text style={styles.emptySubtext}>
           {searchText
@@ -187,20 +188,17 @@ export default function CallHistoryScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.title}>Call History</Text>
         <TouchableOpacity onPress={handleRefresh} disabled={callHistoryLoading}>
-          <Text
-            style={[
-              styles.refreshIcon,
-              { color: callHistoryLoading ? "#9CA3AF" : "#22C55E" },
-            ]}
-          >
-            ↻
-          </Text>
+          <Ionicons
+            name="refresh"
+            size={24}
+            color={callHistoryLoading ? "#9CA3AF" : "#22C55E"}
+          />
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by number or name..."
@@ -210,7 +208,7 @@ export default function CallHistoryScreen({ navigation }) {
         />
         {searchText.length > 0 && (
           <TouchableOpacity onPress={() => setSearchText("")}>
-            <Text style={styles.clearIcon}>✕</Text>
+            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         )}
       </View>
@@ -281,22 +279,12 @@ const styles = StyleSheet.create({
   },
   searchIcon: {
     marginRight: 8,
-    fontSize: 18,
   },
   searchInput: {
     flex: 1,
     color: "#FFFFFF",
     fontSize: 16,
     paddingVertical: 0,
-  },
-  clearIcon: {
-    color: "#9CA3AF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  refreshIcon: {
-    fontSize: 24,
-    fontWeight: "bold",
   },
   filterContainer: {
     flexDirection: "row",
@@ -351,11 +339,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-  callIconText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
   callDetails: {
     flex: 1,
   },
@@ -378,16 +361,13 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#22C55E",
+    backgroundColor: "#1F2937",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
     shadowOpacity: 0.3,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
-  },
-  callButtonText: {
-    fontSize: 20,
   },
   emptyContainer: {
     flex: 1,
@@ -397,12 +377,6 @@ const styles = StyleSheet.create({
   },
   emptyListContainer: {
     flexGrow: 1,
-  },
-  emptyIcon: {
-    fontSize: 48,
-  },
-  errorIcon: {
-    fontSize: 48,
   },
   emptyText: {
     color: "#FFFFFF",
