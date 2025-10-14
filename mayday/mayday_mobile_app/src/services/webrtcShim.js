@@ -10,6 +10,7 @@ import {
   RTCPeerConnection,
   RTCSessionDescription,
   RTCIceCandidate,
+  MediaStream,
   mediaDevices,
 } from "react-native-webrtc";
 
@@ -18,6 +19,7 @@ export const webrtcShim = {
   RTCPeerConnection,
   RTCSessionDescription,
   RTCIceCandidate,
+  MediaStream,
   getUserMedia: (constraints) => mediaDevices.getUserMedia(constraints),
   mediaDevices,
 };
@@ -33,6 +35,7 @@ export function setupJsSIPWebRTC() {
     global.RTCPeerConnection = RTCPeerConnection;
     global.RTCSessionDescription = RTCSessionDescription;
     global.RTCIceCandidate = RTCIceCandidate;
+    global.MediaStream = MediaStream;
 
     // Some versions of JsSIP check for getUserMedia
     if (!global.navigator) {

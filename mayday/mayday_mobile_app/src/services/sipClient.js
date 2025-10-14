@@ -142,6 +142,19 @@ function setupPeerConnectionAudio(peerConnection) {
       );
     };
 
+    // Log ICE candidates for debugging
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log("[SIP] ICE Candidate:", {
+          candidate: event.candidate.candidate, // The actual SDP candidate string
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+        });
+      } else {
+        console.log("[SIP] ICE Gathering complete (null candidate)");
+      }
+    };
+
     // Check if there are already streams available
     const existingStreams = peerConnection.getRemoteStreams
       ? peerConnection.getRemoteStreams()
@@ -204,7 +217,7 @@ async function connect(config) {
       : `wss://${server}:8089/ws`;
 
   console.log("[SIP] Using WebSocket URI:", wsUri);
-  const socket = new JsSIP.WebSocketInterface(wsUri);
+  const socket = new JsSIP.WebSocketInterface(wsUri, 'sip');
 
   const configuration = {
     sockets: [socket],
@@ -219,8 +232,18 @@ async function connect(config) {
     authorization_user: extension,
     realm: server,
     register_expires: 600,
-    no_answer_timeout: 30000, // Reduce to 30 seconds
+    no_answer_timeout: 60000, // Match Chrome extension
     use_preloaded_route: false,
+    // WebRTC-specific configuration (from Chrome extension)
+    ice_support: true,
+    rtcp_mux: true,
+    use_avpf: true,
+    media_use_received_transport: true,
+    force_rport: true,
+    rewrite_contact: true,
+    rtp_symmetric: true,
+    dtls_verify: 'fingerprint',
+    dtls_setup: 'actpass',
   };
 
   const ua = new JsSIP.UA(configuration);
@@ -269,8 +292,18 @@ async function connect(config) {
     // --- In-Call Event Handlers ---
     e.session.on("progress", (response) => {
       console.log("[SIP] Call progress - remote is ringing");
-      state.eventEmitter.emit("call_progress");
+      // Only emit progress for outgoing calls (when we're calling someone)
+      // For incoming calls, progress means we're generating ringback, not relevant
+      if (e.originator === "local") {
+        state.eventEmitter.emit("call_progress");
+      }
     });
+    
+    // Track SDP exchange for debugging
+    e.session.on("sdp", (data) => {
+      console.log("[SIP] SDP event:", data.type, "- Originator:", data.originator);
+    });
+    
     e.session.on("accepted", () => {
       console.log("[SIP] Call accepted - remote answered");
       stopRingtone();
@@ -383,42 +416,53 @@ export function makeCall(number) {
     pcConfig: {
       iceServers: state.lastConfig.iceServers || [
         { urls: "stun:stun.l.google.com:19302" },
-        { urls: "stun:stun1.l.google.com:19302" },
-        { urls: "stun:stun2.l.google.com:19302" },
-        { urls: "stun:stun3.l.google.com:19302" },
-        { urls: "stun:stun4.l.google.com:19302" },
+        {
+          urls: "turn:numb.viagenie.ca",
+          username: "webrtc@live.com",
+          credential: "muazkh",
+        },
       ],
-      iceTransportPolicy: "all", // Try all candidates (relay, srflx, host)
-      bundlePolicy: "balanced", // Bundle audio/video when possible
-      rtcpMuxPolicy: "require", // Multiplex RTP and RTCP on same port
-      iceCandidatePoolSize: 10, // Pre-gather 10 ICE candidates
+      iceTransportPolicy: "all",
+      bundlePolicy: "balanced",
+      rtcpMuxPolicy: "require",
     },
-    iceGatheringTimeout: 5000, // Wait up to 5 seconds for ICE gathering
   };
   console.log("[SIP] Making call to:", number);
   state.ua.call(target, options);
 }
 
-export function answerCall() {
+export async function answerCall() {
   stopRingtone();
   if (state.session) {
-    console.log("[SIP] Answering call");
+    console.log("[SIP] Answering call - session state:", state.session.status);
+    // console.log("[SIP] Call direction:", state.session.direction);
+    
+    // Request audio permission before answering
+    try {
+      console.log("[SIP] Requesting audio permission...");
+      await requestAudioPermission();
+      // console.log("[SIP] Audio permission granted");
+    } catch (error) {
+      console.error("[SIP] Audio permission denied:", error);
+      // Continue anyway, might already have permission
+    }
+    
+    // Answer with minimal config like the Chrome extension
     state.session.answer({
       mediaConstraints: { audio: true, video: false },
       pcConfig: {
-        iceServers: state.lastConfig.iceServers || [
+        iceServers: state.lastConfig?.iceServers || [
           { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" },
-          { urls: "stun:stun3.l.google.com:19302" },
-          { urls: "stun:stun4.l.google.com:19302" },
+          {
+            urls: "turn:numb.viagenie.ca",
+            username: "webrtc@live.com",
+            credential: "muazkh",
+          },
         ],
-        iceTransportPolicy: "all", // Try all candidates (relay, srflx, host)
-        bundlePolicy: "balanced", // Bundle audio/video when possible
-        rtcpMuxPolicy: "require", // Multiplex RTP and RTCP on same port
-        iceCandidatePoolSize: 10, // Pre-gather 10 ICE candidates
+        iceTransportPolicy: "all",
+        bundlePolicy: "balanced",
+        rtcpMuxPolicy: "require",
       },
-      iceGatheringTimeout: 5000, // Wait up to 5 seconds for ICE gathering
     });
 
     // Set up audio handling after answering
