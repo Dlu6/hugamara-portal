@@ -8,12 +8,16 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { answerCall, hangupCall } from "../../services/sipClient";
+import { playRingtone, stopRingtone } from "../../services/ringtoneService";
 
 export default function IncomingCallScreen({ navigation, route }) {
   const caller = route?.params?.caller || "Unknown";
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    // Start ringtone
+    playRingtone();
+
     // Create pulsing animation for the incoming call indicator
     const pulse = Animated.loop(
       Animated.sequence([
@@ -31,15 +35,20 @@ export default function IncomingCallScreen({ navigation, route }) {
     );
     pulse.start();
 
-    return () => pulse.stop();
+    return () => {
+      stopRingtone();
+      pulse.stop();
+    };
   }, [pulseAnim]);
 
   const handleAnswer = () => {
+    stopRingtone(); // Stop before answering
     answerCall();
     navigation.replace("Call", { number: caller });
   };
 
   const handleDecline = () => {
+    stopRingtone(); // Stop before declining
     hangupCall();
     navigation.goBack();
   };

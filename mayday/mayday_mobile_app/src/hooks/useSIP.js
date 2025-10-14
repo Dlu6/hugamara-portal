@@ -11,6 +11,7 @@ import {
 } from "../store/slices/callSlice";
 import { sipEvents } from "../services/sipClient";
 import { navigate } from "../navigation/navigationRef";
+import { scheduleIncomingCallNotification } from "../services/notifications";
 
 export default function useSIP() {
   const dispatch = useDispatch();
@@ -25,6 +26,10 @@ export default function useSIP() {
     const onIncomingCall = (session) => {
       const from = session?.remote_identity?.uri?.user || "Unknown";
       dispatch(incomingCall({ caller: from }));
+
+      // Schedule notification for background handling
+      scheduleIncomingCallNotification({ number: from });
+
       navigate("IncomingCall", { caller: from });
     };
     const onOutgoingCall = (session) => {

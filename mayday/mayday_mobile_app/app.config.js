@@ -3,6 +3,15 @@ export default ({ config }) => ({
   name: "Mayday Mobile",
   slug: "mayday-mobile",
   scheme: "mayday",
+  version: "1.0.0",
+  orientation: "portrait",
+  icon: "./assets/icon.png",
+  userInterfaceStyle: "automatic",
+  splash: {
+    image: "./assets/splash.png",
+    resizeMode: "contain",
+    backgroundColor: "#000000",
+  },
   plugins: ["expo-secure-store", "expo-asset", "expo-font"],
   extra: {
     API_BASE_URL:
@@ -22,6 +31,10 @@ export default ({ config }) => ({
   },
   android: {
     package: "com.mayday",
+    adaptiveIcon: {
+      foregroundImage: "./assets/adaptive-icon.png",
+      backgroundColor: "#000000",
+    },
     permissions: [
       "INTERNET",
       "RECORD_AUDIO",

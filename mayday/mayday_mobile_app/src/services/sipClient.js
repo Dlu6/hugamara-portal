@@ -2,6 +2,7 @@ import JsSIP from "jssip";
 import { EventEmitter } from "events";
 import { requestAudioPermission } from "./webrtc";
 import { setupJsSIPWebRTC } from "./webrtcShim";
+import { playRingtone, stopRingtone } from "./ringtoneService";
 
 // Initialize WebRTC shim for JsSIP before any usage
 setupJsSIPWebRTC();
@@ -16,6 +17,177 @@ const state = {
 };
 
 // --- Core SIP Service Logic (adapted from chrome-softphone-extension) ---
+
+function setupPeerConnectionAudio(peerConnection) {
+  console.log("[SIP] Setting up peer connection audio handlers");
+
+  try {
+    // Handle incoming tracks (remote audio)
+    peerConnection.ontrack = (event) => {
+      console.log("[SIP] Received remote track:", {
+        kind: event.track.kind,
+        id: event.track.id,
+        readyState: event.track.readyState,
+        enabled: event.track.enabled,
+        muted: event.track.muted,
+        streamCount: event.streams?.length || 0,
+      });
+
+      if (event.track.kind === "audio") {
+        console.log("[SIP] Setting up remote audio track");
+
+        // Use the stream from the event if available, otherwise create one
+        let stream;
+        if (event.streams && event.streams.length > 0) {
+          stream = event.streams[0];
+          console.log("[SIP] Using stream from track event");
+        } else {
+          stream = new MediaStream([event.track]);
+          console.log("[SIP] Created new stream from track");
+        }
+
+        // Set up the audio playback
+        playRemoteAudio(stream);
+
+        // Monitor track state changes
+        event.track.onended = () => {
+          console.log("[SIP] Remote audio track ended");
+        };
+
+        event.track.onmute = () => {
+          console.log("[SIP] Remote audio track muted");
+        };
+
+        event.track.onunmute = () => {
+          console.log("[SIP] Remote audio track unmuted");
+        };
+      }
+    };
+
+    // Monitor connection state changes
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(
+        "[SIP] ICE Connection State:",
+        peerConnection.iceConnectionState
+      );
+
+      // When ICE is connected, check for streams again
+      if (
+        peerConnection.iceConnectionState === "connected" ||
+        peerConnection.iceConnectionState === "completed"
+      ) {
+        console.log("[SIP] ICE connected - checking for audio streams");
+
+        // Check for remote streams
+        const remoteStreams = peerConnection.getRemoteStreams
+          ? peerConnection.getRemoteStreams()
+          : [];
+        if (remoteStreams.length > 0) {
+          console.log("[SIP] Found remote streams after ICE connection");
+          remoteStreams.forEach((stream, index) => {
+            const audioTracks = stream.getAudioTracks();
+            if (audioTracks.length > 0) {
+              console.log(`[SIP] Playing audio from remote stream ${index}`);
+              playRemoteAudio(stream);
+            }
+          });
+        }
+
+        // Also check receivers
+        const receivers = peerConnection.getReceivers();
+        const audioReceivers = receivers.filter(
+          (r) =>
+            r.track && r.track.kind === "audio" && r.track.readyState === "live"
+        );
+
+        if (audioReceivers.length > 0 && remoteStreams.length === 0) {
+          console.log(
+            `[SIP] Creating stream from ${audioReceivers.length} audio receivers`
+          );
+          const stream = new MediaStream();
+          audioReceivers.forEach((receiver) => {
+            stream.addTrack(receiver.track);
+          });
+          playRemoteAudio(stream);
+        }
+      } else if (peerConnection.iceConnectionState === "failed") {
+        console.error(
+          "[SIP] ICE connection failed - this will cause call to drop"
+        );
+        state.eventEmitter.emit("call:iceFailure", {
+          state: peerConnection.iceConnectionState,
+          gatheringState: peerConnection.iceGatheringState,
+        });
+      } else if (peerConnection.iceConnectionState === "disconnected") {
+        console.warn("[SIP] ICE connection disconnected - may recover");
+      }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      console.log("[SIP] Connection State:", peerConnection.connectionState);
+
+      if (peerConnection.connectionState === "failed") {
+        console.error("[SIP] Peer connection failed");
+        state.eventEmitter.emit("call:connectionFailure", {
+          connectionState: peerConnection.connectionState,
+          iceConnectionState: peerConnection.iceConnectionState,
+        });
+      }
+    };
+
+    peerConnection.onicegatheringstatechange = () => {
+      console.log(
+        "[SIP] ICE Gathering State:",
+        peerConnection.iceGatheringState
+      );
+    };
+
+    // Check if there are already streams available
+    const existingStreams = peerConnection.getRemoteStreams
+      ? peerConnection.getRemoteStreams()
+      : [];
+    if (existingStreams.length > 0) {
+      console.log("[SIP] Found existing remote streams during setup");
+      existingStreams.forEach((stream, index) => {
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          console.log(`[SIP] Setting up audio from existing stream ${index}`);
+          playRemoteAudio(stream);
+        }
+      });
+    }
+  } catch (error) {
+    console.error("[SIP] Error setting up peer connection audio:", error);
+  }
+}
+
+function playRemoteAudio(stream) {
+  console.log("[SIP] Setting up remote audio playback");
+
+  try {
+    // For React Native, we need to use the WebRTC audio handling
+    // The audio will be played through the device's audio system
+    const audioTracks = stream.getAudioTracks();
+    console.log(`[SIP] Stream has ${audioTracks.length} audio track(s)`);
+
+    audioTracks.forEach((track, index) => {
+      // Only log track state changes, not constant state
+      track.onended = () => {
+        console.log(`[SIP] Audio track ${index} ended`);
+      };
+
+      track.onmute = () => {
+        console.log(`[SIP] Audio track ${index} muted`);
+      };
+
+      track.onunmute = () => {
+        console.log(`[SIP] Audio track ${index} unmuted`);
+      };
+    });
+  } catch (error) {
+    console.error("[SIP] Error setting up remote audio:", error);
+  }
+}
 
 async function connect(config) {
   console.log("[SIP] Starting SIP connection with config:", config);
@@ -47,7 +219,7 @@ async function connect(config) {
     authorization_user: extension,
     realm: server,
     register_expires: 600,
-    no_answer_timeout: 60000,
+    no_answer_timeout: 30000, // Reduce to 30 seconds
     use_preloaded_route: false,
   };
 
@@ -87,6 +259,8 @@ async function connect(config) {
     state.session = e.session;
 
     if (e.originator === "remote") {
+      // Play ringtone for incoming calls
+      playRingtone();
       state.eventEmitter.emit("incoming_call", e.session);
     } else if (e.originator === "local") {
       state.eventEmitter.emit("outgoing_call", e.session);
@@ -99,19 +273,43 @@ async function connect(config) {
     });
     e.session.on("accepted", () => {
       console.log("[SIP] Call accepted - remote answered");
+      stopRingtone();
       state.eventEmitter.emit("call_accepted");
+
+      // Set up audio after call is accepted
+      if (e.session.sessionDescriptionHandler?.peerConnection) {
+        setupPeerConnectionAudio(
+          e.session.sessionDescriptionHandler.peerConnection
+        );
+      }
     });
     e.session.on("confirmed", () => {
       console.log("[SIP] Call confirmed - media established");
       state.eventEmitter.emit("call_confirmed");
+
+      // Set up audio after call is confirmed
+      if (e.session.sessionDescriptionHandler?.peerConnection) {
+        setupPeerConnectionAudio(
+          e.session.sessionDescriptionHandler.peerConnection
+        );
+      }
     });
     e.session.on("ended", () => {
       console.log("[SIP] Call ended");
+      stopRingtone();
       state.session = null;
       state.eventEmitter.emit("call_ended");
     });
     e.session.on("failed", (data) => {
       console.log("[SIP] Call failed:", data?.cause || "unknown");
+      console.log("[SIP] Call failed details:", {
+        cause: data?.cause,
+        originator: data?.originator,
+        message: data?.message,
+        response: data?.response?.status_code,
+        reason: data?.response?.reason_phrase,
+      });
+      stopRingtone();
       state.session = null;
       state.eventEmitter.emit("call_failed");
     });
@@ -119,6 +317,22 @@ async function connect(config) {
     e.session.on("unhold", () => state.eventEmitter.emit("hold", false));
     e.session.on("muted", () => state.eventEmitter.emit("mute", true));
     e.session.on("unmuted", () => state.eventEmitter.emit("mute", false));
+
+    // Set up peer connection audio when available
+    e.session.on("peerconnection", (event) => {
+      if (event.peerconnection) {
+        setupPeerConnectionAudio(event.peerconnection);
+      }
+    });
+
+    // Monitor session description handler creation
+    e.session.on("SessionDescriptionHandler-created", () => {
+      if (e.session.sessionDescriptionHandler?.peerConnection) {
+        setupPeerConnectionAudio(
+          e.session.sessionDescriptionHandler.peerConnection
+        );
+      }
+    });
   });
 
   console.log("[SIP] Starting User Agent...");
@@ -186,9 +400,11 @@ export function makeCall(number) {
 }
 
 export function answerCall() {
+  stopRingtone();
   if (state.session) {
     console.log("[SIP] Answering call");
     state.session.answer({
+      mediaConstraints: { audio: true, video: false },
       pcConfig: {
         iceServers: state.lastConfig.iceServers || [
           { urls: "stun:stun.l.google.com:19302" },
@@ -204,10 +420,24 @@ export function answerCall() {
       },
       iceGatheringTimeout: 5000, // Wait up to 5 seconds for ICE gathering
     });
+
+    // Set up audio handling after answering
+    setTimeout(() => {
+      if (
+        state.session &&
+        state.session.sessionDescriptionHandler?.peerConnection
+      ) {
+        console.log("[SIP] Setting up audio after answering");
+        setupPeerConnectionAudio(
+          state.session.sessionDescriptionHandler.peerConnection
+        );
+      }
+    }, 100);
   }
 }
 
 export function hangupCall() {
+  stopRingtone();
   if (state.session) {
     state.session.terminate();
   }
