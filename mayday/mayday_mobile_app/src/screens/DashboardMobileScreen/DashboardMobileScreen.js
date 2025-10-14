@@ -290,7 +290,7 @@ export default function DashboardMobileScreen() {
                 value={String(stats.inbound || 0)}
               />
               <MetricCard
-                icon="⬆️"
+                icon="arrow-up-circle"
                 iconColor="#3B82F6"
                 title="Outbound"
                 value={String(stats.outbound || 0)}
