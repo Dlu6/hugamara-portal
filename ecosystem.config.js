@@ -53,6 +53,9 @@ module.exports = {
         PUBLIC_IP: "cs.hugamara.com",
         ASTERISK_HOST: "cs.hugamara.com",
         ASTERISK_SIP_PORT: "8088",
+        JWT_SECRET: "Mayday-Produjwt-secret-key-1759",
+        SECRET_INTERNAL_API_KEY:
+          "aVeryLongAndRandomSecretStringForInternalComms_987654321_production",
 
         // Redis Configuration
         REDIS_HOST: "127.0.0.1",
