@@ -7,10 +7,13 @@ import {
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useDispatch } from "react-redux";
 import { answerCall, hangupCall } from "../../services/sipClient";
 import { playRingtone, stopRingtone } from "../../services/ringtoneService";
+import { updateCallStatus } from "../../store/slices/callSlice";
 
 export default function IncomingCallScreen({ navigation, route }) {
+  const dispatch = useDispatch();
   const caller = route?.params?.caller || "Unknown";
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -43,6 +46,8 @@ export default function IncomingCallScreen({ navigation, route }) {
 
   const handleAnswer = () => {
     stopRingtone(); // Stop before answering
+    // Update status to connecting immediately for better UX
+    dispatch(updateCallStatus("connecting"));
     answerCall();
     navigation.replace("Call", { number: caller });
   };

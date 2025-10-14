@@ -38,8 +38,8 @@ export default function CallScreen({ navigation, route }) {
     if (isOnHold) return "On Hold";
     if (status === "connecting") return "Connecting...";
     if (status === "ringing") return "Ringing...";
-    if (status === "active") return "Answering...";
-    if (status === "connected") return "In Call";
+    if (status === "active") return "Call Accepted";
+    if (status === "connected") return "Connected";
     return "In Call";
   };
 

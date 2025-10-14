@@ -3,7 +3,7 @@ export default ({ config }) => ({
   name: "Mayday Mobile",
   slug: "mayday-mobile",
   scheme: "mayday",
-  version: "1.0.0",
+  version: "1.1.0",
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "automatic",
@@ -31,6 +31,7 @@ export default ({ config }) => ({
   },
   android: {
     package: "com.mayday",
+    versionCode: 2,
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#000000",

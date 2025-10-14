@@ -2,6 +2,34 @@
 
 A React Native (Expo) mobile application for connecting to our Asterisk PBX for SIP calling. Uses Redux Toolkit for state, Expo Notifications, and a Dev Client build for WebRTC.
 
+## Changelog
+
+### Version 1.1.0 (Latest)
+
+**WebRTC & Connectivity Improvements:**
+- Added TURN server support for reliable connections on cellular networks and restrictive NATs
+- Fixed `MediaStream` compatibility issues in React Native WebRTC
+- Improved ICE candidate gathering and peer connection stability
+- Enhanced call connectivity on mobile networks and simulators
+
+**UI/UX Enhancements:**
+- **Dialer Screen:**
+  - Improved number centering within keypad buttons for better visual alignment
+  - Added white shadow effects to keypad buttons for modern, elevated appearance
+  - Added white shadow to input field for visual consistency
+  - Replaced "Call" text button with phone icon for cleaner design
+  - Call button now properly disables when no number is entered
+  - Increased icon size for better visibility
+- **Login Screen:**
+  - Removed hardcoded credentials for enhanced security
+  - Host field configured for production use
+  - "Remember Me" functionality fully operational with secure credential storage
+
+**Bug Fixes:**
+- Fixed keypad number alignment issues on Android devices
+- Resolved MediaStream constructor errors in call handling
+- Improved audio stream setup and remote audio playback
+
 ## Runtime Configuration (VM vs. Local)
 
 The app is configured to connect to the production backend by default, but can be configured for local development. The API base URL is resolved as follows:
@@ -67,7 +95,8 @@ No native config is needed for these packages on Expo SDK 52.
 
 - **Dev Client is Mandatory:** Expo Go does not include native WebRTC modules. You must use a Development Client built via EAS (`eas build`) or locally (`expo run:android`) to bundle `react-native-webrtc` and `expo-asset`.
 - **WSS Reachability:** The WebSocket Secure endpoint must be reachable from the mobile device (e.g., `wss://cs.hugamara.com:8089/ws`) with a valid TLS certificate.
-- **TURN Server:** For reliable connections on cellular networks, it is highly recommended to include a TURN server in the `ice_servers` array provided by the backend.
+- **TURN Server:** The app now includes a public TURN server (`turn:numb.viagenie.ca`) for reliable connections on cellular networks and restrictive NATs. The backend can override this by providing custom `ice_servers` in the login response.
+- **MediaStream Support:** The app properly configures `MediaStream` globally for React Native WebRTC compatibility, ensuring stable audio streaming during calls.
 
 ## Quick Start
 
@@ -117,12 +146,12 @@ npm run start
 
 On the Login screen:
 
-- Enter Host (e.g., `https://cs.hugamara.com/mayday-api`)
-- Enter Email/Password
-- Toggle Remember Me if you want the values saved securely
-- Login
+- The Host field is pre-configured for production use
+- Enter your Email and Password
+- Toggle "Remember Me" to securely save your credentials for future sessions
+- Tap Login
 
-The app will register with SIP and enable calling functionality.
+The app will authenticate, register with SIP, and navigate to the main dashboard with calling functionality enabled.
 
 ## Important Notes
 

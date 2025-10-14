@@ -206,12 +206,12 @@ export const getMyPerformanceStats = async (
   const primary = `${ENDPOINTS.BASE_URL}/reports/my-performance?timeframe=${timeframe}`;
 
   try {
-    console.log("[DashboardService] Fetching my performance stats:", {
-      timeframe,
-      extension,
-    });
+    // console.log("[DashboardService] Fetching my performance stats:", {
+    //   timeframe,
+    //   extension,
+    // });
     const response = await fetchWithAuth(primary, { token });
-    console.log("[DashboardService] My performance response:", response);
+    // console.log("[DashboardService] My performance response:", response);
     return response;
   } catch (primaryError) {
     console.warn(
@@ -222,13 +222,13 @@ export const getMyPerformanceStats = async (
     // Fallback 1: Try CDR call-counts endpoint if we have extension
     if (extension) {
       try {
-        console.log(
-          "[DashboardService] Trying CDR fallback with extension:",
-          extension
-        );
+        // console.log(
+        //   "[DashboardService] Trying CDR fallback with extension:",
+        //   extension
+        // );
         const cdrUrl = `${ENDPOINTS.BASE_URL}/cdr/call-counts?extension=${extension}`;
         const cdrResponse = await fetchWithAuth(cdrUrl, { token });
-        console.log("[DashboardService] CDR response:", cdrResponse);
+        // console.log("[DashboardService] CDR response:", cdrResponse);
 
         if (cdrResponse.success && cdrResponse.data) {
           const data = cdrResponse.data;
@@ -270,7 +270,7 @@ export const getMyPerformanceStats = async (
         startDate
       )}&endDate=${encodeURIComponent(endDate)}`;
 
-      console.log("[DashboardService] Trying agent-performance fallback");
+      // console.log("[DashboardService] Trying agent-performance fallback");
       const json = await fetchWithAuth(fallback, { token });
 
       // Normalize fallback data to expected shape
@@ -286,7 +286,7 @@ export const getMyPerformanceStats = async (
         const mm = Math.floor(avgSec / 60);
         const ss = (avgSec % 60).toString().padStart(2, "0");
 
-        console.log("[DashboardService] Agent-performance fallback succeeded");
+        // console.log("[DashboardService] Agent-performance fallback succeeded");
         return {
           success: true,
           data: {

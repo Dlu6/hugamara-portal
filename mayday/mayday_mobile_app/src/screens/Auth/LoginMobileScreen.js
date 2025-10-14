@@ -20,8 +20,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useToast } from "../../contexts/ToastContext";
 
 export default function LoginMobileScreen({ navigation }) {
-  const [email, setEmail] = useState("mobile@gmail.com");
-  const [password, setPassword] = useState("12345");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [host, setHost] = useState(getApiBaseUrl());
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);

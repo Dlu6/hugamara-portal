@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { makeCall } from "../../services/sipClient";
 import * as Haptics from "expo-haptics";
@@ -111,11 +112,11 @@ export default function DialerScreen({ navigation, route }) {
           onPress={call}
           style={[
             styles.callBtn,
-            (!registered || !number) && styles.disabledBtn,
+            (!registered || !number.trim()) && styles.disabledBtn,
           ]}
-          disabled={!registered || !number}
+          disabled={!registered || !number.trim()}
         >
-          <Text style={styles.callText}>Call</Text>
+          <Ionicons name="call" size={30} color="#FFFFFF" />
         </TouchableOpacity>
 
         <View style={styles.row}>
@@ -171,10 +172,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
+    shadowColor: "white",
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 8,
   },
   numberDisplay: {
     color: "#FFFFFF",
@@ -211,19 +213,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#1F2937",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: "#FFFFFF",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 8,
   },
   keyText: {
     color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 32,
+    fontWeight: "700",
     textAlign: "center",
-    textAlignVertical: "center",
-    lineHeight: 24,
     includeFontPadding: false,
+    marginBottom: 15,
   },
   bottomSection: {
     flex: 1,
