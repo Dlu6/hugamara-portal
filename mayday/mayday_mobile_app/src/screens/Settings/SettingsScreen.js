@@ -183,8 +183,8 @@ export default function SettingsScreen() {
       style={styles.container}
       contentContainerStyle={{ paddingBottom: 24 }}
     >
-      <Text style={styles.title}>Settings</Text>
-
+      <Text style={styles.pageTitle}>Settings</Text>
+      
       <View style={styles.card}>
         <Text style={styles.label}>SIP Status</Text>
         <Text style={styles.value}>
@@ -293,6 +293,41 @@ export default function SettingsScreen() {
           <Text style={styles.label}>Logged in as</Text>
           <Text style={styles.value}>{user?.email || "—"}</Text>
         </View>
+        
+        {/* Clear Saved Credentials */}
+        <TouchableOpacity
+          onPress={() => {
+            Alert.alert(
+              "Clear Saved Credentials",
+              "This will remove saved email and password. You'll need to enter them again on next login.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Clear",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await SecureStore.deleteItemAsync("mayday_remember");
+                      await SecureStore.deleteItemAsync("mayday_email");
+                      await SecureStore.deleteItemAsync("mayday_password");
+                      Alert.alert("Success", "Saved credentials have been cleared.");
+                    } catch (error) {
+                      Alert.alert("Error", "Failed to clear credentials.");
+                    }
+                  },
+                },
+              ]
+            );
+          }}
+          style={[styles.btn, styles.warningBtn]}
+        >
+          <View style={styles.inlineRow}>
+            <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.btnText}>Clear Saved Credentials</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Logout */}
         <TouchableOpacity
           onPress={() => {
             Alert.alert("Logout", "Are you sure you want to log out?", [
@@ -303,11 +338,8 @@ export default function SettingsScreen() {
                 onPress: async () => {
                   setLoggingOut(true);
                   try {
-                    // Clear saved auth prefs except host
-                    await SecureStore.deleteItemAsync("mayday_password");
-                    await SecureStore.deleteItemAsync("mayday_remember");
-                  } catch {}
-                  try {
+                    // Don't clear saved credentials - respect "Remember me" setting
+                    // Users can uncheck "Remember me" on login screen to clear
                     await sipDisconnect();
                   } catch {}
                   dispatch(logout());
@@ -342,6 +374,12 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0A0A0A", padding: 24 },
+  pageTitle: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 20,
+  },
   title: {
     color: "#FFFFFF",
     fontSize: 22,
@@ -374,6 +412,10 @@ const styles = StyleSheet.create({
   },
   btnText: { color: "#FFFFFF", fontWeight: "700" },
   inlineRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  warningBtn: {
+    backgroundColor: "#D97706",
+    borderColor: "#92400E",
+  },
   dangerBtn: {
     backgroundColor: "#B91C1C",
     borderColor: "#7F1D1D",

@@ -5,7 +5,7 @@ export default ({ config }) => ({
   scheme: "mayday",
   version: "1.1.0",
   orientation: "portrait",
-  icon: "./assets/icon.png",
+  icon: "./assets/mayday-icon.png",
   userInterfaceStyle: "automatic",
   splash: {
     image: "./assets/splash.png",
@@ -33,8 +33,8 @@ export default ({ config }) => ({
     package: "com.mayday",
     versionCode: 2,
     adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#000000",
+      foregroundImage: "./assets/mayday-icon.png",
+      backgroundColor: "#005370",
     },
     permissions: [
       "INTERNET",

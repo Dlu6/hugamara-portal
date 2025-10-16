@@ -6,7 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Image,
+  Keyboard,
 } from "react-native";
+import LottieView from "lottie-react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { login } from "../../store/slices/authSlice";
 import { registerSip } from "../../store/slices/sipSlice";
@@ -46,9 +49,10 @@ export default function LoginMobileScreen({ navigation }) {
           );
           if (!mounted) return;
           if (savedHost) {
-            const normalized = normalizeApiBaseUrl(savedHost);
-            setHost(normalized);
-            setApiBaseUrl(normalized);
+            // Display the base URL without /mayday-api/api suffix
+            setHost(savedHost);
+            // Apply normalization only when setting the API base URL
+            setApiBaseUrl(normalizeApiBaseUrl(savedHost));
           }
           if (savedEmail) setEmail(savedEmail);
           if (savedPassword) setPassword(savedPassword);
@@ -71,6 +75,9 @@ export default function LoginMobileScreen({ navigation }) {
   }, []);
 
   const onLogin = async () => {
+    // Dismiss keyboard when login starts
+    Keyboard.dismiss();
+    
     try {
       // Apply tenant host before attempting login
       if (host && typeof host === "string") {
@@ -91,14 +98,15 @@ export default function LoginMobileScreen({ navigation }) {
 
         // Persist credentials if requested
         try {
+          // Always save host for convenience
+          await SecureStore.setItemAsync("mayday_host", host || "");
+          
           if (remember) {
             await SecureStore.setItemAsync("mayday_remember", "true");
-            await SecureStore.setItemAsync("mayday_host", host || "");
             await SecureStore.setItemAsync("mayday_email", email || "");
             await SecureStore.setItemAsync("mayday_password", password || "");
           } else {
-            await SecureStore.deleteItemAsync("mayday_remember");
-            await SecureStore.deleteItemAsync("mayday_host");
+            await SecureStore.setItemAsync("mayday_remember", "false");
             await SecureStore.deleteItemAsync("mayday_email");
             await SecureStore.deleteItemAsync("mayday_password");
           }
@@ -129,7 +137,14 @@ export default function LoginMobileScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Mayday Mobile</Text>
+      <View style={styles.logoContainer}>
+        <Image
+          source={require("../../../assets/mayday_icon_plain.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </View>
+      {/* <Text style={styles.title}>Mayday Mobile</Text> */}
       <TextInput
         style={styles.input}
         placeholder="Host (e.g. https://tenant.example.com)"
@@ -141,9 +156,9 @@ export default function LoginMobileScreen({ navigation }) {
           if (hostSaveTimer.current) clearTimeout(hostSaveTimer.current);
           hostSaveTimer.current = setTimeout(async () => {
             try {
-              const normalized = normalizeApiBaseUrl(text);
-              await SecureStore.setItemAsync("mayday_host", normalized);
-              setApiBaseUrl(normalized);
+              // Store base URL only, normalize when setting API base
+              await SecureStore.setItemAsync("mayday_host", text);
+              setApiBaseUrl(normalizeApiBaseUrl(text));
             } catch {}
           }, 400);
         }}
@@ -236,9 +251,21 @@ export default function LoginMobileScreen({ navigation }) {
         {isLoading ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.buttonText}>Login</Text>
+        <Text style={styles.buttonText}>Login</Text>
         )}
       </TouchableOpacity>
+      
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <LottieView
+            source={require("../../../assets/Sandy Loading.json")}
+            autoPlay
+            loop
+            style={styles.loadingAnimation}
+          />
+          <Text style={styles.loadingText}>Logging in...</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -250,21 +277,35 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: "center",
   },
-  title: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: "600",
-    marginBottom: 24,
-    textAlign: "center",
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+    
   },
+  logo: {
+    width: 200,
+    height: 200,
+  },
+  // title: {
+  //   color: "#FFFFFF",
+  //   fontSize: 28,
+  //   fontWeight: "700",
+  //   marginBottom: 32,
+  //   textAlign: "center",
+  // },
   input: {
-    backgroundColor: "#111827",
+    backgroundColor: "rgba(31, 41, 55, 0.9)", // More opaque background
     color: "#FFFFFF",
     padding: 14,
     borderRadius: 10,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#1F2937",
+    borderColor: "#374151", // Lighter border for better contrast
+    shadowColor: "rgb(113, 248, 2)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   passwordWrap: {
     position: "relative",
@@ -318,4 +359,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   buttonText: { color: "#FFFFFF", fontWeight: "600" },
+  loadingContainer: {
+    alignItems: "center",
+    marginTop: 24,
+  },
+  loadingAnimation: {
+    width: 100,
+    height: 100,
+  },
+  loadingText: {
+    color: "#9CA3AF",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 8,
+  },
 });

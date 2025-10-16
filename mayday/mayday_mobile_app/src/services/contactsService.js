@@ -81,10 +81,10 @@ const contactsService = {
       }
 
       const result = await response.json();
-      console.log("[ContactsService] Successfully fetched contacts:", {
-        count: result.data?.length || 0,
-        totalItems: result.pagination?.totalItems || 0,
-      });
+      // console.log("[ContactsService] Successfully fetched contacts:", {
+      //   count: result.data?.length || 0,
+      //   totalItems: result.pagination?.totalItems || 0,
+      // });
 
       // Format contacts for display
       if (result.data && Array.isArray(result.data)) {

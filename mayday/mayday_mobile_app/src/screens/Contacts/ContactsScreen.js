@@ -41,17 +41,17 @@ export default function ContactsScreen({ navigation }) {
   } = useSelector((state) => state.contacts);
 
   // Debug Redux state
-  console.log("[ContactsScreen] Redux state:", {
-    contactsCount: contacts.length,
-    searchResultsCount: searchResults.length,
-    loading,
-    loadingSearch,
-    error,
-    searchError,
-    isSearching,
-    pagination,
-    filters,
-  });
+  // console.log("[ContactsScreen] Redux state:", {
+  //   contactsCount: contacts.length,
+  //   searchResultsCount: searchResults.length,
+  //   loading,
+  //   loadingSearch,
+  //   error,
+  //   searchError,
+  //   isSearching,
+  //   pagination,
+  //   filters,
+  // });
 
   const {
     token,
@@ -61,24 +61,24 @@ export default function ContactsScreen({ navigation }) {
   } = useSelector((state) => state.auth);
 
   // Debug auth state
-  console.log("[ContactsScreen] Auth state:", {
-    token: token ? "present" : "missing",
-    user: user ? user.email || "present" : "missing",
-    extension: extension || "missing",
-    authStatus,
-  });
+  // console.log("[ContactsScreen] Auth state:", {
+  //   token: token ? "present" : "missing",
+  //   user: user ? user.email || "present" : "missing",
+  //   extension: extension || "missing",
+  //   authStatus,
+  // });
 
   // Load contacts on mount
   useEffect(() => {
-    console.log(
-      "[ContactsScreen] useEffect - token:",
-      token ? "present" : "missing"
-    );
-    console.log("[ContactsScreen] useEffect - filters:", filters);
-    console.log("[ContactsScreen] useEffect - authStatus:", authStatus);
+    // console.log(
+    //   "[ContactsScreen] useEffect - token:",
+    //   token ? "present" : "missing"
+    // );
+    // console.log("[ContactsScreen] useEffect - filters:", filters);
+    // console.log("[ContactsScreen] useEffect - authStatus:", authStatus);
 
     if (token && authStatus === "succeeded") {
-      console.log("[ContactsScreen] Fetching contacts...");
+      // console.log("[ContactsScreen] Fetching contacts...");
       dispatch(fetchContacts(filters));
     } else if (!token || authStatus === "failed") {
       console.log(
