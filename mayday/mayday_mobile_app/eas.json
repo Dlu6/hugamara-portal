@@ -23,6 +23,7 @@
   "submit": {
     "production": {
       "android": {
+        "serviceAccountKeyPath": "./pc-api-7126397618814191313-140-5b1edb8d7e4b.json",
         "track": "internal",
         "releaseStatus": "completed"
       }

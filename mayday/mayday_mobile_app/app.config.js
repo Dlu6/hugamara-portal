@@ -3,7 +3,7 @@ export default ({ config }) => ({
   name: "Mayday Mobile",
   slug: "mayday-mobile",
   scheme: "mayday",
-  version: "1.1.0",
+  version: "1.2.0",
   orientation: "portrait",
   icon: "./assets/mayday-icon.png",
   userInterfaceStyle: "automatic",
@@ -24,16 +24,17 @@ export default ({ config }) => ({
   },
   ios: {
     supportsTablet: false,
-    bundleIdentifier: "com.mayday",
+    bundleIdentifier: "com.maydaymobile",
     infoPlist: {
       UIBackgroundModes: ["audio", "voip", "processing"],
     },
   },
   android: {
-    package: "com.mayday",
-    versionCode: 2,
+    package: "com.maydaymobile",
+    versionCode: 7,
+    targetSdkVersion: 35,
     adaptiveIcon: {
-      foregroundImage: "./assets/mayday-icon.png",
+      foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#005370",
     },
     permissions: [

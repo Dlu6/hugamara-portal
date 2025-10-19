@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Animated,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useDispatch } from "react-redux";
 import { answerCall, hangupCall } from "../../services/sipClient";
 import { playRingtone, stopRingtone } from "../../services/ringtoneService";
@@ -68,7 +68,7 @@ export default function IncomingCallScreen({ navigation, route }) {
             { transform: [{ scale: pulseAnim }] },
           ]}
         >
-          <Ionicons name="person" size={80} color="#FFFFFF" />
+          <Icon name="person" size={80} color="#FFFFFF" />
         </Animated.View>
 
         <Text style={styles.incomingText}>Incoming Call</Text>
@@ -82,14 +82,14 @@ export default function IncomingCallScreen({ navigation, route }) {
           onPress={handleDecline}
           style={[styles.actionButton, styles.declineButton]}
         >
-          <Ionicons name="close" size={32} color="#FFFFFF" />
+          <Icon name="close" size={32} color="#FFFFFF" />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={handleAnswer}
           style={[styles.actionButton, styles.answerButton]}
         >
-          <Ionicons name="call" size={32} color="#FFFFFF" />
+          <Icon name="call" size={32} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 

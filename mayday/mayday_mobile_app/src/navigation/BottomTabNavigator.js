@@ -1,6 +1,6 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../utils/icons";
 
 // Screens
 import DialerScreen from "../screens/Calls/DialerScreen";
@@ -43,12 +43,8 @@ export default function BottomTabNavigator() {
         name="Dashboard"
         component={DashboardMobileScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused ? "home" : "home-outline"}
-              size={size}
-              color={color}
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="home" size={size} color={color} />
           ),
         }}
       />
@@ -56,12 +52,8 @@ export default function BottomTabNavigator() {
         name="History"
         component={CallHistoryScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused ? "time" : "time-outline"}
-              size={size}
-              color={color}
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="time" size={size} color={color} />
           ),
         }}
       />
@@ -69,12 +61,8 @@ export default function BottomTabNavigator() {
         name="Dialer"
         component={DialerScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused ? "call" : "call-outline"}
-              size={size}
-              color={color}
-            />
+          tabBarIcon: ({ color, size}) => (
+            <Icon name="call" size={size} color={color} />
           ),
         }}
       />
@@ -82,12 +70,8 @@ export default function BottomTabNavigator() {
         name="Contacts"
         component={ContactsScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused ? "people" : "people-outline"}
-              size={size}
-              color={color}
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="people" size={size} color={color} />
           ),
         }}
       />
@@ -95,12 +79,8 @@ export default function BottomTabNavigator() {
         name="Status"
         component={AgentStatusScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons
-              name={focused ? "person" : "person-outline"}
-              size={size}
-              color={color}
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="person" size={size} color={color} />
           ),
         }}
       />

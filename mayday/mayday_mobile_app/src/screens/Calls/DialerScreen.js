@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useSelector } from "react-redux";
 import { makeCall } from "../../services/sipClient";
 import * as Haptics from "expo-haptics";
@@ -63,74 +63,63 @@ export default function DialerScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topSection}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Dialer</Text>
-          <View style={styles.statusRow}>
-            <View style={[styles.dot, { backgroundColor: statusColor }]} />
-            <Text style={styles.statusText}>{statusText}</Text>
-          </View>
-        </View>
-
-        <View style={styles.numberDisplayWrap}>
-          <TextInput
-            style={styles.numberDisplay}
-            value={number}
-            onChangeText={setNumber}
-            placeholder="Enter number"
-            placeholderTextColor="#9CA3AF"
-            keyboardType="phone-pad"
-          />
-          <View style={styles.editRow}>
-            <TouchableOpacity
-              onPress={backspace}
-              onLongPress={clearAll}
-              style={styles.editBtn}
-            >
-              <Text style={styles.editText}>⌫</Text>
-            </TouchableOpacity>
-          </View>
+      {/* Header Section */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Dialer</Text>
+        <View style={styles.statusRow}>
+          <View style={[styles.dot, { backgroundColor: statusColor }]} />
+          <Text style={styles.statusText}>{statusText}</Text>
         </View>
       </View>
 
-      <View style={styles.keypad}>
-        {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map(
-          (d) => (
-            <TouchableOpacity
-              key={d}
-              onPress={() => append(d)}
-              style={styles.key}
-            >
-              <Text style={styles.keyText}>{d}</Text>
-            </TouchableOpacity>
-          )
-        )}
-      </View>
-
-      <View style={styles.bottomSection}>
-        <TouchableOpacity
-          onPress={call}
-          style={[
-            styles.callBtn,
-            (!registered || !number.trim()) && styles.disabledBtn,
-          ]}
-          disabled={!registered || !number.trim()}
-        >
-          <Ionicons name="call" size={30} color="#FFFFFF" />
-        </TouchableOpacity>
-
-        <View style={styles.row}>
+      {/* Number Display */}
+      <View style={styles.numberDisplayWrap}>
+        <TextInput
+          style={styles.numberDisplay}
+          value={number}
+          onChangeText={setNumber}
+          placeholder="Enter number"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="phone-pad"
+        />
+        <View style={styles.editRow}>
           <TouchableOpacity
-            onPress={() => navigation.navigate("History")}
-            style={styles.secondaryBtn}
+            onPress={backspace}
+            onLongPress={clearAll}
+            style={styles.editBtn}
           >
-            <Text style={styles.secondaryText}>History</Text>
+            <Text style={styles.editText}>⌫</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Keypad Grid */}
+      <View style={styles.keypadContainer}>
+        <View style={styles.keypad}>
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map(
+            (d) => (
+              <TouchableOpacity
+                key={d}
+                onPress={() => append(d)}
+                style={styles.key}
+              >
+                <Text style={styles.keyText}>{d}</Text>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
+
+        {/* Call Button */}
+        <View style={styles.callButtonContainer}>
           <TouchableOpacity
-            onPress={() => navigation.navigate("Settings")}
-            style={styles.secondaryBtn}
+            onPress={call}
+            style={[
+              styles.callBtn,
+              (!registered || !number.trim()) && styles.disabledBtn,
+            ]}
+            disabled={!registered || !number.trim()}
           >
-            <Text style={styles.secondaryText}>Settings</Text>
+            <Icon name="call" size={32} color="white" />
           </TouchableOpacity>
         </View>
       </View>
@@ -145,10 +134,10 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 32,
   },
-  topSection: {
-    flex: 0,
-  },
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   title: {
@@ -159,11 +148,14 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginTop: 6,
+    gap: 6,
   },
   dot: { width: 10, height: 10, borderRadius: 10 },
-  statusText: { color: "#FFFFFF", fontWeight: "600" },
+  statusText: { 
+    color: "#FFFFFF", 
+    fontWeight: "600",
+    fontSize: 13,
+  },
   numberDisplayWrap: {
     backgroundColor: "#111827",
     borderRadius: 12,
@@ -171,7 +163,7 @@ const styles = StyleSheet.create({
     borderColor: "#1F2937",
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 16,
+    marginBottom: 24,
     shadowColor: "white",
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -194,21 +186,23 @@ const styles = StyleSheet.create({
     borderColor: "#1F2937",
   },
   editText: { color: "#FFFFFF", fontWeight: "700" },
+  keypadContainer: {
+    flex: 1,
+    justifyContent: "center",
+    paddingTop: 24,
+  },
   keypad: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
     columnGap: 12,
     rowGap: 12,
-    marginTop: 8,
-    marginBottom: 16,
-    height: 280,
   },
   key: {
-    width: "30%",
-    aspectRatio: 1,
+    width: "31%",
+    height: 70,
     backgroundColor: "#0F172A",
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -221,43 +215,30 @@ const styles = StyleSheet.create({
   },
   keyText: {
     color: "#FFFFFF",
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "700",
     textAlign: "center",
-    includeFontPadding: false,
-    marginBottom: 15,
   },
-  bottomSection: {
-    flex: 1,
-    justifyContent: "flex-end",
-    paddingBottom: 20,
+  callButtonContainer: {
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 30,
   },
   callBtn: {
-    backgroundColor: "#0B9246",
-    padding: 16,
-    borderRadius: 14,
+    width: 70,
+    height: 70,
+    backgroundColor: "#22C55E",
+    borderRadius: 35,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
+    justifyContent: "center",
+    shadowColor: "#22C55E",
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  callText: { color: "#FFFFFF", fontWeight: "700" },
-  disabledBtn: { opacity: 0.5 },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-    marginTop: 12,
+  disabledBtn: { 
+    opacity: 0.4,
+    backgroundColor: "#6B7280",
   },
-  secondaryBtn: {
-    flex: 1,
-    backgroundColor: "#111827",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#374151",
-  },
-  secondaryText: { color: "#FFFFFF", fontWeight: "600" },
 });

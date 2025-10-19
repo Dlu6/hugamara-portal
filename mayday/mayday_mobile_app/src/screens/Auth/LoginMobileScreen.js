@@ -19,7 +19,7 @@ import {
   normalizeApiBaseUrl,
 } from "../../config/endpoints";
 import * as SecureStore from "expo-secure-store";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useToast } from "../../contexts/ToastContext";
 
 export default function LoginMobileScreen({ navigation }) {
@@ -211,7 +211,7 @@ export default function LoginMobileScreen({ navigation }) {
           }}
           accessibilityLabel={showPassword ? "Hide password" : "Show password"}
         >
-          <Ionicons
+          <Icon
             name={showPassword ? "eye-off" : "eye"}
             size={20}
             color="#9CA3AF"
@@ -239,7 +239,7 @@ export default function LoginMobileScreen({ navigation }) {
         activeOpacity={0.8}
       >
         <View style={[styles.checkbox, remember && styles.checkboxChecked]}>
-          {remember && <Ionicons name="checkmark" size={14} color="#0A0A0A" />}
+          {remember && <Icon name="checkmark" size={14} color="#0A0A0A" />}
         </View>
         <Text style={styles.rememberText}>Remember me</Text>
       </TouchableOpacity>

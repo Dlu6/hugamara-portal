@@ -10,7 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   fetchCallHistory,
@@ -103,7 +103,7 @@ export default function CallHistoryScreen({ navigation }) {
           <View
             style={[styles.callIcon, { backgroundColor: statusInfo.color }]}
           >
-            <Ionicons name={statusInfo.icon} size={20} color="#FFFFFF" />
+            <Icon name={statusInfo.icon} size={20} color="#FFFFFF" />
           </View>
           <View style={styles.callDetails}>
             <Text style={styles.callNumber}>{item.displayName}</Text>
@@ -121,7 +121,7 @@ export default function CallHistoryScreen({ navigation }) {
           style={styles.callButton}
           onPress={() => handleCallPress(item)}
         >
-          <Ionicons name="call" size={20} color="#22C55E" />
+          <Icon name="call" size={20} color="#22C55E" />
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -159,7 +159,7 @@ export default function CallHistoryScreen({ navigation }) {
     if (callHistoryError) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="warning-outline" size={64} color="#EF4444" />
+          <Icon name="alert-circle" size={64} color="#EF4444" />
           <Text style={styles.emptyText}>Failed to load call history</Text>
           <Text style={styles.errorText}>{callHistoryError}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
@@ -171,7 +171,7 @@ export default function CallHistoryScreen({ navigation }) {
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="call-outline" size={64} color="#3A3A3C" />
+        <Icon name="call" size={64} color="#3A3A3C" />
         <Text style={styles.emptyText}>No calls found</Text>
         <Text style={styles.emptySubtext}>
           {searchText
@@ -188,7 +188,7 @@ export default function CallHistoryScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.title}>Call History</Text>
         <TouchableOpacity onPress={handleRefresh} disabled={callHistoryLoading}>
-          <Ionicons
+          <Icon
             name="refresh"
             size={24}
             color={callHistoryLoading ? "#9CA3AF" : "#22C55E"}
@@ -198,7 +198,7 @@ export default function CallHistoryScreen({ navigation }) {
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <Icon name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by number or name..."
@@ -208,7 +208,7 @@ export default function CallHistoryScreen({ navigation }) {
         />
         {searchText.length > 0 && (
           <TouchableOpacity onPress={() => setSearchText("")}>
-            <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            <Icon name="close" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         )}
       </View>
