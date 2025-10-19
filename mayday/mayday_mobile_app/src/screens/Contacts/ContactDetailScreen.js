@@ -9,7 +9,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   fetchContactById,
@@ -149,7 +149,7 @@ export default function ContactDetailScreen({ route, navigation }) {
             style={styles.callButton}
             onPress={() => handlePhoneCall(contact.primaryPhone)}
           >
-            <Ionicons name="call" size={20} color="#FFFFFF" />
+            <Icon name="call" size={20} color="#FFFFFF" />
             <Text style={styles.callButtonText}>
               Call {contact.primaryPhone}
             </Text>
@@ -165,7 +165,7 @@ export default function ContactDetailScreen({ route, navigation }) {
           <View style={styles.contactItem}>
             <View style={styles.contactInfo}>
               <View style={styles.labelRow}>
-                <Ionicons name="call" size={16} color="#22C55E" />
+                <Icon name="call" size={16} color="#22C55E" />
                 <Text style={styles.contactLabel}> Primary Phone</Text>
               </View>
               <Text style={styles.contactValue}>{contact.primaryPhone}</Text>
@@ -183,7 +183,7 @@ export default function ContactDetailScreen({ route, navigation }) {
           <View style={styles.contactItem}>
             <View style={styles.contactInfo}>
               <View style={styles.labelRow}>
-                <Ionicons name="call" size={16} color="#22C55E" />
+                <Icon name="call" size={16} color="#22C55E" />
                 <Text style={styles.contactLabel}> Secondary Phone</Text>
               </View>
               <Text style={styles.contactValue}>{contact.secondaryPhone}</Text>
@@ -203,7 +203,7 @@ export default function ContactDetailScreen({ route, navigation }) {
             onPress={() => handleEmail(contact.email)}
           >
             <View style={styles.labelRow}>
-              <Ionicons name="mail" size={16} color="#3B82F6" />
+              <Icon name="mail" size={16} color="#3B82F6" />
               <Text style={styles.contactLabel}> Email</Text>
             </View>
             <Text style={styles.contactValue}>{contact.email}</Text>
@@ -216,7 +216,7 @@ export default function ContactDetailScreen({ route, navigation }) {
             onPress={() => handleWebsite(contact.website)}
           >
             <View style={styles.labelRow}>
-              <Ionicons name="globe" size={16} color="#8B5CF6" />
+              <Icon name="globe" size={16} color="#8B5CF6" />
               <Text style={styles.contactLabel}> Website</Text>
             </View>
             <Text style={styles.contactValue}>{contact.website}</Text>

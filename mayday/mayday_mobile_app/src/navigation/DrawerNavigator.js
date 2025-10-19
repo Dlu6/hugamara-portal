@@ -1,7 +1,7 @@
 import React from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import { TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../utils/icons";
 import BottomTabNavigator from "./BottomTabNavigator";
 import CustomDrawerContent from "./CustomDrawerContent";
 
@@ -30,7 +30,7 @@ export default function DrawerNavigator() {
             style={styles.hamburgerButton}
             activeOpacity={0.7}
           >
-            <Ionicons name="menu" size={28} color="#FFFFFF" />
+            <Icon name="menu" size={26} color="#FFFFFF" />
           </TouchableOpacity>
         ),
         drawerStyle: {

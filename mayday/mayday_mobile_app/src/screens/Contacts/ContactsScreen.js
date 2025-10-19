@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   fetchContacts,
@@ -168,13 +168,13 @@ export default function ContactsScreen({ navigation }) {
       <View style={styles.contactDetails}>
         {item.displayPhone !== "No phone" && (
           <View style={styles.contactRow}>
-            <Ionicons name="call" size={14} color="#22C55E" />
+            <Icon name="call" size={14} color="#22C55E" />
             <Text style={styles.phone}> {item.displayPhone}</Text>
           </View>
         )}
         {item.displayEmail !== "No email" && (
           <View style={styles.contactRow}>
-            <Ionicons name="mail" size={14} color="#3B82F6" />
+            <Icon name="mail" size={14} color="#3B82F6" />
             <Text style={styles.email}> {item.displayEmail}</Text>
           </View>
         )}

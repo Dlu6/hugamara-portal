@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useSelector, useDispatch } from "react-redux";
 import {
   fetchMyPerformanceStats,
@@ -144,7 +144,7 @@ export default function DashboardMobileScreen() {
             disabled={status === "loading"}
             style={styles.refreshButton}
           >
-            <Ionicons
+            <Icon
               name="refresh"
               size={20}
               color="#FFFFFF"
@@ -266,7 +266,7 @@ export default function DashboardMobileScreen() {
       {/* Error State */}
       {status === "failed" && (
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color="#EF4444" />
+          <Icon name="alert-circle" size={48} color="#EF4444" />
           <Text style={styles.errorText}>{errorMessage}</Text>
           <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
             <Text style={styles.retryText}>Try Again</Text>
@@ -316,7 +316,7 @@ export default function DashboardMobileScreen() {
             <View style={styles.performanceCard}>
               <View style={styles.performanceItem}>
                 <View style={styles.performanceIcon}>
-                  <Ionicons name="timer" size={24} color="#F59E0B" />
+                  <Icon name="timer" size={24} color="#F59E0B" />
                 </View>
                 <View style={styles.performanceContent}>
                   <Text style={styles.performanceValue}>
@@ -330,7 +330,7 @@ export default function DashboardMobileScreen() {
               <View style={styles.performanceDivider} />
               <View style={styles.performanceItem}>
                 <View style={styles.performanceIcon}>
-                  <Ionicons name="call" size={24} color="#34D399" />
+                  <Icon name="call" size={24} color="#34D399" />
                 </View>
                 <View style={styles.performanceContent}>
                   <Text style={styles.performanceValue}>
@@ -354,7 +354,7 @@ function MetricCard({ icon, title, value, iconColor }) {
         <View
           style={[styles.metricIcon, { backgroundColor: iconColor + "20" }]}
         >
-          <Ionicons name={icon} size={20} color={iconColor} />
+          <Icon name={icon} size={20} color={iconColor} />
         </View>
       </View>
       <Text style={styles.metricValue}>{value}</Text>
@@ -370,7 +370,7 @@ function SystemStatCard({ icon, title, value, subtitle, iconColor }) {
         <View
           style={[styles.systemStatIcon, { backgroundColor: iconColor + "20" }]}
         >
-          <Ionicons name={icon} size={24} color={iconColor} />
+          <Icon name={icon} size={24} color={iconColor} />
         </View>
       </View>
       <Text style={styles.systemStatValue}>{value}</Text>

@@ -26,7 +26,7 @@ import * as SecureStore from "expo-secure-store";
 import { useDispatch } from "react-redux";
 import { logout } from "../../store/slices/authSlice";
 import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { disconnect as sipDisconnect } from "../../services/sipClient";
 // Safely read version from package.json
 let APP_VERSION = "dev";
@@ -322,7 +322,7 @@ export default function SettingsScreen() {
           style={[styles.btn, styles.warningBtn]}
         >
           <View style={styles.inlineRow}>
-            <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
+            <Icon name="trash-outline" size={18} color="#FFFFFF" />
             <Text style={styles.btnText}>Clear Saved Credentials</Text>
           </View>
         </TouchableOpacity>
@@ -359,7 +359,7 @@ export default function SettingsScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <View style={styles.inlineRow}>
-              <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+              <Icon name="log-out-outline" size={18} color="#FFFFFF" />
               <Text style={[styles.btnText, styles.dangerText]}>Logout</Text>
             </View>
           )}

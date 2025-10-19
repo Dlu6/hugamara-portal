@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../../utils/icons";
 import { useSelector, useDispatch } from "react-redux";
 import { endCall } from "../../store/slices/callSlice";
 import { hangupCall, toggleHold, toggleMute } from "../../services/sipClient";
@@ -57,7 +57,7 @@ export default function CallScreen({ navigation, route }) {
       {/* Call Info Section */}
       <View style={styles.callInfoSection}>
         <View style={styles.avatarContainer}>
-          <Ionicons name="person" size={64} color="#FFFFFF" />
+          <Icon name="person" size={64} color="#FFFFFF" />
         </View>
 
         <Text style={styles.number}>{number}</Text>
@@ -71,40 +71,53 @@ export default function CallScreen({ navigation, route }) {
       <View style={styles.controlsSection}>
         <View style={styles.controlsGrid}>
           {/* Row 1 */}
-          <ControlButton
-            icon={isMuted ? "mic-off" : "mic"}
-            label={isMuted ? "Unmute" : "Mute"}
+          <TouchableOpacity
             onPress={toggleMute}
-            active={isMuted}
-          />
-          <ControlButton
-            icon="keypad"
-            label="Keypad"
+            style={[styles.controlButton, isMuted && styles.controlButtonActive]}
+          >
+            <Icon name={isMuted ? "mic-off" : "mic"} size={24} color="#FFFFFF" />
+            <Text style={styles.controlLabel}>{isMuted ? "Unmute" : "Mute"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => {
               /* TODO: Implement keypad modal */
             }}
-          />
+            style={styles.controlButton}
+          >
+            <Icon name="keypad" size={24} color="#FFFFFF" />
+            <Text style={styles.controlLabel}>Keypad</Text>
+          </TouchableOpacity>
 
           {/* Row 2 */}
-          <ControlButton
-            icon={speaker ? "volume-high" : "volume-low"}
-            label={speaker ? "Speaker" : "Speaker"}
+          <TouchableOpacity
             onPress={() => setSpeaker(!speaker)}
-            active={speaker}
-          />
-          <ControlButton
-            icon={isOnHold ? "play" : "pause"}
-            label={isOnHold ? "Resume" : "Hold"}
+            style={[styles.controlButton, speaker && styles.controlButtonActive]}
+          >
+            <Icon
+              name={speaker ? "volume-high" : "volume-low"}
+              size={24}
+              color="#FFFFFF"
+            />
+            <Text style={styles.controlLabel}>
+              {speaker ? "Speaker" : "Speaker"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={toggleHold}
-            active={isOnHold}
-          />
+            style={[styles.controlButton, isOnHold && styles.controlButtonActive]}
+          >
+            <Icon name={isOnHold ? "play" : "pause"} size={24} color="#FFFFFF" />
+            <Text style={styles.controlLabel}>
+              {isOnHold ? "Resume" : "Hold"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Hang Up Button */}
       <View style={styles.hangupSection}>
         <TouchableOpacity onPress={handleHangup} style={styles.hangupButton}>
-          <Ionicons name="call" size={32} color="#FFFFFF" />
+          <Icon name="call" size={40} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.hangupLabel}>End Call</Text>
       </View>
@@ -118,7 +131,7 @@ function ControlButton({ icon, label, onPress, active }) {
       onPress={onPress}
       style={[styles.controlButton, active && styles.controlButtonActive]}
     >
-      <Ionicons name={icon} size={28} color="#FFFFFF" />
+      <Icon name={icon} size={28} color="#FFFFFF" />
       <Text style={styles.controlLabel}>{label}</Text>
     </TouchableOpacity>
   );

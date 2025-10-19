@@ -8,7 +8,7 @@ import {
   Alert,
 } from "react-native";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
-import { Ionicons } from "@expo/vector-icons";
+import Icon from "../utils/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../store/slices/authSlice";
 import { disconnect } from "../services/sipClient";
@@ -101,7 +101,7 @@ export default function CustomDrawerContent(props) {
             onPress={item.onPress}
             activeOpacity={0.7}
           >
-            <Ionicons
+            <Icon
               name={item.icon}
               size={24}
               color={item.danger ? "#FF3B30" : "#FFFFFF"}
