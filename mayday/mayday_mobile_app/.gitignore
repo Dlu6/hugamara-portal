@@ -11,3 +11,10 @@ web-build/
 # Expo prebuild output (we use managed workflow)
 android/
 ios/
+
+# Keystore and credentials (DO NOT COMMIT)
+keystores/
+android/app/keystores/
+android/keystore.properties
+@dlu6__*.jks
+pc-api-*

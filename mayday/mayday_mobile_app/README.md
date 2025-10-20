@@ -173,6 +173,119 @@ The app will authenticate, register with SIP, and navigate to the main dashboard
 - **"Microphone Permission" keeps prompting**: Grant permission once; the app will persist status on Android. You can verify under Settings → Media Tests.
 - **"Cannot find native module 'ExpoAsset'"**: The dev client wasn't built with all plugins. Run `npx expo prebuild --clean` and rebuild.
 
+## Building for Production (Play Store/App Store)
+
+### Method 1: EAS Cloud Build (Easiest)
+
+**Pros:** No local setup, automatic signing  
+**Cons:** Limited free builds per month
+
+```bash
+# Build production AAB for Play Store
+eas build --profile production --platform android
+
+# Submit to Play Store
+eas submit --profile production --platform android
+```
+
+### Method 2: Local Gradle Build (Unlimited) - RECOMMENDED
+
+**Pros:** Unlimited builds, no cloud dependency, faster builds  
+**Cons:** Requires Android SDK and one-time keystore configuration
+
+#### Prerequisites
+- Android SDK installed (`~/Library/Android/sdk` on macOS)
+- Java JDK 17+
+- Production keystore (downloaded from EAS once, saved permanently)
+
+#### One-Time Keystore Setup
+
+```bash
+cd mayday/mayday_mobile_app
+
+# 1. Download keystore from EAS (only needed once)
+eas credentials -p android
+# Select: production → Keystore → Download existing keystore → no
+
+# 2. Run setup script to save keystore permanently
+./setup-keystore.sh
+
+# This creates keystores/ folder outside android/ so it never gets deleted
+```
+
+#### Build Steps (Every Build)
+
+```bash
+cd mayday/mayday_mobile_app
+
+# 1. Generate native code
+npx expo prebuild --clean --platform android
+
+# 2. Set Android SDK location
+echo "sdk.dir=$HOME/Library/Android/sdk" > android/local.properties
+
+# 3. Restore keystore configuration (prebuild deletes android/)
+./setup-keystore.sh
+
+# 4. Set API level 35 (Play Store requirement)
+echo "android.targetSdkVersion=35" >> android/gradle.properties
+
+# 5. Build AAB for Play Store
+cd android && ./gradlew bundleRelease --no-daemon
+
+# Output: android/app/build/outputs/bundle/release/app-release.aab
+```
+
+#### Build APK for Testing
+
+```bash
+cd android && ./gradlew assembleRelease --no-daemon
+# Output: android/app/build/outputs/apk/release/app-release.apk
+```
+
+### Signing Key Configuration
+
+If you get "App Bundle is signed with the wrong key" error:
+
+**Option A: Use EAS (Recommended)**
+
+Stick with EAS builds - they automatically use the correct keystore:
+
+```bash
+eas build --profile production --platform android
+```
+
+**Option B: Configure Local Signing**
+
+1. Download keystore from EAS:
+```bash
+eas credentials -p android
+```
+
+2. Configure in `android/app/build.gradle`:
+```gradle
+android {
+    signingConfigs {
+        release {
+            storeFile file("/path/to/keystore.jks")
+            storePassword "password"
+            keyAlias "alias"
+            keyPassword "password"
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+}
+```
+
+3. Verify fingerprint matches Play Store:
+```bash
+keytool -list -v -keystore /path/to/keystore.jks -alias alias
+```
+
 ## Scripts
 
 - `npm run start`: Starts the Metro bundler for the dev client (requires custom dev client, not Expo Go).
