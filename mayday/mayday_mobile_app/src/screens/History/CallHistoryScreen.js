@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import Icon from "../../utils/icons";
 import { useSelector, useDispatch } from "react-redux";
@@ -214,12 +215,17 @@ export default function CallHistoryScreen({ navigation }) {
       </View>
 
       {/* Filter Buttons */}
-      <View style={styles.filterContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScrollView}
+        contentContainerStyle={styles.filterContainer}
+      >
         {renderFilterButton("all", "All", filterCounts.all)}
         {renderFilterButton("inbound", "Inbound", filterCounts.inbound)}
         {renderFilterButton("outbound", "Outbound", filterCounts.outbound)}
         {renderFilterButton("missed", "Missed", filterCounts.missed)}
-      </View>
+      </ScrollView>
 
       {/* Call List */}
       <FlatList
@@ -286,18 +292,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 0,
   },
+  filterScrollView: {
+    marginBottom: 12,
+    zIndex: 10,
+    elevation: 5,
+    backgroundColor: "#0A0A0A",
+  },
   filterContainer: {
     flexDirection: "row",
-    marginBottom: 16,
-    gap: 8,
+    gap: 10,
+    paddingRight: 24,
+    alignItems: "center",
+    
   },
   filterButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: "#1F2937",
     borderWidth: 1,
     borderColor: "#374151",
+    minWidth: 90,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   filterButtonActive: {
     backgroundColor: "#22C55E",
@@ -305,8 +323,9 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     color: "#9CA3AF",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
+    textAlign: "center",
   },
   filterButtonTextActive: {
     color: "#FFFFFF",

@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   Image,
   Keyboard,
+  KeyboardAvoidingView,
+  ScrollView,
+  Platform,
 } from "react-native";
 import LottieView from "lottie-react-native";
 import { useDispatch, useSelector } from "react-redux";
@@ -136,16 +139,25 @@ export default function LoginMobileScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.logoContainer}>
-        <Image
-          source={require("../../../assets/mayday_icon_plain.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
-      {/* <Text style={styles.title}>Mayday Mobile</Text> */}
-      <TextInput
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../../../assets/mayday_icon_plain.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
+        {/* <Text style={styles.title}>Mayday Mobile</Text> */}
+        <TextInput
         style={styles.input}
         placeholder="Host (e.g. https://tenant.example.com)"
         placeholderTextColor="#9CA3AF"
@@ -255,18 +267,19 @@ export default function LoginMobileScreen({ navigation }) {
         )}
       </TouchableOpacity>
       
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <LottieView
-            source={require("../../../assets/Sandy Loading.json")}
-            autoPlay
-            loop
-            style={styles.loadingAnimation}
-          />
-          <Text style={styles.loadingText}>Logging in...</Text>
-        </View>
-      )}
-    </View>
+        {isLoading && (
+          <View style={styles.loadingContainer}>
+            <LottieView
+              source={require("../../../assets/Sandy Loading.json")}
+              autoPlay
+              loop
+              style={styles.loadingAnimation}
+            />
+            <Text style={styles.loadingText}>Logging in...</Text>
+          </View>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -274,6 +287,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0A0A0A",
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: 24,
     justifyContent: "center",
   },
